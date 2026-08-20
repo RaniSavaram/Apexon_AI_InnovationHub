@@ -42,6 +42,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/scan/status/<str:scan_id>/",
+        views.scan_status
+    ),
+
+    path(
         "api/connect/",
         views.connect_database
     ),

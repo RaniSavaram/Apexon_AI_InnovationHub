@@ -43,6 +43,12 @@ export interface StartScanResponse {
   scan_id?: string;
 }
 
+export interface ScanJobStatusResponse {
+  status: 'running' | 'completed' | 'failed' | 'not_found';
+  result?: any;
+  error?: string;
+}
+
 export interface ScanStatus {
   'token info': Array<{
     total?: number;
@@ -125,6 +131,6 @@ export class Scanner {
    * {"token info": [...], "scan info": [...], "progressbar": int, "status": ...}
    */
   getScanStatus(scanId: string) {
-    return this.http.get<ScanStatus>(`${this.api.baseUrl}/scan-status/${scanId}/`);
+    return this.http.get<ScanJobStatusResponse>(`${this.api.baseUrl}/scan/status/${scanId}/`);
   }
 }

@@ -61,6 +61,8 @@ export class DbScannerComponent {
 
   scanInterval: any;
 
+  scanStatusInterval: any;
+
   sharepointMetadataUrl = 'https://isplahd.sharepoint.com/:w:/r/sites/DBScanner/_layouts/15/Doc.aspx?sourcedoc=%7BD3D2BC7D-6DDE-4CF2-9733-B56BD3B74336%7D&file=Assesment_Report.docx&action=default&mobileredirect=true';
 
   sharepointMigrationUrl = 'https://isplahd.sharepoint.com/:w:/r/sites/DBScanner/_layouts/15/Doc.aspx?sourcedoc=%7B457E3086-1FE6-4544-9AD9-D44ADAF28D76%7D&file=AI_Migration_Plan.docx&action=default&mobileredirect=true';
@@ -590,6 +592,12 @@ export class DbScannerComponent {
 
     }
 
+    if (this.scanStatusInterval) {
+
+      clearInterval(this.scanStatusInterval);
+
+    }
+
     const keyframes = [
       { time: 0, percentage: 1, status: 'Scanning started' },
       { time: 15, percentage: 15, status: 'Establishing database connection' },
@@ -684,58 +692,62 @@ export class DbScannerComponent {
 
       next: (response: any) => {
 
-        this.backendCompleted = true;
-
-        this.backendResponse = response;
-
-        // If progress is already 95% or higher, complete the scan immediately
-        if (this.progress >= 95) {
-
-          this.progress = 100;
-
-          if (this.scanInterval) {
-
-            clearInterval(this.scanInterval);
-
-          }
-
-          this.completeScanProgress();
-
+        if (!response.scan_id) {
+          this.handleScanFailure('The scan could not be started.');
+          return;
         }
 
-        this.cdr.detectChanges();
+        this.scanStatusInterval = setInterval(() => {
+          this.scanner.getScanStatus(response.scan_id).subscribe({
+            next: (job) => {
+              if (job.status === 'completed') {
+                this.backendCompleted = true;
+                this.backendResponse = job.result ?? {};
+                clearInterval(this.scanStatusInterval);
+                this.progress = 100;
+                clearInterval(this.scanInterval);
+                this.completeScanProgress();
+                this.cdr.detectChanges();
+              } else if (job.status === 'failed' || job.status === 'not_found') {
+                clearInterval(this.scanStatusInterval);
+                this.handleScanFailure(job.error ?? 'Database Scan Failed.');
+              }
+            },
+            error: () => this.handleScanFailure('Unable to retrieve scan status.')
+          });
+        }, 2000);
 
       },
 
       error: (err) => {
-
-        this.loading = false;
-
-        this.progress = 0;
-
-        this.source = '';
-
-        this.connected = false;
-
-        this.scanStatus = 'Scan Failed';
-
-        this.statusMessages.push('Database Scan Failed.');
-
-        if (this.scanInterval) {
-
-          clearInterval(this.scanInterval);
-
-        }
-
-        console.error(err);
-
-        alert(err.error?.message ?? 'Scan Failed');
-
-        this.cdr.detectChanges();
+        this.handleScanFailure(err.error?.message ?? 'Scan Failed');
 
       }
 
     });
+
+  }
+
+  handleScanFailure(message: string) {
+
+    this.loading = false;
+    this.progress = 0;
+    this.source = '';
+    this.connected = false;
+    this.scanStatus = 'Scan Failed';
+    this.statusMessages.push('Database Scan Failed.');
+
+    if (this.scanInterval) {
+      clearInterval(this.scanInterval);
+    }
+
+    if (this.scanStatusInterval) {
+      clearInterval(this.scanStatusInterval);
+    }
+
+    console.error(message);
+    alert(message);
+    this.cdr.detectChanges();
 
   }
 
@@ -919,6 +931,10 @@ export class DbScannerComponent {
 
       }
 
+    }
+
+    if (this.scanStatusInterval) {
+      clearInterval(this.scanStatusInterval);
     }
 
     this.showScanCompletedDialog = true;

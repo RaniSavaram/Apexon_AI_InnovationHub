@@ -1,3 +1,7 @@
+import threading
+import uuid
+
+from django.http import HttpResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -40,6 +44,8 @@ from Logs import Logs, reset_Logs
 
 Creds = PrivateVariables()
 source = None
+scan_jobs = {}
+scan_jobs_lock = threading.Lock()
 
 
 # ============================================================
@@ -400,8 +406,54 @@ def saved_connections(request):
 # DATABASE SCANNER
 # ============================================================
 
-@api_view(["GET", "POST"])
+@api_view(["POST"])
 def Db_Scanner(request):
+
+    scan_id = str(uuid.uuid4())
+    with scan_jobs_lock:
+        scan_jobs[scan_id] = {
+            "status": "running",
+            "result": None,
+            "error": None,
+        }
+
+    def run_scan_job():
+        try:
+            result = _run_scan_pipeline(request)
+            with scan_jobs_lock:
+                scan_jobs[scan_id] = {
+                    "status": "completed" if result.status_code < 400 else "failed",
+                    "result": result.data,
+                    "error": None if result.status_code < 400 else result.data.get("message"),
+                }
+        except Exception as exc:
+            with scan_jobs_lock:
+                scan_jobs[scan_id] = {
+                    "status": "failed",
+                    "result": None,
+                    "error": str(exc),
+                }
+
+    threading.Thread(target=run_scan_job, daemon=True).start()
+    return Response({"status": "started", "scan_id": scan_id}, status=202)
+
+
+@api_view(["GET"])
+def scan_status(request, scan_id):
+    with scan_jobs_lock:
+        job = scan_jobs.get(scan_id)
+
+    if not job:
+        return Response({"status": "not_found"}, status=404)
+
+    return Response({
+        "status": job["status"],
+        "result": job["result"],
+        "error": job["error"],
+    })
+
+
+def _run_scan_pipeline(request):
 
     destination = request.data.get(
         "destination"
@@ -683,6 +735,9 @@ def serve_output_file(
     )
 
     from django.conf import settings
+
+    if request.method == "HEAD":
+        return HttpResponse(status=200)
 
 
     # ========================================================
