@@ -1,0 +1,266 @@
+<div class="bi-page">
+
+    <!-- ========================================= -->
+    <!-- PAGE HEADER -->
+    <!-- ========================================= -->
+
+    <div class="page-header">
+
+        <div>
+
+            <h1>
+
+                <i class="bi bi-bar-chart-line-fill page-icon"></i>
+
+                BI Migrator
+
+            </h1>
+
+            <p>
+
+                Intelligent Business Intelligence Migration to Microsoft Power BI
+
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- OVERVIEW -->
+    <!-- ========================================= -->
+
+    <div class="overview-card">
+
+        <h2>Overview</h2>
+
+        <p>
+
+            BI Migrator is an AI-powered modernization accelerator that automates
+            the migration of Tableau, Qlik and Cognos assets into Microsoft
+            Power BI.
+
+        </p>
+
+        <p>
+
+            The solution extracts metadata, converts semantic models,
+            recreates dashboards, translates calculations into DAX,
+            and generates deployment-ready Power BI reports while
+            significantly reducing manual migration effort.
+
+        </p>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- SOURCE / DESTINATION CARD -->
+    <!-- ========================================= -->
+
+    <div class="selection-card">
+
+        <div class="selection-grid">
+
+            <!-- Source -->
+
+            <div class="form-group">
+
+                <label>Source Platform</label>
+
+                <select [(ngModel)]="selectedSource">
+
+                    <option value="">Select Source</option>
+
+                    <option>Tableau</option>
+
+                    <option>Qlik</option>
+
+                    <option>Cognos</option>
+
+                </select>
+
+            </div>
+
+            <!-- Destination -->
+
+            <div class="form-group">
+
+                <label>Destination</label>
+
+                <select [(ngModel)]="destination">
+
+                    <option>Power BI</option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+        <!-- Status -->
+
+        <div class="status">
+
+            <span>
+
+                <b>Source :</b>
+
+                {{ selectedSource || 'Source' }}
+
+            </span>
+
+            <span>
+
+                <b>Destination :</b>
+
+                {{ destination }}
+
+            </span>
+
+        </div>
+
+        <!-- Start Button -->
+
+        <button
+
+            class="primary-btn"
+
+            (click)="startMigration()">
+
+            <i class="bi bi-play-circle-fill"></i>
+
+            {{ migrating ? 'Migrating...' : 'Start Migration' }}
+
+        </button>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- ACTION BUTTONS -->
+    <!-- ========================================= -->
+
+    <div class="action-buttons">
+
+        <button
+
+            class="outline-btn"
+
+            (click)="viewOutput()">
+
+            <i class="bi bi-folder2-open"></i>
+
+            View Output
+
+        </button>
+
+        <button
+
+            class="outline-btn"
+
+            (click)="viewAnalysis()">
+
+            <i class="bi bi-bar-chart-fill"></i>
+
+            View Analysis
+
+        </button>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- MIGRATION SUMMARY -->
+    <!-- ========================================= -->
+
+    <div
+
+        class="status-card"
+
+        *ngIf="migrationCompleted">
+
+        <h3>
+
+            <i class="bi bi-check-circle-fill"></i>
+
+            Migration Summary
+
+        </h3>
+
+        <div class="summary-grid">
+
+            <div>
+
+                <span>Reports</span>
+
+                <strong>
+
+                    {{migrationSummary.reports}}
+
+                </strong>
+
+            </div>
+
+            <div>
+
+                <span>Dashboards</span>
+
+                <strong>
+
+                    {{migrationSummary.dashboards}}
+
+                </strong>
+
+            </div>
+
+            <div>
+
+                <span>Visuals</span>
+
+                <strong>
+
+                    {{migrationSummary.visuals}}
+
+                </strong>
+
+            </div>
+
+            <div>
+
+                <span>DAX Objects</span>
+
+                <strong>
+
+                    {{migrationSummary.daxObjects}}
+
+                </strong>
+
+            </div>
+
+            <div>
+
+                <span>Datasets</span>
+
+                <strong>
+
+                    {{migrationSummary.datasets}}
+
+                </strong>
+
+            </div>
+
+            <div>
+
+                <span>Migration Time</span>
+
+                <strong>
+
+                    {{migrationSummary.migrationTime}}
+
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

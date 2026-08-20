@@ -1,0 +1,22 @@
+{
+  "Databricks": [
+    {
+      "server": "dbc-a58bcebf-ff15.cloud.databricks.com",
+      "database": "bfsi_dev",
+      "username": "",
+      "password": "DATABRICKS_TOKEN_REMOVED",
+      "extra": {
+        "http_path": "/sql/1.0/warehouses/570872a58c83ef23"
+      }
+    }
+  ],
+  "sqlserver": [
+    {
+      "server": "ic4metarepo.database.windows.net",
+      "database": "ic4_metarepo",
+      "username": "ic4_dev_read",
+      "password": "dsuser_1234",
+      "extra": {}
+    }
+  ]
+}
