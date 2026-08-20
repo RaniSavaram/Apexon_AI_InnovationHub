@@ -12,26 +12,18 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     ca-certificates \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # ============================================================
 # MICROSOFT ODBC DRIVER 18 FOR SQL SERVER
 # ============================================================
 
-RUN curl -fsSL -O \
-    https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
+RUN curl -fsSL -O https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
     && dpkg -i packages-microsoft-prod.deb \
     && rm packages-microsoft-prod.deb \
     && apt-get update \
     && ACCEPT_EULA=Y apt-get install -y msodbcsql18 \
-    && echo "============================================================" \
-    && echo "INSTALLED ODBC DRIVERS" \
-    && echo "============================================================" \
-    && odbcinst -q -d \
-    && echo "============================================================" \
-    && echo "ODBC CONFIGURATION" \
-    && odbcinst -j \
-    && echo "============================================================" \
     && rm -rf /var/lib/apt/lists/*
 
 # ============================================================
@@ -41,27 +33,46 @@ RUN curl -fsSL -O \
 WORKDIR /app
 
 # ============================================================
+# COPY REQUIREMENTS FIRST (Docker Cache Optimization)
+# ============================================================
+
+COPY requirements.txt .
+
+# ============================================================
+# INSTALL PYTHON PACKAGES
+# ============================================================
+
+RUN pip install --upgrade pip && \
+    pip install \
+    --no-cache-dir \
+    --retries 15 \
+    --timeout 120 \
+    -r requirements.txt
+
+# ============================================================
 # COPY APPLICATION
 # ============================================================
 
 COPY . .
 
 # ============================================================
-# PYTHON PACKAGE INSTALLATION
-# ============================================================
-
-RUN python -m pip install \
-        --no-cache-dir \
-        --retries 15 \
-        --timeout 120 \
-        --index-url https://pypi.org/simple \
-        -r requirements.txt
-
-# ============================================================
 # VERIFY PYODBC + ODBC DRIVER
 # ============================================================
 
-RUN python -c "import pyodbc; print('============================================================'); print('PYODBC ODBC DRIVERS:'); print(pyodbc.drivers()); print('============================================================'); assert any('ODBC Driver 18 for SQL Server' in d for d in pyodbc.drivers()), 'ODBC Driver 18 for SQL Server NOT FOUND'"
+RUN python -c "import pyodbc; print('ODBC DRIVERS:', pyodbc.drivers()); assert any('ODBC Driver 18 for SQL Server' in d for d in pyodbc.drivers())"
+
+# ============================================================
+# VERIFY SNOWFLAKE CONNECTOR
+# ============================================================
+
+RUN python -c "import snowflake.connector; print('Snowflake connector installed successfully')"
+
+# ============================================================
+# DJANGO SETTINGS
+# ============================================================
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # ============================================================
 # PORT
