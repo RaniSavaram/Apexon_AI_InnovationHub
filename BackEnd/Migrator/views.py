@@ -668,17 +668,15 @@ def _run_scan_pipeline(request):
         )
 
 
-        # ====================================================
-        # IMPORTANT:
-        # Return ONLY simple JSON-safe values.
-        #
-        # We are intentionally NOT returning:
-        #
-        #     "Logs": Logs
-        #
-        # because Logs may contain objects that DRF cannot
-        # serialize into JSON.
-        # ====================================================
+        # Copy the log lists so the background job returns a stable snapshot
+        # instead of exposing the mutable global log object to the frontend.
+        log_snapshot = {
+            "Token Info": list(Logs.get("Token Info", [])),
+            "Scan Info": list(Logs.get("Scan Info", [])),
+            "Progress Percentage": Logs.get("Progress Percentage", 0),
+            "Harness Layer1": list(Logs.get("Harness Layer1", [])),
+            "Harness Layer2": list(Logs.get("Harness Layer2", [])),
+        }
 
         return Response(
             {
@@ -691,6 +689,8 @@ def _run_scan_pipeline(request):
                 "source": source,
 
                 "destination": destination,
+
+                "Logs": log_snapshot,
             }
         )
 
