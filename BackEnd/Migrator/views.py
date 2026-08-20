@@ -10,7 +10,10 @@ from Metadata_Scanner.extractors.sqlserver import SQLServerExtractor
 #from Metadata_Scanner.extractors.sqlite import SQLiteExtractor
 from Metadata_Scanner.extractors.synapse import SynapseExtractor
 from Metadata_Scanner.extractors.snowflake_extractor import SnowflakeExtractor
-from Metadata_Scanner.extractors.databricks_client import DatabricksExtractor
+from Metadata_Scanner.extractors.databricks_client import (
+    DatabricksExtractor,
+    load_databricks_env_credentials,
+)
 from Metadata_Scanner.extractors.dynamics365 import Dynamics365Extractor
 #from Metadata_Scanner.extractors.sap import SAPExtractor
 from AI_Agent_Pipeline.Agents_PipeLine import Agents_PipeLine
@@ -37,6 +40,15 @@ def connect_database(request):
     Creds.set_password (request.data.get("password"))
     Creds.set_port(request.data.get("port") or None)
     Creds.set_extra_dict(request.data.get("extra") or {})
+    db_type = (source or "").lower()
+
+    if db_type == "databricks" and request.data.get("remember_me") is True:
+        env_credentials = load_databricks_env_credentials()
+        Creds.set_servername(env_credentials["server"])
+        Creds.set_database_name(env_credentials["database"])
+        Creds.set_password(env_credentials["password"])
+        Creds.set_extra("http_path", env_credentials["http_path"])
+
     print("[INFO]: Connection Details recieved")
     Logs["Scan Info"].append("[INFO]: Connection Details recieved")
 
@@ -69,8 +81,6 @@ def connect_database(request):
                 {"status": "error", "message": "Server and database name are required."},
                 status=400
             )
-
-        db_type = (source or "").lower()
 
         if db_type == "sqlserver":
             test_extractor = SQLServerExtractor(Creds)
@@ -109,13 +119,14 @@ def connect_database(request):
         # Remember these details so the frontend can pre-fill the connect
         # form next time this source is selected, instead of the user
         # having to retype everything.
-        save_connection(source, {
-            "server": server,
-            "database": database,
-            "username": Creds.get_username(),
-            "password": Creds.get_password(),
-            "extra": Creds.get_extra_dict(),
-        })
+        if db_type != "databricks":
+            save_connection(source, {
+                "server": server,
+                "database": database,
+                "username": Creds.get_username(),
+                "password": Creds.get_password(),
+                "extra": Creds.get_extra_dict(),
+            })
 
     except Exception as e:
          print(e)

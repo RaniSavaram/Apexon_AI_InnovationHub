@@ -138,7 +138,9 @@ export class DbScannerComponent {
 
     password: '',
 
-    httpPath: ''
+    httpPath: '',
+
+    rememberMe: false
 
   };
 
@@ -217,7 +219,9 @@ export class DbScannerComponent {
 
       password: '',
 
-      httpPath: ''
+      httpPath: '',
+
+      rememberMe: this.source === 'Databricks'
 
     };
 
@@ -281,6 +285,7 @@ export class DbScannerComponent {
             username: response.connection.username ?? '',
             password: response.connection.password ?? '',
             httpPath: response.connection.extra?.http_path ?? '',
+            rememberMe: false,
           };
           this.cdr.detectChanges();
         }
@@ -320,6 +325,7 @@ export class DbScannerComponent {
           username: latest.username ?? '',
           password: latest.password ?? '',
           httpPath: latest.extra?.http_path ?? '',
+          rememberMe: false,
         };
 
         this.cdr.detectChanges();
@@ -406,6 +412,7 @@ export class DbScannerComponent {
       username: '',
       password: '',
       httpPath: '',
+      rememberMe: true,
     };
 
   }
@@ -429,6 +436,7 @@ export class DbScannerComponent {
       username: latest.username ?? '',
       password: latest.password ?? '',
       httpPath: latest.extra?.http_path ?? '',
+      rememberMe: false,
     };
 
   }
@@ -439,13 +447,14 @@ export class DbScannerComponent {
   connectDatabase() {
 
     const isDatabricks = this.source === 'Databricks';
+    const usingEnvCredentials = isDatabricks && this.connection.rememberMe === true;
 
     if (
-      this.connection.server.trim() === '' ||
-      this.connection.database.trim() === '' ||
+      (!usingEnvCredentials && this.connection.server.trim() === '') ||
+      (!usingEnvCredentials && this.connection.database.trim() === '') ||
       (!isDatabricks && this.connection.username.trim() === '') ||
-      this.connection.password.trim() === '' ||
-      (isDatabricks && this.connection.httpPath.trim() === '')
+      (!usingEnvCredentials && this.connection.password.trim() === '') ||
+      (isDatabricks && !usingEnvCredentials && this.connection.httpPath.trim() === '')
     ) {
 
       alert('Please fill all mandatory fields.');

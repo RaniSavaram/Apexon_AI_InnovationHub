@@ -1,9 +1,22 @@
 import json
+import os
 from pathlib import Path
 
 import databricks.sql as databricks_sql
+from dotenv import load_dotenv
 from config import Credentials
 from Metadata_Scanner.extractors.base_extractor import BaseExtractor
+
+
+def load_databricks_env_credentials():
+    env_path = Path(__file__).resolve().parents[2] / "AI_Agent_Pipeline" / ".env"
+    load_dotenv(env_path, override=True)
+    return {
+        "server": os.getenv("DATABRICKS_SERVER", "").strip(),
+        "database": os.getenv("DATABRICKS_CATALOG", "").strip(),
+        "password": os.getenv("DATABRICKS_TOKEN", "").strip(),
+        "http_path": os.getenv("DATABRICKS_HTTP_PATH", "").strip(),
+    }
 
 
 class DatabricksExtractor(BaseExtractor):
@@ -164,10 +177,11 @@ class DatabricksExtractor(BaseExtractor):
 
 if __name__ == "__main__":
     cred = Credentials()
-    cred.set_server_hostname("dbc-a58bcebf-ff15.cloud.databricks.com")
-    cred.set_database_name("e17b0dca-b70a-4c2d-b0b7-83859e1bfcb0")
-    cred.set_password("DATABRICKS_TOKEN_REMOVED")
-    cred.set_extra("/sql/1.0/warehouses/570872a58c83ef23")
+    env_credentials = load_databricks_env_credentials()
+    cred.set_servername(env_credentials["server"])
+    cred.set_database_name(env_credentials["database"])
+    cred.set_password(env_credentials["password"])
+    cred.set_extra("http_path", env_credentials["http_path"])
     
     obj = DatabricksExtractor(cred)
     obj.connect()

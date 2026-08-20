@@ -9,6 +9,7 @@ export interface ConnectionDetails {
   password: string;
   /** Databricks-only: SQL warehouse endpoint, sent to Django as extra.http_path */
   httpPath?: string;
+  rememberMe?: boolean;
 }
 
 export interface ConnectResponse {
@@ -76,6 +77,7 @@ export class Scanner {
       database: connection.database,
       username: connection.username,
       password: connection.password,
+      remember_me: connection.rememberMe ?? false,
       extra: connection.httpPath ? { http_path: connection.httpPath } : {},
     };
     return this.http.post<ConnectResponse>(`${this.api.baseUrl}/connect/`, payload);

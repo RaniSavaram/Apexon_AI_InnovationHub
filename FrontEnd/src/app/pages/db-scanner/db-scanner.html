@@ -463,6 +463,13 @@ SCAN STATUS + ACTION BUTTONS
 
                 <ng-container *ngIf="source === 'Databricks' && databricksMode === 'new'">
 
+                    <label class="remember-me">
+                        <input
+                            type="checkbox"
+                            [(ngModel)]="connection.rememberMe">
+                        Remember me (use credentials from backend .env)
+                    </label>
+
                     <div class="form-group">
 
                         <label>Server</label>
