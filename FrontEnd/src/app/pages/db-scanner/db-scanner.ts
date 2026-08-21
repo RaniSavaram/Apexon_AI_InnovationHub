@@ -614,7 +614,19 @@ export class DbScannerComponent {
     this.scanInterval = setInterval(() => {
       elapsedSeconds++;
 
-      if (elapsedSeconds < 165) {
+      if (this.backendCompleted) {
+        this.progress = Math.min(this.progress + 10, 100);
+        this.scanStatus = this.progress < 100
+          ? 'Finalizing documentation and logs'
+          : 'Scan completed';
+
+        if (this.progress >= 100) {
+          clearInterval(this.scanInterval);
+          this.cdr.detectChanges();
+          setTimeout(() => this.completeScanProgress(), 350);
+          return;
+        }
+      } else if (elapsedSeconds < 165) {
         let currentKeyframe = keyframes[0];
         let nextKeyframe = keyframes[1];
         for (let i = 0; i < keyframes.length - 1; i++) {
@@ -648,25 +660,7 @@ export class DbScannerComponent {
           }
         }
       } else {
-        if (this.backendCompleted) {
-          if (elapsedSeconds >= 180) {
-            this.progress = 100;
-            if (this.scanInterval) {
-              clearInterval(this.scanInterval);
-            }
-            this.completeScanProgress();
-          } else {
-            const fraction = (elapsedSeconds - 165) / 15;
-            this.progress = Math.round(95 + fraction * 5);
-            const newStatus = 'Finalizing documentation and logs';
-            if (this.scanStatus !== newStatus) {
-              this.scanStatus = newStatus;
-              if (!this.statusMessages.includes(newStatus)) {
-                this.statusMessages.push(newStatus);
-              }
-            }
-          }
-        } else {
+        {
           this.progress = 95;
           const newStatus = 'Finalizing documentation and logs... waiting for server response';
           if (this.scanStatus !== newStatus) {
@@ -704,10 +698,7 @@ export class DbScannerComponent {
                 this.backendCompleted = true;
                 this.backendResponse = job.result ?? {};
                 clearInterval(this.scanStatusInterval);
-                this.progress = 100;
-                clearInterval(this.scanInterval);
                 this.cdr.detectChanges();
-                setTimeout(() => this.completeScanProgress(), 350);
               } else if (job.status === 'failed' || job.status === 'not_found') {
                 clearInterval(this.scanStatusInterval);
                 this.handleScanFailure(job.error ?? 'Database Scan Failed.');
