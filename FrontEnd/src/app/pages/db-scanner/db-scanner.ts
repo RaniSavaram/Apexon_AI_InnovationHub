@@ -706,8 +706,8 @@ export class DbScannerComponent {
                 clearInterval(this.scanStatusInterval);
                 this.progress = 100;
                 clearInterval(this.scanInterval);
-                this.completeScanProgress();
                 this.cdr.detectChanges();
+                setTimeout(() => this.completeScanProgress(), 350);
               } else if (job.status === 'failed' || job.status === 'not_found') {
                 clearInterval(this.scanStatusInterval);
                 this.handleScanFailure(job.error ?? 'Database Scan Failed.');
@@ -761,7 +761,7 @@ export class DbScannerComponent {
 
     this.scanCompleted = true;
 
-    this.progress = 0;
+    this.progress = 100;
 
     this.source = '';
 
