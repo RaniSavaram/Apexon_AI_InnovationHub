@@ -113,7 +113,15 @@ def scan_status(request, scan_id):
         return Response({"status": "Failed", "error": "Scan not found."}, status=404)
 
     response = dict(job)
-    response["Logs"] = response.get("logs", {})
+    logs = response.get("logs", {})
+    if response.get("status") == "Running":
+        logs = {
+            "Token Info": list(Logs.get("Token Info", [])),
+            "Scan Info": list(Logs.get("Scan Info", [])),
+            "Harness Layer1": list(Logs.get("Harness Layer1", [])),
+            "Harness Layer2": list(Logs.get("Harness Layer2", [])),
+        }
+    response["Logs"] = logs
     response["token info"] = response["Logs"].get("Token Info", [])
     response["scan info"] = response["Logs"].get("Scan Info", [])
     response["progressbar"] = Logs.get("Progress Percentage", 0)

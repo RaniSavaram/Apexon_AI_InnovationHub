@@ -110,6 +110,7 @@ def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, proce
         "Starting evaluator-generator agents.",
     ]
     orchestrator.create_agents()
+    Logs["Harness Layer2"].append("Evaluator-generator agents created successfully.")
 
     # 4. Generate Table-Wise Summary Report
     print("\n--------------------------------------------------")
@@ -166,6 +167,7 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
     Logs["Harness Layer2"].append("Table summarizer agent completed.")
     create_table_summary_document(overall_summary, table_summaries, table_summary_docx_path)
+    Logs["Harness Layer2"].append("Assessment DOCX generated successfully.")
     
     # 5. Generate Database Migration Assessment Report
     print("\n--------------------------------------------------")
@@ -219,6 +221,7 @@ Columns Sample:
         output_path=migration_plan_docx_path,
         tokens_used=orchestrator.tokens_used if orchestrator.client_type else None
     )
+    Logs["Harness Layer2"].append("Migration Plan DOCX generated successfully.")
     print("\n==================================================")
     print("Assessment Pipeline Executed Successfully!")
     print(f"Total API Tokens Used: {orchestrator.tokens_used['total']}")
