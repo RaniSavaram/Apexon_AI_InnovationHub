@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import traceback
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
@@ -77,8 +78,23 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
     )
 
     try:
-        _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir)
+        return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir)
+    except Exception as exc:
+        Logs["Scan Info"].append(f"[ERROR] Assessment pipeline failed: {exc}")
+        Logs["Scan Info"].append(traceback.format_exc())
+        raise
     finally:
+        if orchestrator.tokens_used["total"]:
+            Logs["Token Info"].append({
+                "total": orchestrator.tokens_used["total"],
+                "prompt": orchestrator.tokens_used["prompt"],
+                "completion": orchestrator.tokens_used["completion"],
+                "cost": round(
+                    (orchestrator.tokens_used["prompt"] / 1000000.0) * 0.15
+                    + (orchestrator.tokens_used["completion"] / 1000000.0) * 0.60,
+                    5,
+                ),
+            })
         # Always clean up agents created on Azure AI Foundry, even if the
         # pipeline fails partway through - otherwise the next run's
         # create_agents() collides with these leftovers (409 conflict).
@@ -209,11 +225,6 @@ Columns Sample:
     print(f"  - Table Summaries: {table_summary_docx_path}")
     print(f"  - Migration Plan: {migration_plan_docx_path}")
     print("==================================================")
-    Logs["Token Info"].append({
-    "total": orchestrator.tokens_used['total'],
-    "prompt": orchestrator.tokens_used['prompt'],
-    "completion": orchestrator.tokens_used['completion'],
-    "cost": round(total_cost, 5)    })
     Logs["Harness Layer2"] = [
         "HARNESS LAYER 2:",
         "Metadata loaded successfully.",
