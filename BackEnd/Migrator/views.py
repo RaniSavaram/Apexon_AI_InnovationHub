@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from threading import Lock, Thread
 from uuid import uuid4
@@ -27,6 +28,26 @@ Creds = PrivateVariables()
 source = None
 scan_jobs = {}
 scan_jobs_lock = Lock()
+MAX_SCAN_TABLES = int(os.environ.get("MAX_SCAN_TABLES", "5"))
+
+
+def _limit_metadata_tables(metadata):
+    remaining = MAX_SCAN_TABLES
+    limited_schemas = []
+    for schema in metadata.get("schemas", []):
+        tables = schema.get("tables", [])
+        selected_tables = tables[:remaining]
+        if selected_tables:
+            limited_schema = dict(schema)
+            limited_schema["tables"] = selected_tables
+            limited_schemas.append(limited_schema)
+            remaining -= len(selected_tables)
+        if remaining == 0:
+            break
+
+    limited_metadata = dict(metadata)
+    limited_metadata["schemas"] = limited_schemas
+    return limited_metadata
 
 
 def _scan_status(scan_id):
@@ -309,6 +330,16 @@ def _run_scan(destination):
         Logs["Scan Info"].append(f"Extracting Metadata from DataBase")
         print("Extracting Metadata from DataBase")
         metadata = obj.extract()
+        original_table_count = sum(
+            len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
+        )
+        metadata = _limit_metadata_tables(metadata)
+        selected_table_count = sum(
+            len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
+        )
+        Logs["Scan Info"].append(
+            f"Selected {selected_table_count} of {original_table_count} tables for analysis."
+        )
 
         Logs["Scan Info"].append(f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
         print("MetaData Extracted\nRunning Harnness Layer-1")
@@ -354,6 +385,7 @@ def _run_scan(destination):
                 "data":Logs["Token Info"],
                 "Logs":Logs,
                 "output_files": output_files,
+                "tables_found": selected_table_count,
             })
     except Exception as e:
         Logs["Scan Info"].append(str(e))
