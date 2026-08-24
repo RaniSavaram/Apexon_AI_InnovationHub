@@ -63,9 +63,9 @@ export class DbScannerComponent {
 
   scanInterval: any;
 
-  metadataFile = 'http://localhost:8000/output/Assesment%20Report.docx';
+  metadataFile = '/output/Assesment%20Report.docx';
 
-  migrationFile = 'http://localhost:8000/output/AI_Migration_Plan.docx';
+  migrationFile = '/output/AI_Migration_Plan.docx';
 
   get safeMetadataUrl() {
     return this.sanitizer.bypassSecurityTrustUrl(this.metadataFile);

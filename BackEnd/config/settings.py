@@ -5,6 +5,8 @@ This backend's job (for now) is to serve the built Angular app
 (from ../frontend/dist/frontend/browser) and, later, host API endpoints
 under /api/.
 """
+import os
+
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,15 +16,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ANGULAR_DIST_DIR = BASE_DIR.parent / "FrontEnd" / "dist" / "frontend" / "browser"
 
 # --- Security ---------------------------------------------------------
-SECRET_KEY = "django-insecure-change-this-in-production"
-DEBUG = True
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-local-only")
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
 # ALLOWED_HOSTS entries must be bare hostnames/IPs (no scheme, no path,
 # no trailing slash) - e.g. "localhost", "127.0.0.1", "10.22.5.66".
 # A value like "http://localhost:8000/" is invalid and causes Django to
 # reject EVERY request with a 400 DisallowedHost error, which is why
 # nothing was working between frontend and backend.
 # "*" accepts any hostname - fine for local dev since DEBUG=True.
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    "apexon-ai-innovationhub-new.onrender.com",
+    "localhost",
+    "127.0.0.1",
+]
 
 # --- Applications -------------------------------------------------------
 INSTALLED_APPS = [
@@ -50,7 +56,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4200",
+    "https://apexon-ai-innovationhub-new.onrender.com",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -87,7 +93,10 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
-CORS_ALLOW_ALL_ORIGINS = True
+CSRF_TRUSTED_ORIGINS = [
+    "https://apexon-ai-innovationhub-new.onrender.com",
+]
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # --- Static files (Angular's JS/CSS/assets) -----------------------------
 # Angular's index.html has <base href="/"> and references its JS/CSS bundles
