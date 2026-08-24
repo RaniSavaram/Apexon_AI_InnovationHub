@@ -91,6 +91,7 @@ def _run_scan_in_background(scan_id, destination):
         result_data = {}
         Logs["Scan Info"].append(f"[ERROR] Scan failed: {exc}")
         Logs["Scan Info"].append(traceback.format_exc())
+        Logs["Harness Layer2"].append(f"[FAILED] Scan stopped during Layer 2 or report generation: {exc}")
 
     with scan_jobs_lock:
         scan_jobs[scan_id].update({

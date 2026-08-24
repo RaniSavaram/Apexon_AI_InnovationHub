@@ -82,6 +82,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
     try:
         return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir)
     except Exception as exc:
+        Logs["Harness Layer2"].append(f"[FAILED] Layer 2 stopped: {exc}")
         Logs["Scan Info"].append(f"[ERROR] Assessment pipeline failed: {exc}")
         Logs["Scan Info"].append(traceback.format_exc())
         raise
