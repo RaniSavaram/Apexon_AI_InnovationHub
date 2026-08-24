@@ -207,7 +207,7 @@ START PART 1
 
                 <div
                     class="token-panel"
-                    *ngIf="scanCompleted">
+                    *ngIf="scanCompleted || scanFailed">
 
                     <h3>
 
@@ -645,7 +645,7 @@ SCAN STATUS + ACTION BUTTONS
 
                 <div
                     class="dialog-buttons"
-                    *ngIf="scanCompleted"
+                    *ngIf="scanCompleted || scanFailed"
                     style="margin-top: 15px; flex-shrink: 0;">
 
                     <button

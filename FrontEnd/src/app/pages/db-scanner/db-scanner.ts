@@ -44,6 +44,7 @@ export class DbScannerComponent {
   connected = false;
 
   scanCompleted = false;
+  scanFailed = false;
 
   showConnection = false;
 
@@ -345,6 +346,7 @@ export class DbScannerComponent {
     this.progress = 0;
 
     this.scanCompleted = false;
+    this.scanFailed = false;
 
     this.showScanCompletedDialog = false;
 
@@ -685,6 +687,7 @@ export class DbScannerComponent {
     this.loading = true;
 
     this.scanCompleted = false;
+    this.scanFailed = false;
 
     this.showScanCompletedDialog = false;
 
@@ -811,10 +814,7 @@ export class DbScannerComponent {
 
         this.progress = 0;
 
-        this.source = '';
-
-        this.connected = false;
-
+        this.scanFailed = true;
         this.scanStatus = 'Scan Failed';
 
         this.statusMessages.push('Database Scan Failed.');
@@ -849,6 +849,7 @@ export class DbScannerComponent {
 
         if (status.status === 'Failed') {
           this.loading = false;
+          this.scanFailed = true;
           this.scanStatus = 'Scan Failed';
           this.statusMessages.push(status.error ?? 'Database Scan Failed.');
           this.showLogsDialog = true;
