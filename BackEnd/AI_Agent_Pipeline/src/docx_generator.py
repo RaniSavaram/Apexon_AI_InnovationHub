@@ -1,8 +1,15 @@
+import re
+
 import docx
 from docx.shared import Inches, Pt, RGBColor
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from tools.database_tools import get_size_category
+
+
+def _xml_safe_text(value):
+    text = str(value or "")
+    return re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", text)
 
 
 def set_cell_margins(cell, top=100, bottom=100, left=150, right=150):
@@ -42,7 +49,7 @@ def create_table_summary_document(overall_summary, table_summaries, output_path)
     h_overall.paragraph_format.space_before = Pt(12)
     h_overall.paragraph_format.space_after = Pt(6)
     
-    for line in overall_summary.strip().split("\n"):
+    for line in _xml_safe_text(overall_summary).strip().split("\n"):
         if not line:
             continue
         p = doc.add_paragraph()
@@ -59,7 +66,7 @@ def create_table_summary_document(overall_summary, table_summaries, output_path)
     p_sep.paragraph_format.space_after = Pt(12)
     
     for i, summary in enumerate(table_summaries):
-        lines = summary.split("\n")
+        lines = _xml_safe_text(summary).split("\n")
         
         for line in lines:
             if not line.strip():
@@ -137,7 +144,7 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     current_sec = None
     sec_content = []
     
-    for line in agent_writeups.split("\n"):
+    for line in _xml_safe_text(agent_writeups).split("\n"):
         line_stripped = line.strip()
         sec_matched = False
         for sec_num in range(1, 10):

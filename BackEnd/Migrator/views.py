@@ -1,4 +1,5 @@
 import os
+import traceback
 from pathlib import Path
 from threading import Lock, Thread
 from uuid import uuid4
@@ -65,6 +66,8 @@ def _run_scan_in_background(scan_id, destination):
         status = "Failed"
         error = str(exc)
         result_data = {}
+        Logs["Scan Info"].append(f"[ERROR] Scan failed: {exc}")
+        Logs["Scan Info"].append(traceback.format_exc())
 
     with scan_jobs_lock:
         scan_jobs[scan_id].update({
