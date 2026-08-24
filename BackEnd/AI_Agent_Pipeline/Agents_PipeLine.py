@@ -219,17 +219,24 @@ Columns Sample:
         agent_writeups = "SECTION 1: METADATA INTERPRETATION\nMigration plan generation was unavailable. Review the assessment report and rerun the scan."
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
-    create_migration_plan_document(
-        tables_df=tables_df,
-        columns_df=columns_df,
-        stats_df=stats_df,
-        dep_df=dep_df,
-        views_df=views_df,
-        procedures_df=procedures_df,
-        agent_writeups=agent_writeups,
-        output_path=migration_plan_docx_path,
-        tokens_used=orchestrator.tokens_used if orchestrator.client_type else None
-    )
+    try:
+        create_migration_plan_document(
+            tables_df=tables_df,
+            columns_df=columns_df,
+            stats_df=stats_df,
+            dep_df=dep_df,
+            views_df=views_df,
+            procedures_df=procedures_df,
+            agent_writeups=agent_writeups,
+            output_path=migration_plan_docx_path,
+            tokens_used=orchestrator.tokens_used if orchestrator.client_type else None
+        )
+    except Exception as exc:
+        Logs["Scan Info"].append(f"[WARNING] Migration report formatting failed: {exc}")
+        fallback_doc = Document()
+        fallback_doc.add_heading("MIGRATION PLAN", level=1)
+        fallback_doc.add_paragraph(_safe_text(agent_writeups))
+        fallback_doc.save(migration_plan_docx_path)
     print("\n==================================================")
     print("Assessment Pipeline Executed Successfully!")
     print(f"Total API Tokens Used: {orchestrator.tokens_used['total']}")
