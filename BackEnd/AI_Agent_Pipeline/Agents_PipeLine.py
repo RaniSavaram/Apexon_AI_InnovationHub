@@ -1,10 +1,8 @@
 import os
-import re
 import sys
 import time
 import traceback
 import pandas as pd
-from docx import Document
 from datetime import datetime
 from pathlib import Path
 
@@ -26,9 +24,6 @@ try:
 except AttributeError:
     pass
 
-
-def _safe_text(value):
-    return re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", str(value or ""))
 
 def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
     """
@@ -84,37 +79,12 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
     )
 
     source_name = (source_hint or "database").replace(" ", "_").lower()
-    output_files = {
-        "assessment_report": f"{source_name}_Assessment_Report.docx",
-        "migration_plan": f"{source_name}_Migration_Plan.docx",
-    }
-
     try:
         return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir)
     except Exception as exc:
         Logs["Scan Info"].append(f"[ERROR] Assessment pipeline failed: {exc}")
         Logs["Scan Info"].append(traceback.format_exc())
-        fallback_text = (
-            "The AI assessment pipeline stopped after metadata extraction. "
-            "The available metadata is included below. Review the warning in Backend Logs.\n\n"
-            + "\n".join(str(row) for row in tables_df.to_dict("records"))
-        )
-        for filename, heading in (
-            (output_files["assessment_report"], "TABLE SUMMARY REPORT"),
-            (output_files["migration_plan"], "MIGRATION PLAN"),
-        ):
-            fallback_doc = Document()
-            fallback_doc.add_heading(heading, level=1)
-            fallback_doc.add_paragraph(_safe_text(fallback_text))
-            fallback_doc.save(output_dir / filename)
-        Logs["Scan Info"].append("[WARNING] Fallback reports generated; scan completed with warnings.")
-        Logs["Harness Layer2"] = [
-            "HARNESS LAYER 2:",
-            "Metadata extraction completed.",
-            "Fallback reports generated after an assessment warning.",
-            "Ready for human review.",
-        ]
-        return output_files
+        raise
     finally:
         if orchestrator.tokens_used["total"]:
             Logs["Token Info"].append({
@@ -135,6 +105,10 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
 
 def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir):
     # Create agents using Microsoft AI Foundry SDK
+    Logs["Harness Layer2"] = [
+        "HARNESS LAYER 2:",
+        "Starting evaluator-generator agents.",
+    ]
     orchestrator.create_agents()
 
     # 4. Generate Table-Wise Summary Report
@@ -190,16 +164,8 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     table_summary_filename = f"{source_name}_Assessment_Report.docx"
     migration_plan_filename = f"{source_name}_Migration_Plan.docx"
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
-    try:
-        create_table_summary_document(overall_summary, table_summaries, table_summary_docx_path)
-    except Exception as exc:
-        Logs["Scan Info"].append(f"[WARNING] Assessment report formatting failed: {exc}")
-        fallback_doc = Document()
-        fallback_doc.add_heading("TABLE SUMMARY REPORT", level=1)
-        fallback_doc.add_paragraph(_safe_text(overall_summary))
-        for summary in table_summaries:
-            fallback_doc.add_paragraph(_safe_text(summary))
-        fallback_doc.save(table_summary_docx_path)
+    Logs["Harness Layer2"].append("Table summarizer agent completed.")
+    create_table_summary_document(overall_summary, table_summaries, table_summary_docx_path)
     
     # 5. Generate Database Migration Assessment Report
     print("\n--------------------------------------------------")
@@ -238,31 +204,21 @@ Columns Sample:
 {cols_summary_str}
 """
     
-    try:
-        agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
-    except Exception as exc:
-        Logs["Scan Info"].append(f"[WARNING] Migration plan agent failed: {exc}")
-        agent_writeups = "SECTION 1: METADATA INTERPRETATION\nMigration plan generation was unavailable. Review the assessment report and rerun the scan."
+    Logs["Harness Layer2"].append("Migration plan generator agent started.")
+    agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
-    try:
-        create_migration_plan_document(
-            tables_df=tables_df,
-            columns_df=columns_df,
-            stats_df=stats_df,
-            dep_df=dep_df,
-            views_df=views_df,
-            procedures_df=procedures_df,
-            agent_writeups=agent_writeups,
-            output_path=migration_plan_docx_path,
-            tokens_used=orchestrator.tokens_used if orchestrator.client_type else None
-        )
-    except Exception as exc:
-        Logs["Scan Info"].append(f"[WARNING] Migration report formatting failed: {exc}")
-        fallback_doc = Document()
-        fallback_doc.add_heading("MIGRATION PLAN", level=1)
-        fallback_doc.add_paragraph(_safe_text(agent_writeups))
-        fallback_doc.save(migration_plan_docx_path)
+    create_migration_plan_document(
+        tables_df=tables_df,
+        columns_df=columns_df,
+        stats_df=stats_df,
+        dep_df=dep_df,
+        views_df=views_df,
+        procedures_df=procedures_df,
+        agent_writeups=agent_writeups,
+        output_path=migration_plan_docx_path,
+        tokens_used=orchestrator.tokens_used if orchestrator.client_type else None
+    )
     print("\n==================================================")
     print("Assessment Pipeline Executed Successfully!")
     print(f"Total API Tokens Used: {orchestrator.tokens_used['total']}")
@@ -279,6 +235,7 @@ Columns Sample:
     print("==================================================")
     Logs["Harness Layer2"] = [
         "HARNESS LAYER 2:",
+        "Evaluator-generator agents completed.",
         "Metadata loaded successfully.",
         "Schema relationships analyzed.",
         "Assessment report generated.",
