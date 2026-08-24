@@ -860,11 +860,9 @@ export class DbScannerComponent {
           ...(status.result ?? {}),
           Logs: status.Logs,
         };
-        if (this.progress >= 95) {
-          this.progress = 100;
-          if (this.scanInterval) clearInterval(this.scanInterval);
-          this.completeScanProgress();
-        }
+        this.progress = 100;
+        if (this.scanInterval) clearInterval(this.scanInterval);
+        this.completeScanProgress();
         this.cdr.detectChanges();
       },
       error: () => {
