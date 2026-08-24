@@ -18,16 +18,8 @@ ANGULAR_DIST_DIR = BASE_DIR.parent / "FrontEnd" / "dist" / "frontend" / "browser
 # --- Security ---------------------------------------------------------
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-local-only")
 DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
-# ALLOWED_HOSTS entries must be bare hostnames/IPs (no scheme, no path,
-# no trailing slash) - e.g. "localhost", "127.0.0.1", "10.22.5.66".
-# A value like "http://localhost:8000/" is invalid and causes Django to
-# reject EVERY request with a 400 DisallowedHost error, which is why
-# nothing was working between frontend and backend.
-# "*" accepts any hostname - fine for local dev since DEBUG=True.
 ALLOWED_HOSTS = [
     "apexon-ai-innovationhub-new.onrender.com",
-    "localhost",
-    "127.0.0.1",
 ]
 
 # --- Applications -------------------------------------------------------

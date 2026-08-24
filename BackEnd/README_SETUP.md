@@ -12,7 +12,7 @@
    python manage.py migrate
    python manage.py runserver
 
-4. Visit http://127.0.0.1:8000/ — Django will serve the built Angular app.
+4. Visit https://apexon-ai-innovationhub-new.onrender.com/ — Render serves the Angular app and Django API from the same public URL.
 
 Whenever you change frontend code, re-run `npm run build` in frontend/,
 then just restart/refresh — no need to redo Django setup.

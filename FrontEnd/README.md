@@ -10,7 +10,7 @@ To start a local development server, run:
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+The deployed application is available at `https://apexon-ai-innovationhub-new.onrender.com/`. The application will automatically reload whenever you modify any of the source files while using the development server.
 
 ## Code scaffolding
 
