@@ -1,8 +1,10 @@
 import os
+import re
 import sys
 import time
 import traceback
 import pandas as pd
+from docx import Document
 from datetime import datetime
 from pathlib import Path
 
@@ -23,6 +25,10 @@ try:
     sys.stdout.reconfigure(encoding='utf-8')
 except AttributeError:
     pass
+
+
+def _safe_text(value):
+    return re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", str(value or ""))
 
 def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
     """
@@ -158,7 +164,16 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     table_summary_filename = f"{source_name}_Assessment_Report.docx"
     migration_plan_filename = f"{source_name}_Migration_Plan.docx"
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
-    create_table_summary_document(overall_summary, table_summaries, table_summary_docx_path)
+    try:
+        create_table_summary_document(overall_summary, table_summaries, table_summary_docx_path)
+    except Exception as exc:
+        Logs["Scan Info"].append(f"[WARNING] Assessment report formatting failed: {exc}")
+        fallback_doc = Document()
+        fallback_doc.add_heading("TABLE SUMMARY REPORT", level=1)
+        fallback_doc.add_paragraph(_safe_text(overall_summary))
+        for summary in table_summaries:
+            fallback_doc.add_paragraph(_safe_text(summary))
+        fallback_doc.save(table_summary_docx_path)
     
     # 5. Generate Database Migration Assessment Report
     print("\n--------------------------------------------------")
@@ -197,7 +212,11 @@ Columns Sample:
 {cols_summary_str}
 """
     
-    agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
+    try:
+        agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
+    except Exception as exc:
+        Logs["Scan Info"].append(f"[WARNING] Migration plan agent failed: {exc}")
+        agent_writeups = "SECTION 1: METADATA INTERPRETATION\nMigration plan generation was unavailable. Review the assessment report and rerun the scan."
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
     create_migration_plan_document(
