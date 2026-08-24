@@ -15,6 +15,7 @@ Re-running this script is safe: existing tables are only ever extended with
 new columns found in the report. Columns removed from the report, or whose
 type changed, are reported as warnings and left untouched.
 """
+import os
 import sys
 from pathlib import Path
 
@@ -24,7 +25,8 @@ from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake, DeltaTable
 from deltalake.schema import Schema as DeltaSchema
 
-DOC_PATH = Path(__file__).resolve().parent.parent /"AI_Agent_Pipeline" / "output" / "Assesment Report.docx"
+DEFAULT_DOC_PATH = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output" / "sqlserver_Assessment_Report.docx"
+DOC_PATH = Path(os.environ.get("ASSESSMENT_REPORT_PATH", DEFAULT_DOC_PATH))
 
 WORKSPACE_ID = "bae3b540-d044-45e0-8c52-3cf4ee3dcb31"   # Fabric Insights
 LAKEHOUSE_ID = "a65899d4-3f39-4af6-b696-ae1903f4500a"    # sai_fabric_artifcats

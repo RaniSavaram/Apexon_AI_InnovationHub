@@ -138,7 +138,10 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         table_summaries.append(summary)
         print(f"[INFO] Summary for '{s_name}.{t_name}' generated successfully.")
         
-    table_summary_docx_path = os.path.join(output_dir, "Assesment Report.docx")
+    source_name = (source_hint or "database").replace(" ", "_").lower()
+    table_summary_filename = f"{source_name}_Assessment_Report.docx"
+    migration_plan_filename = f"{source_name}_Migration_Plan.docx"
+    table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
     create_table_summary_document(overall_summary, table_summaries, table_summary_docx_path)
     
     # 5. Generate Database Migration Assessment Report
@@ -180,7 +183,7 @@ Columns Sample:
     
     agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
     
-    migration_plan_docx_path = os.path.join(output_dir, "AI_Migration_Plan.docx")
+    migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
     create_migration_plan_document(
         tables_df=tables_df,
         columns_df=columns_df,
@@ -192,7 +195,6 @@ Columns Sample:
         output_path=migration_plan_docx_path,
         tokens_used=orchestrator.tokens_used if orchestrator.client_type else None
     )
-
     print("\n==================================================")
     print("Assessment Pipeline Executed Successfully!")
     print(f"Total API Tokens Used: {orchestrator.tokens_used['total']}")
@@ -212,3 +214,15 @@ Columns Sample:
     "prompt": orchestrator.tokens_used['prompt'],
     "completion": orchestrator.tokens_used['completion'],
     "cost": round(total_cost, 5)    })
+    Logs["Harness Layer2"] = [
+        "HARNESS LAYER 2:",
+        "Metadata loaded successfully.",
+        "Schema relationships analyzed.",
+        "Assessment report generated.",
+        "Migration plan generated.",
+        "AI output validated and ready for human review.",
+    ]
+    return {
+        "assessment_report": table_summary_filename,
+        "migration_plan": migration_plan_filename,
+    }

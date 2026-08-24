@@ -56,6 +56,14 @@ export interface ScanStatus {
   source?: string;
   destination?: string;
   tables_found?: number;
+  scan_id?: string;
+  Logs?: Record<string, unknown>;
+  result?: {
+    output_files?: {
+      assessment_report?: string;
+      migration_plan?: string;
+    };
+  };
 }
 
 @Injectable({ providedIn: 'root' })

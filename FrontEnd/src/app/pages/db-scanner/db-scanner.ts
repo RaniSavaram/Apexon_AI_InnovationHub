@@ -62,6 +62,7 @@ export class DbScannerComponent {
   backendResponse: any;
 
   scanInterval: any;
+  scanStatusTimeout: any;
 
   metadataFile = '/output/Assesment%20Report.docx';
 
@@ -798,27 +799,9 @@ export class DbScannerComponent {
     ).subscribe({
 
       next: (response: any) => {
-
-        this.backendCompleted = true;
-
-        this.backendResponse = response;
-
-        // If progress is already 95% or higher, complete the scan immediately
-        if (this.progress >= 95) {
-
-          this.progress = 100;
-
-          if (this.scanInterval) {
-
-            clearInterval(this.scanInterval);
-
-          }
-
-          this.completeScanProgress();
-
+        if (response.scan_id) {
+          this.pollScanStatus(response.scan_id);
         }
-
-        this.cdr.detectChanges();
 
       },
 
@@ -854,6 +837,42 @@ export class DbScannerComponent {
 
   }
 
+  private pollScanStatus(scanId: string) {
+    this.scanner.getScanStatus(scanId).subscribe({
+      next: (status) => {
+        if (status.status === 'Running') {
+          this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 2000);
+          return;
+        }
+
+        if (status.status === 'Failed') {
+          this.loading = false;
+          this.scanStatus = 'Scan Failed';
+          this.statusMessages.push(status.error ?? 'Database Scan Failed.');
+          if (this.scanInterval) clearInterval(this.scanInterval);
+          this.cdr.detectChanges();
+          return;
+        }
+
+        this.backendCompleted = true;
+        this.backendResponse = {
+          ...status,
+          ...(status.result ?? {}),
+          Logs: status.Logs,
+        };
+        if (this.progress >= 95) {
+          this.progress = 100;
+          if (this.scanInterval) clearInterval(this.scanInterval);
+          this.completeScanProgress();
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 3000);
+      },
+    });
+  }
+
   //=========================================================
   // COMPLETE SCAN PROGRESS
   //=========================================================
@@ -883,6 +902,13 @@ export class DbScannerComponent {
       this.connectionPayload.scanResult = this.backendResponse;
 
       const logs = this.backendResponse.Logs;
+      const outputFiles = this.backendResponse.output_files;
+      if (outputFiles?.assessment_report) {
+        this.metadataFile = `/output/${encodeURIComponent(outputFiles.assessment_report)}`;
+      }
+      if (outputFiles?.migration_plan) {
+        this.migrationFile = `/output/${encodeURIComponent(outputFiles.migration_plan)}`;
+      }
 
       //----------------------------------------------------
       // Backend Logs

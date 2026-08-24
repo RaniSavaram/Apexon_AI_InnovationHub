@@ -39,12 +39,24 @@ def _run_scan_in_background(scan_id, destination):
         result = _run_scan(destination)
         status = "Completed" if result.status_code < 400 else "Failed"
         error = result.data.get("message") if status == "Failed" else None
+        result_data = dict(result.data)
     except Exception as exc:
         status = "Failed"
         error = str(exc)
+        result_data = {}
 
     with scan_jobs_lock:
-        scan_jobs[scan_id].update({"status": status, "error": error})
+        scan_jobs[scan_id].update({
+            "status": status,
+            "error": error,
+            "result": result_data,
+            "logs": {
+                "Token Info": list(Logs.get("Token Info", [])),
+                "Scan Info": list(Logs.get("Scan Info", [])),
+                "Harness Layer1": list(Logs.get("Harness Layer1", [])),
+                "Harness Layer2": list(Logs.get("Harness Layer2", [])),
+            },
+        })
 
 
 @api_view(["GET"])
@@ -54,8 +66,9 @@ def scan_status(request, scan_id):
         return Response({"status": "Failed", "error": "Scan not found."}, status=404)
 
     response = dict(job)
-    response["token info"] = list(Logs.get("Token Info", []))
-    response["scan info"] = list(Logs.get("Scan Info", []))
+    response["Logs"] = response.get("logs", {})
+    response["token info"] = response["Logs"].get("Token Info", [])
+    response["scan info"] = response["Logs"].get("Scan Info", [])
     response["progressbar"] = Logs.get("Progress Percentage", 0)
     return Response(response)
 
@@ -325,7 +338,7 @@ def _run_scan(destination):
 
         Logs["Scan Info"].append(f"Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
         print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
-        Agents_PipeLine(metadata, source_hint=source)
+        output_files = Agents_PipeLine(metadata, source_hint=source)
 
         Logs["Scan Info"].append(f"Output is avaliable at Show Logs embedded in the UI Screen")
         print(f"Output is avaliable at Show Logs embedded in the UI Screen")
@@ -339,7 +352,8 @@ def _run_scan(destination):
                 "source": source,
                 "destination": destination,
                 "data":Logs["Token Info"],
-                "Logs":Logs
+                "Logs":Logs,
+                "output_files": output_files,
             })
     except Exception as e:
         Logs["Scan Info"].append(str(e))
