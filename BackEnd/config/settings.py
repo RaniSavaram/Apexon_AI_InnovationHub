@@ -96,6 +96,7 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # prefix. WhiteNoise's WHITENOISE_ROOT serves a folder's contents straight
 # from "/", which matches that without needing to touch Angular's config.
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = []
 WHITENOISE_ROOT = ANGULAR_DIST_DIR if ANGULAR_DIST_DIR.exists() else None
 
