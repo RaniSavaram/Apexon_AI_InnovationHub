@@ -1,0 +1,827 @@
+<!-- ==========================================================
+START PART 1
+===========================================================-->
+
+<div class="dbscanner-page">
+
+    <!-- ==========================================================
+    PAGE HEADER
+    ===========================================================-->
+
+    <div class="page-header">
+
+        <div>
+
+            <h1>
+
+                <i class="bi bi-database-fill page-icon"></i>
+
+                Database Scanner
+
+            </h1>
+
+            <p>
+                Intelligent Database Assessment & Migration Readiness
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================================================
+    OVERVIEW CARD
+    ===========================================================-->
+
+    <div class="overview-card">
+
+        <h2>Overview</h2>
+
+        <p>
+
+            DB Scanner is an AI-powered assessment solution that analyzes
+            enterprise databases before migration to Microsoft Fabric.
+
+        </p>
+
+        <p>
+
+            It automatically extracts metadata, validates compatibility,
+            analyzes migration readiness, estimates effort, and generates
+            comprehensive reports using AI Agents.
+
+        </p>
+
+    </div>
+
+    <!-- ==========================================================
+    MAIN SCANNER CARD
+    ===========================================================-->
+
+    <div class="scanner-card">
+
+        <div class="scanner-container">
+
+            <!-- =======================================
+            LEFT SECTION
+            ========================================-->
+
+            <div class="scanner-left">
+
+                <div class="selection-grid">
+
+                    <!-- Source -->
+
+                    <div class="form-group">
+
+                        <label><i class="bi bi-database-fill"></i> Source Database</label>
+
+                        <select
+                            [(ngModel)]="source"
+                            (change)="sourceChanged()"
+                            [disabled]="loading || connecting">
+
+                            <option value="">Select Source</option>
+
+                            <option value="sqlserver">
+                                sqlserver
+                            </option>
+                            
+                            <option value="Databricks">
+                                Databricks
+                            </option>
+
+                            <option value="Oracle">
+                                Oracle
+                            </option>
+
+                            <option value="SAP HANA">
+                                SAP HANA
+                            </option>
+
+                            <option value="Synapse">
+                                Synapse
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <!-- Destination -->
+
+                    <div class="form-group">
+
+                        <label><i class="bi bi-cloud-fill"></i> Destination</label>
+
+                        <select
+                            [(ngModel)]="destination"
+                            [disabled]="loading || connecting">
+
+                            <option value="Fabric">
+
+                                Microsoft Fabric
+
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+                <!-- ==========================
+                BUTTONS
+                ===========================-->
+
+                <div class="button-row">
+
+                    <button
+                        class="primary-btn"
+                        (click)="startScan()"
+                        [disabled]="loading || connecting">
+
+                        <i class="bi bi-play-circle-fill"></i>
+
+                        {{ loading ? 'Scanning...' : 'Start Scan' }}
+
+                    </button>
+
+                    <button
+                        class="logs-btn"
+                        (click)="openLogsDialog()">
+
+                        <i class="bi bi-terminal-fill"></i>
+
+                        Show Logs
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <!-- =======================================
+            DIVIDER
+            ========================================-->
+
+            <div class="divider"></div>
+
+            <!-- =======================================
+            RIGHT SECTION
+            TOKEN INFORMATION
+            ========================================-->
+
+            <div class="scanner-right">
+
+                <!-- Before Scan -->
+
+                <div
+                    class="token-placeholder"
+                    *ngIf="!scanCompleted">
+
+                    <div class="token-icon">
+
+                        <i class="bi bi-lock-fill"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3>
+
+                            Token Information
+
+                        </h3>
+
+                        <p>
+
+                            Token usage details will be displayed here
+                            after AI Agents complete the assessment.
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <!-- After Scan -->
+
+                <div
+                    class="token-panel"
+                    *ngIf="scanCompleted">
+
+                    <h3>
+
+                        <i class="bi bi-cpu-fill"></i>
+
+                        Token Information
+
+                    </h3>
+
+                    <div class="token-grid">
+
+                        <div class="token-box">
+
+                            <span class="tooltip-container">
+                                Total Tokens
+                                <i class="bi bi-info-circle info-icon"></i>
+                                <span class="tooltip-text">The sum of all inputs and generated tokens used during the database scan.</span>
+                            </span>
+
+                            <strong>
+
+                                {{tokenInfo.total}}
+
+                            </strong>
+
+                        </div>
+
+                        <div class="token-box">
+
+                            <span class="tooltip-container">
+                                Prompt Tokens
+                                <i class="bi bi-info-circle info-icon"></i>
+                                <span class="tooltip-text">Tokens consumed by schemas and commands sent as input to the AI model.</span>
+                            </span>
+
+                            <strong>
+
+                                {{tokenInfo.prompt}}
+
+                            </strong>
+
+                        </div>
+
+                        <div class="token-box">
+
+                            <span class="tooltip-container">
+                                Completion Tokens
+                                <i class="bi bi-info-circle info-icon"></i>
+                                <span class="tooltip-text">Tokens generated as output by the AI model in response to the schema analysis.</span>
+                            </span>
+
+                            <strong>
+
+                                {{tokenInfo.completion}}
+
+                            </strong>
+
+                        </div>
+
+                        <div class="token-box">
+
+                            <span class="tooltip-container">
+                                Estimated Cost
+                                <i class="bi bi-info-circle info-icon"></i>
+                                <span class="tooltip-text">The calculated monetary cost of the AI API calls based on token consumption.</span>
+                            </span>
+
+                            <strong>
+
+                                {{tokenInfo.cost}}
+
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+<!-- ==========================================================
+START PART 2
+SCAN STATUS + ACTION BUTTONS
+===========================================================-->
+
+    <!-- ==========================================================
+    SCAN STATUS
+    ===========================================================-->
+
+    <div class="status-card">
+
+        <div class="status-header">
+
+            <h2>
+
+                <i class="bi bi-activity"></i>
+
+                Scan Status
+
+            </h2>
+
+            <span
+                class="status-badge"
+                [ngClass]="{
+
+                    'waiting': !loading && !scanCompleted,
+
+                    'running': loading,
+
+                    'completed': scanCompleted
+
+                }">
+
+                {{scanStatus}}
+
+            </span>
+
+        </div>
+
+        <!-- Progress -->
+
+        <div
+            class="progress-section"
+            *ngIf="loading">
+
+            <div class="progress-header">
+
+                <span>Progress</span>
+
+                <span>{{progress}}%</span>
+
+            </div>
+
+            <div class="progress-bar">
+
+                <div
+                    class="progress-fill"
+                    [style.width.%]="progress">
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+    </div>
+
+    <div
+        class="dialog-overlay"
+        *ngIf="showConnection">
+
+        <div class="dialog">
+
+            <h2>
+
+                <i class="bi bi-plug-fill"></i>
+
+                Connect {{source}}
+
+            </h2>
+
+            <div class="dialog-body">
+
+                <div class="form-group" *ngIf="savedConnectionOptions.length">
+                    <label>Saved connections</label>
+                    <select [(ngModel)]="selectedSavedConnection" (change)="onSavedConnectionChange()">
+                        <option value="__new__">+ Add new connection...</option>
+                        <option *ngFor="let profile of savedConnectionOptions"
+                            [value]="getSavedProfileKey(profile)">
+                            {{ profile.server }} / {{ profile.database }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- ===============================================
+                DATABRICKS: TEXT INPUTS ONLY
+                ================================================-->
+
+                <ng-container *ngIf="source === 'Databricks'">
+
+                    <div class="form-group">
+
+                        <label>Server</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.server"
+                            placeholder="dbc-xxxxxxxx-xxxx.cloud.databricks.com">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Catalog (Unity Catalog)</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.database"
+                            placeholder="main">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Personal Access Token</label>
+
+                        <input
+                            type="password"
+                            [(ngModel)]="connection.password"
+                            placeholder="dapi...">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>HTTP Path</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.httpPath"
+                            placeholder="/sql/1.0/warehouses/xxxxxxxxxxxxxxxx">
+
+                    </div>
+
+                </ng-container>
+
+                <!-- ===============================================
+                OTHER SOURCES
+                ================================================-->
+
+                <ng-container *ngIf="source !== 'Databricks'">
+
+                    <div class="form-group">
+
+                        <label>Server</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.server">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Database</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.database">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Username</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.username">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Password</label>
+
+                        <input
+                            type="password"
+                            [(ngModel)]="connection.password">
+
+                    </div>
+
+                </ng-container>
+
+                <div class="remember-me-row">
+                    <input type="checkbox" [(ngModel)]="rememberMe" />
+                    <span>Remember me</span>
+                </div>
+
+            </div>
+
+            <div class="dialog-buttons">
+
+                <button
+                    class="cancel-btn"
+                    (click)="cancelConnection()"
+                    [disabled]="connecting">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    class="connect-btn"
+                    (click)="connectDatabase()"
+                    [disabled]="connecting">
+
+                    {{ connecting ? 'Connecting...' : 'Connect' }}
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================================================
+    LOGS DIALOG
+    ===========================================================-->
+
+    <div
+        class="dialog-overlay"
+        *ngIf="showLogsDialog">
+
+        <div class="logs-dialog">
+
+            <div class="logs-header">
+
+                <h2>
+
+                    Backend Information
+
+                </h2>
+
+                <button
+                    class="close-btn"
+                    (click)="closeLogsDialog()">
+
+                    <i class="bi bi-x-lg"></i>
+
+                </button>
+
+            </div>
+
+            <!-- Tabs -->
+
+            <div class="tab-header">
+
+                <button
+
+                    [class.active]="activeTab=='logs'"
+
+                    (click)="activeTab='logs'">
+
+                    Backend Logs
+
+                </button>
+
+                <button
+
+                    [class.active]="activeTab=='harness1'"
+
+                    (click)="activeTab='harness1'">
+
+                    Constraint Harness Layer
+
+                </button>
+
+                <button
+
+                    [class.active]="activeTab=='harness2'"
+
+                    (click)="activeTab='harness2'">
+
+                    Evaluator-Generator Feedback Layer
+
+                </button>
+
+                <button
+
+                    [class.active]="activeTab=='output'"
+
+                    (click)="activeTab='output'"
+                    style="margin-left: auto;">
+
+                    Generated Output
+
+                </button>
+
+            </div>
+
+            <!-- Backend Logs -->
+
+            <div
+                *ngIf="activeTab=='logs'"
+                class="logs-body">
+
+                <textarea
+                    readonly
+                    class="logs-window">
+
+{{statusMessages.join('\n')}}
+
+                </textarea>
+
+            </div>
+
+            <!-- Harness 1 -->
+
+            <div
+                *ngIf="activeTab=='harness1'"
+                class="logs-body harness1-body">
+
+                <div class="harness1-content">
+
+                    <div class="harness-feedback">
+
+                        <label for="harness-feedback-input">Feedback</label>
+
+                        <textarea
+                            id="harness-feedback-input"
+                            [(ngModel)]="harness1Feedback"
+                            placeholder="Enter feedback for the constraint harness..."
+                            aria-label="Constraint harness feedback"></textarea>
+
+                    </div>
+
+                    <textarea
+                        readonly
+                        class="logs-window">
+
+{{harness1Messages.join('\n')}}
+
+                    </textarea>
+
+                </div>
+
+                <div
+                    class="dialog-buttons"
+                    *ngIf="scanCompleted"
+                    style="margin-top: 15px; flex-shrink: 0;">
+
+                    <button
+                        class="cancel-btn"
+                        (click)="retryHarness1()">
+
+                        <i class="bi bi-arrow-repeat"></i>
+                        Retry
+
+                    </button>
+
+                    <button
+                        class="connect-btn"
+                        (click)="submitHarness1()">
+
+                        <i class="bi bi-check-lg"></i>
+                        Submit
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <!-- Harness 2 -->
+
+            <div
+                *ngIf="activeTab=='harness2'"
+                class="logs-body">
+
+                <textarea
+                    readonly
+                    class="logs-window">
+
+{{harness2Messages.join('\n')}}
+
+                </textarea>
+
+            </div>
+
+            <!-- Output -->
+
+            <div
+                *ngIf="activeTab=='output'"
+                class="logs-body">
+
+                <div *ngIf="scanCompleted" style="display: flex; flex-direction: column; height: 100%;">
+
+                    <button
+                        style="background: #FF5A1F; color: #ffffff; border: none; border-radius: 8px; padding: 12px 20px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; margin-bottom: 20px; width: 100%; transition: opacity 0.2s;"
+                        (click)="openScanCompletedDialogFromLogs()">
+
+                        <i class="bi bi-box-arrow-up-right"></i>
+
+                        Open Scan Completed Dialog
+
+                    </button>
+
+                    <div class="document-links" style="margin-top: 0; border-top: 1px solid #10243d; padding-top: 18px;">
+
+                        <p style="color: #8a99ad; font-size: 14px; margin-bottom: 15px;">
+                            Or access the generated documents directly below:
+                        </p>
+
+                        <a
+                            [href]="safeMetadataUrl"
+                            target="_blank"
+                            download
+                            class="doc-link">
+
+                            <i class="bi bi-file-earmark-word-fill word-icon"></i>
+
+                            Assessment Report
+
+                        </a>
+
+                        <a
+                            [href]="safeMigrationUrl"
+                            target="_blank"
+                            download
+                            class="doc-link">
+
+                            <i class="bi bi-file-earmark-word-fill word-icon"></i>
+
+                            AI Migration Plan
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+                <div *ngIf="!scanCompleted" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: #8a99ad; padding: 40px 0;">
+
+                    <i class="bi bi-file-earmark-lock-fill" style="font-size: 48px; color: #10243d; margin-bottom: 15px;"></i>
+
+                    <p style="font-size: 15px; font-weight: 500; margin: 0;">No documents generated yet. Please run the database scan first.</p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================================================
+    SCAN COMPLETED DIALOG
+    ===========================================================-->
+
+    <div
+        class="dialog-overlay"
+        *ngIf="showScanCompletedDialog">
+
+        <div class="dialog completed-dialog">
+
+            <h2>
+
+                <i class="bi bi-check-circle-fill success-icon"></i>
+
+                Scan Completed Successfully
+
+            </h2>
+
+            <div class="dialog-body">
+
+                <p>The database scan is completed. Here are the generated documents:</p>
+
+                <div class="document-links">
+
+                    <a
+                        [href]="safeMetadataUrl"
+                        target="_blank"
+                        download
+                        class="doc-link">
+
+                        <i class="bi bi-file-earmark-word-fill word-icon"></i>
+
+                        Assessment Report
+
+                    </a>
+
+                    <a
+                        [href]="safeMigrationUrl"
+                        target="_blank"
+                        download
+                        class="doc-link">
+
+                        <i class="bi bi-file-earmark-word-fill word-icon"></i>
+
+                        AI Migration Plan
+
+                    </a>
+
+                </div>
+
+            </div>
+
+            <div class="dialog-buttons">
+
+                <button
+                    class="connect-btn"
+                    (click)="closeScanCompletedDialog()">
+
+                    Close
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ==========================================================
+END PART 3
+===========================================================-->    

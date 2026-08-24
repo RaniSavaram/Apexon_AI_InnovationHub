@@ -1,0 +1,39 @@
+.header{
+
+    height:75px;
+
+    background:#030c18;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:0 20px;
+
+    border-bottom:2px solid #FF5A1F;
+
+}
+
+.title{
+
+    font-size:28px;
+
+    font-weight:700;
+
+}
+
+.title .white-text{
+    color:#ffffff;
+}
+
+.title .blue-text{
+    color:#38bdf8;
+}
+
+.logo img{
+
+    height:45px;
+
+}

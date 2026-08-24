@@ -17,6 +17,7 @@ db.sqlite3
 .env
 .env.*
 !.env.example
+BackEnd/config/saved_connections.json
 
 # Python cache/tools
 .pytest_cache/
