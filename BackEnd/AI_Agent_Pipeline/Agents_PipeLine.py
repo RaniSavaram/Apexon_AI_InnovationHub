@@ -166,6 +166,7 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     migration_plan_filename = f"{source_name}_Migration_Plan.docx"
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
     Logs["Harness Layer2"].append("Table summarizer agent completed.")
+    Logs["Scan Info"].append("[INFO] Starting assessment DOCX generation.")
     create_table_summary_document(overall_summary, table_summaries, table_summary_docx_path)
     Logs["Harness Layer2"].append("Assessment DOCX generated successfully.")
     
@@ -207,6 +208,7 @@ Columns Sample:
 """
     
     Logs["Harness Layer2"].append("Migration plan generator agent started.")
+    Logs["Scan Info"].append("[INFO] Starting migration plan agent.")
     agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)

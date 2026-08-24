@@ -97,6 +97,7 @@ def _run_scan_in_background(scan_id, destination):
             "status": status,
             "error": error,
             "result": result_data,
+            "phase": "completed" if status == "Completed" else "failed",
             "logs": {
                 "Token Info": list(Logs.get("Token Info", [])),
                 "Scan Info": list(Logs.get("Scan Info", [])),
@@ -303,6 +304,7 @@ def Db_Scanner(request):
             "destination": destination,
             "scan_id": scan_id,
             "error": None,
+            "phase": "starting",
         }
 
     Thread(target=_run_scan_in_background, args=(scan_id, destination), daemon=True).start()
