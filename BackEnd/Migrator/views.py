@@ -1,4 +1,6 @@
 from pathlib import Path
+from threading import Lock, Thread
+from uuid import uuid4
 
 from django.http import FileResponse, Http404
 from rest_framework.decorators import api_view
@@ -23,6 +25,39 @@ from Logs import Logs,reset_Logs
 
 Creds = PrivateVariables()
 source = None
+scan_jobs = {}
+scan_jobs_lock = Lock()
+
+
+def _scan_status(scan_id):
+    with scan_jobs_lock:
+        return scan_jobs.get(scan_id)
+
+
+def _run_scan_in_background(scan_id, destination):
+    try:
+        result = _run_scan(destination)
+        status = "Completed" if result.status_code < 400 else "Failed"
+        error = result.data.get("message") if status == "Failed" else None
+    except Exception as exc:
+        status = "Failed"
+        error = str(exc)
+
+    with scan_jobs_lock:
+        scan_jobs[scan_id].update({"status": status, "error": error})
+
+
+@api_view(["GET"])
+def scan_status(request, scan_id):
+    job = _scan_status(str(scan_id))
+    if not job:
+        return Response({"status": "Failed", "error": "Scan not found."}, status=404)
+
+    response = dict(job)
+    response["token info"] = list(Logs.get("Token Info", []))
+    response["scan info"] = list(Logs.get("Scan Info", []))
+    response["progressbar"] = Logs.get("Progress Percentage", 0)
+    return Response(response)
 
 
 def serve_generated_document(request, filename):
@@ -190,8 +225,27 @@ def saved_connections(request):
 
 @api_view(["GET", "POST"])
 def Db_Scanner(request):
+    scan_id = str(uuid4())
     destination = request.data.get("destination")
-    connection = request.data.get("connection", {})
+
+    with scan_jobs_lock:
+        scan_jobs[scan_id] = {
+            "status": "Running",
+            "source": source,
+            "destination": destination,
+            "scan_id": scan_id,
+            "error": None,
+        }
+
+    Thread(target=_run_scan_in_background, args=(scan_id, destination), daemon=True).start()
+    return Response({
+        "status": "started",
+        "message": "Database scan started.",
+        "scan_id": scan_id,
+    }, status=202)
+
+
+def _run_scan(destination):
 
     # Some DB types don't populate both fields: SQLite has no server (just
     # a database file path), Dynamics 365 has no database (just an org

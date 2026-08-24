@@ -7,6 +7,7 @@ from Migrator import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/scan/", views.Db_Scanner),
+    path("api/scan-status/<uuid:scan_id>/", views.scan_status),
     path("api/connect/", views.connect_database),
     path("api/connection/", views.saved_connection),
     path("api/connections/", views.saved_connections),
