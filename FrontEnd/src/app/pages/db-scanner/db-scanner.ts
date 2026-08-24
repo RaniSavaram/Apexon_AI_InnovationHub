@@ -840,6 +840,8 @@ export class DbScannerComponent {
   private pollScanStatus(scanId: string) {
     this.scanner.getScanStatus(scanId).subscribe({
       next: (status) => {
+        this.applyScanLogs(status.Logs);
+
         if (status.status === 'Running') {
           this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 2000);
           return;
@@ -849,6 +851,8 @@ export class DbScannerComponent {
           this.loading = false;
           this.scanStatus = 'Scan Failed';
           this.statusMessages.push(status.error ?? 'Database Scan Failed.');
+          this.showLogsDialog = true;
+          this.activeTab = 'logs';
           if (this.scanInterval) clearInterval(this.scanInterval);
           this.cdr.detectChanges();
           return;
@@ -869,6 +873,23 @@ export class DbScannerComponent {
         this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 3000);
       },
     });
+  }
+
+  private applyScanLogs(logs: Record<string, any> | undefined) {
+    if (!logs) return;
+    this.statusMessages = logs['Scan Info'] ?? this.statusMessages;
+    this.harness1Messages = logs['Harness Layer1'] ?? this.harness1Messages;
+    this.harness2Messages = logs['Harness Layer2'] ?? this.harness2Messages;
+    const tokenEntries = logs['Token Info'];
+    if (tokenEntries?.length) {
+      const latest = tokenEntries[tokenEntries.length - 1];
+      this.tokenInfo = {
+        total: latest.total ?? 0,
+        prompt: latest.prompt ?? 0,
+        completion: latest.completion ?? 0,
+        cost: latest.cost ?? '-',
+      };
+    }
   }
 
   //=========================================================
