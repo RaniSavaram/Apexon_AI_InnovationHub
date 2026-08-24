@@ -80,7 +80,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
 
     source_name = (source_hint or "database").replace(" ", "_").lower()
     try:
-        return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir)
+        return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint)
     except Exception as exc:
         Logs["Harness Layer2"].append(f"[FAILED] Layer 2 stopped: {exc}")
         Logs["Scan Info"].append(f"[ERROR] Assessment pipeline failed: {exc}")
@@ -104,7 +104,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
         orchestrator.cleanup_agents()
 
 
-def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir):
+def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None):
     # Create agents using Microsoft AI Foundry SDK
     Logs["Harness Layer2"] = [
         "HARNESS LAYER 2:",
