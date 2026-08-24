@@ -25,6 +25,11 @@ from HarnessLayers.layer1.Layer import layer1_Harness
 from HarnessLayers.Harness_Json_Log_Formatter import format_harness_report
 from Logs import Logs,reset_Logs
 
+DEFAULT_HARNESS_LAYER2_LOGS = [
+    "HARNESS LAYER 2:",
+    "Waiting for the AI assessment and migration report generation to finish.",
+]
+
 Creds = PrivateVariables()
 source = None
 scan_jobs = {}
@@ -78,7 +83,7 @@ def _run_scan_in_background(scan_id, destination):
                 "Token Info": list(Logs.get("Token Info", [])),
                 "Scan Info": list(Logs.get("Scan Info", [])),
                 "Harness Layer1": list(Logs.get("Harness Layer1", [])),
-                "Harness Layer2": list(Logs.get("Harness Layer2", [])),
+                "Harness Layer2": list(Logs.get("Harness Layer2", [])) or DEFAULT_HARNESS_LAYER2_LOGS,
             },
         })
 

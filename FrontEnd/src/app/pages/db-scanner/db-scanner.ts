@@ -880,7 +880,9 @@ export class DbScannerComponent {
     if (!logs) return;
     this.statusMessages = logs['Scan Info'] ?? this.statusMessages;
     this.harness1Messages = logs['Harness Layer1'] ?? this.harness1Messages;
-    this.harness2Messages = logs['Harness Layer2'] ?? this.harness2Messages;
+    this.harness2Messages = logs['Harness Layer2']?.length
+      ? logs['Harness Layer2']
+      : ['HARNESS LAYER 2:', 'No evaluator-generator messages were returned for this scan.'];
     const tokenEntries = logs['Token Info'];
     if (tokenEntries?.length) {
       const latest = tokenEntries[tokenEntries.length - 1];
