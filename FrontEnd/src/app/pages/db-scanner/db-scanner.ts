@@ -73,6 +73,10 @@ export class DbScannerComponent {
 
   migrationFile = '/output/AI_Migration_Plan.docx';
 
+  metadataReportDownloadName = 'Metadata Report.docx';
+
+  migrationPlanDownloadName = 'Migration Plan.docx';
+
   get safeMetadataUrl() {
     return this.sanitizer.bypassSecurityTrustUrl(this.metadataFile);
   }
@@ -83,6 +87,22 @@ export class DbScannerComponent {
 
   viewDocument(url: string) {
     window.open(`${url}${url.includes('?') ? '&' : '?'}view=1`, '_blank', 'noopener');
+  }
+
+  getFormatSourceForFilename(source: string): string {
+    if (!source) return 'Database';
+    const s = source.toLowerCase();
+    if (s === 'sqlserver' || s === 'sql server') return 'SQL Server';
+    if (s === 'databricks') return 'Databricks';
+    if (s === 'synapse') return 'Azure Synapse';
+    if (s === 'snowflake') return 'Snowflake';
+    if (s === 'dynamics365' || s === 'dynamics 365' || s === 'd365') return 'Dynamics 365';
+    if (s === 'sqlite') return 'SQLite';
+    if (s === 'oracle') return 'Oracle';
+    if (s === 'mysql') return 'MySQL';
+    if (s === 'postgres' || s === 'postgresql') return 'PostgreSQL';
+    if (s === 'sap') return 'SAP';
+    return source.charAt(0).toUpperCase() + source.slice(1);
   }
 
 
@@ -939,6 +959,11 @@ export class DbScannerComponent {
       if (outputFiles?.migration_plan) {
         this.migrationFile = `/output/${encodeURIComponent(outputFiles.migration_plan)}`;
       }
+
+      const selectedSource = this.lastScanSource || this.source || 'Database';
+      const formattedSource = this.getFormatSourceForFilename(selectedSource);
+      this.metadataReportDownloadName = `${formattedSource} Assessment Report.docx`;
+      this.migrationPlanDownloadName = `${formattedSource} Migration Plan.docx`;
 
       //----------------------------------------------------
       // Backend Logs

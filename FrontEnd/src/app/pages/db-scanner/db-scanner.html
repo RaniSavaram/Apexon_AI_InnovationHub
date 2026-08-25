@@ -714,13 +714,13 @@ SCAN STATUS + ACTION BUTTONS
 
                             <i class="bi bi-file-earmark-word-fill word-icon"></i>
 
-                            Assessment Report
+                            {{ getFormatSourceForFilename(lastScanSource || source) }} Assessment Report
 
                             <span class="doc-actions">
                                 <button type="button" class="doc-action" (click)="viewDocument(metadataFile)" title="View assessment report" aria-label="View assessment report">
                                     <i class="bi bi-eye-fill"></i>
                                 </button>
-                                <a [href]="safeMetadataUrl" download class="doc-action" title="Download assessment report" aria-label="Download assessment report">
+                                <a [href]="safeMetadataUrl" [download]="metadataReportDownloadName" class="doc-action" title="Download assessment report" aria-label="Download assessment report">
                                     <i class="bi bi-download"></i>
                                 </a>
                             </span>
@@ -731,13 +731,13 @@ SCAN STATUS + ACTION BUTTONS
 
                             <i class="bi bi-file-earmark-word-fill word-icon"></i>
 
-                            AI Migration Plan
+                            {{ getFormatSourceForFilename(lastScanSource || source) }} Migration Plan
 
                             <span class="doc-actions">
                                 <button type="button" class="doc-action" (click)="viewDocument(migrationFile)" title="View migration plan" aria-label="View migration plan">
                                     <i class="bi bi-eye-fill"></i>
                                 </button>
-                                <a [href]="safeMigrationUrl" download class="doc-action" title="Download migration plan" aria-label="Download migration plan">
+                                <a [href]="safeMigrationUrl" [download]="migrationPlanDownloadName" class="doc-action" title="Download migration plan" aria-label="Download migration plan">
                                     <i class="bi bi-download"></i>
                                 </a>
                             </span>
@@ -790,13 +790,13 @@ SCAN STATUS + ACTION BUTTONS
 
                         <i class="bi bi-file-earmark-word-fill word-icon"></i>
 
-                        Assessment Report
+                        {{ getFormatSourceForFilename(lastScanSource || source) }} Assessment Report
 
                         <span class="doc-actions">
                             <button type="button" class="doc-action" (click)="viewDocument(metadataFile)" title="View assessment report" aria-label="View assessment report">
                                 <i class="bi bi-eye-fill"></i>
                             </button>
-                            <a [href]="safeMetadataUrl" download class="doc-action" title="Download assessment report" aria-label="Download assessment report">
+                            <a [href]="safeMetadataUrl" [download]="metadataReportDownloadName" class="doc-action" title="Download assessment report" aria-label="Download assessment report">
                                 <i class="bi bi-download"></i>
                             </a>
                         </span>
@@ -807,13 +807,13 @@ SCAN STATUS + ACTION BUTTONS
 
                         <i class="bi bi-file-earmark-word-fill word-icon"></i>
 
-                        AI Migration Plan
+                        {{ getFormatSourceForFilename(lastScanSource || source) }} Migration Plan
 
                         <span class="doc-actions">
                             <button type="button" class="doc-action" (click)="viewDocument(migrationFile)" title="View migration plan" aria-label="View migration plan">
                                 <i class="bi bi-eye-fill"></i>
                             </button>
-                            <a [href]="safeMigrationUrl" download class="doc-action" title="Download migration plan" aria-label="Download migration plan">
+                            <a [href]="safeMigrationUrl" [download]="migrationPlanDownloadName" class="doc-action" title="Download migration plan" aria-label="Download migration plan">
                                 <i class="bi bi-download"></i>
                             </a>
                         </span>

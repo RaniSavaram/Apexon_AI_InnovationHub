@@ -63,7 +63,11 @@ def _scan_status(scan_id):
 
 def _run_scan_in_background(scan_id, destination):
     try:
-        result = _run_scan(destination)
+        job = None
+        with scan_jobs_lock:
+            job = scan_jobs.get(scan_id)
+        job_source = job.get("source") if job else None
+        result = _run_scan(destination, job_source)
         status = "Completed" if result.status_code < 400 else "Failed"
         error = result.data.get("message") if status == "Failed" else None
         result_data = dict(result.data)
@@ -280,11 +284,12 @@ def saved_connections(request):
 def Db_Scanner(request):
     scan_id = str(uuid4())
     destination = request.data.get("destination")
+    req_source = request.data.get("source") or source
 
     with scan_jobs_lock:
         scan_jobs[scan_id] = {
             "status": "Running",
-            "source": source,
+            "source": req_source,
             "destination": destination,
             "scan_id": scan_id,
             "error": None,
@@ -299,7 +304,7 @@ def Db_Scanner(request):
     }, status=202)
 
 
-def _run_scan(destination):
+def _run_scan(destination, scan_source=None):
 
     # Some DB types don't populate both fields: SQLite has no server (just
     # a database file path), Dynamics 365 has no database (just an org
@@ -316,7 +321,7 @@ def _run_scan(destination):
     Logs["Scan Info"].append(f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
     print(f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
 
-    db_type = (source or "").lower()
+    db_type = (scan_source or source or "").lower()
 
     if db_type == "sqlserver":
         obj = SQLServerExtractor(Creds)
@@ -389,7 +394,7 @@ def _run_scan(destination):
 
         Logs["Scan Info"].append(f"Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
         print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
-        output_files = Agents_PipeLine(metadata, source_hint=source)
+        output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source))
 
         Logs["Scan Info"].append(f"Output is avaliable at Show Logs embedded in the UI Screen")
         print(f"Output is avaliable at Show Logs embedded in the UI Screen")

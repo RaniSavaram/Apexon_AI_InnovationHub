@@ -10,7 +10,7 @@ from agents import TableSummarizerAgent, MigrationGeneratorAgent
 
 # Import metadata, document generation, and tools
 from metadataProcessor import collect_metadata, read_csv_robust, infer_sql_type
-from docx_generator import create_table_summary_document, create_migration_plan_document, set_cell_margins
+from docx_generator import create_table_summary_document, create_migration_plan_document, set_cell_margins, get_source_display_name
 from tools.database_tools import table_summary_tool, get_size_category
 from rag import identify_source_type, get_common_fabric_kb, get_source_kb
 from Logs import Logs
@@ -325,7 +325,8 @@ class AzureAIOrchestrator:
         if rag_context:
             rag_block = "Reference migration knowledge (ground SECTION 5-8 in this guidance; do not copy it verbatim and do not cite it as a source):\n" + rag_context + "\n\n"
 
-        user_msg = rag_block + "Here is the database metadata summary gathered from files:\n\n" + metadata_summary_str + "\n\nPlease generate the detailed text content and write-ups for Sections 1 to 9 of the Database Migration Plan."
+        source_display_name = get_source_display_name(self.source_type)
+        user_msg = rag_block + f"The source database platform is {source_display_name}.\nHere is the database metadata summary gathered from files:\n\n" + metadata_summary_str + f"\n\nPlease generate the detailed text content and write-ups for Sections 1 to 9 of the Database Migration Plan for {source_display_name}."
 
         return self.run_agent_with_tool_calling(
             agent_name=self.migration_plan_name,

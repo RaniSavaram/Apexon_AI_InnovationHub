@@ -279,6 +279,35 @@ def parse_relationship(row):
     return f"{parent}({col}) references {ref}({ref_col})"
 
 
+def get_source_display_name(source_hint):
+    if not source_hint:
+        return "Database"
+    
+    sh_low = source_hint.strip().lower()
+    if sh_low in ("sqlserver", "sql server"):
+        return "SQL Server"
+    elif sh_low == "synapse":
+        return "Azure Synapse"
+    elif sh_low == "snowflake":
+        return "Snowflake"
+    elif sh_low == "databricks":
+        return "Databricks"
+    elif sh_low in ("dynamics365", "dynamics 365", "d365"):
+        return "Dynamics 365"
+    elif sh_low == "sqlite":
+        return "SQLite"
+    elif sh_low == "oracle":
+        return "Oracle"
+    elif sh_low == "mysql":
+        return "MySQL"
+    elif sh_low in ("postgres", "postgresql"):
+        return "PostgreSQL"
+    elif sh_low == "sap":
+        return "SAP"
+    else:
+        return source_hint.title()
+
+
 def create_table_summary_document(overall_summary, table_summaries, output_path, source_hint="database", tables_df=None, columns_df=None, stats_df=None):
     """
     Compiles the redesigned Assessment Report into a Microsoft Word document (.docx)
@@ -286,13 +315,14 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     """
     print(f"[INFO] Generating Assessment Report: {output_path}...")
     doc = docx.Document()
+    source_hint_name = get_source_display_name(source_hint)
     
     # Title
     title_p = doc.add_paragraph()
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_p.paragraph_format.space_before = Pt(24)
     title_p.paragraph_format.space_after = Pt(24)
-    run = title_p.add_run("ASSESSMENT REPORT")
+    run = title_p.add_run(f"{source_hint_name.upper()} ASSESSMENT REPORT")
     set_run_font(run, name="Aptos", size_pt=28, bold=True, color_hex="0F4761")
     
     # Calculate metadata summary metrics
@@ -360,7 +390,7 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     populate_and_style_cell(table2.cell(0, 1), "Value", is_header=True)
     
     db_details = [
-        ("Source System", source_hint or "database"),
+        ("Source System", source_hint_name),
         ("Target System", "Microsoft Fabric"),
         ("Number of Tables", str(total_tables)),
         ("Schemas Evaluated", distinct_schemas),
@@ -495,7 +525,7 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     total_rows = stats_df["row_count"].sum() if stats_df is not None else 0
     total_size = round(stats_df["size_mb"].sum(), 4) if stats_df is not None else 0.0
     distinct_schemas = ", ".join(tables_df["schema_name"].unique()) if tables_df is not None else "dbo"
-    source_hint_name = "SQL Server" if (not source_hint or "sql" in source_hint.lower()) else source_hint
+    source_hint_name = get_source_display_name(source_hint)
     
     # Parse independent/dependent/root tables
     independent_tables = []
@@ -520,13 +550,13 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_p.paragraph_format.space_before = Pt(24)
     title_p.paragraph_format.space_after = Pt(6)
-    run = title_p.add_run("Database Migration Plan")
+    run = title_p.add_run(f"{source_hint_name} Migration Plan")
     set_run_font(run, name="Aptos", size_pt=26, bold=True, color_hex="0F4761")
     
     subtitle_p = doc.add_paragraph(style='Normal')
     subtitle_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     subtitle_p.paragraph_format.space_after = Pt(24)
-    run_sub = subtitle_p.add_run("AI Generated Migration Report")
+    run_sub = subtitle_p.add_run(f"AI Generated {source_hint_name} Migration Report")
     set_run_font(run_sub, name="Aptos", size_pt=12, italic=True, color_hex="666666")
 
     # ------------------ SECTION 1: METADATA INTERPRETATION ------------------
