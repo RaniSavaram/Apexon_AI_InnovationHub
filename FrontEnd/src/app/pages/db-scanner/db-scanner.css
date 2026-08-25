@@ -792,6 +792,32 @@ COMPLETED DIALOG / DOCUMENT LINKS
     transition:0.3s;
 }
 
+.doc-actions {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-left:auto;
+}
+
+.doc-action {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:34px;
+    height:34px;
+    border:1px solid #254264;
+    border-radius:6px;
+    background:#07182b;
+    color:#ffffff;
+    cursor:pointer;
+    text-decoration:none;
+}
+
+.doc-action:hover {
+    border-color:#ff5a1f;
+    color:#ff5a1f;
+}
+
 .doc-link:hover {
     border-color:#ff5a1f;
     background:rgba(255, 90, 31, 0.05);

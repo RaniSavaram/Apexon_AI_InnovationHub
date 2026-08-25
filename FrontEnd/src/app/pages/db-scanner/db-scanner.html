@@ -710,29 +710,39 @@ SCAN STATUS + ACTION BUTTONS
                             Or access the generated documents directly below:
                         </p>
 
-                        <a
-                            [href]="safeMetadataUrl"
-                            target="_blank"
-                            download
-                            class="doc-link">
+                        <div class="doc-link">
 
                             <i class="bi bi-file-earmark-word-fill word-icon"></i>
 
                             Assessment Report
 
-                        </a>
+                            <span class="doc-actions">
+                                <button type="button" class="doc-action" (click)="viewDocument(metadataFile)" title="View assessment report" aria-label="View assessment report">
+                                    <i class="bi bi-eye-fill"></i>
+                                </button>
+                                <a [href]="safeMetadataUrl" download class="doc-action" title="Download assessment report" aria-label="Download assessment report">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </span>
 
-                        <a
-                            [href]="safeMigrationUrl"
-                            target="_blank"
-                            download
-                            class="doc-link">
+                        </div>
+
+                        <div class="doc-link">
 
                             <i class="bi bi-file-earmark-word-fill word-icon"></i>
 
                             AI Migration Plan
 
-                        </a>
+                            <span class="doc-actions">
+                                <button type="button" class="doc-action" (click)="viewDocument(migrationFile)" title="View migration plan" aria-label="View migration plan">
+                                    <i class="bi bi-eye-fill"></i>
+                                </button>
+                                <a [href]="safeMigrationUrl" download class="doc-action" title="Download migration plan" aria-label="Download migration plan">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </span>
+
+                        </div>
 
                     </div>
 
@@ -776,29 +786,39 @@ SCAN STATUS + ACTION BUTTONS
 
                 <div class="document-links">
 
-                    <a
-                        [href]="safeMetadataUrl"
-                        target="_blank"
-                        download
-                        class="doc-link">
+                    <div class="doc-link">
 
                         <i class="bi bi-file-earmark-word-fill word-icon"></i>
 
                         Assessment Report
 
-                    </a>
+                        <span class="doc-actions">
+                            <button type="button" class="doc-action" (click)="viewDocument(metadataFile)" title="View assessment report" aria-label="View assessment report">
+                                <i class="bi bi-eye-fill"></i>
+                            </button>
+                            <a [href]="safeMetadataUrl" download class="doc-action" title="Download assessment report" aria-label="Download assessment report">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </span>
 
-                    <a
-                        [href]="safeMigrationUrl"
-                        target="_blank"
-                        download
-                        class="doc-link">
+                    </div>
+
+                    <div class="doc-link">
 
                         <i class="bi bi-file-earmark-word-fill word-icon"></i>
 
                         AI Migration Plan
 
-                    </a>
+                        <span class="doc-actions">
+                            <button type="button" class="doc-action" (click)="viewDocument(migrationFile)" title="View migration plan" aria-label="View migration plan">
+                                <i class="bi bi-eye-fill"></i>
+                            </button>
+                            <a [href]="safeMigrationUrl" download class="doc-action" title="Download migration plan" aria-label="Download migration plan">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </span>
+
+                    </div>
 
                 </div>
 

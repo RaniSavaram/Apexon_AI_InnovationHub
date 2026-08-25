@@ -125,7 +125,8 @@ def serve_generated_document(request, filename):
         raise Http404("Document not found.")
 
     response = FileResponse(file_path.open("rb"), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    response["Content-Disposition"] = f'attachment; filename="{file_path.name}"'
+    disposition = "inline" if request.GET.get("view") == "1" else "attachment"
+    response["Content-Disposition"] = f'{disposition}; filename="{file_path.name}"'
     return response
 
 

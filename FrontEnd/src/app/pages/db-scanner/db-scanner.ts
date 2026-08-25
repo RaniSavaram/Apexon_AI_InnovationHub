@@ -77,6 +77,10 @@ export class DbScannerComponent {
     return this.sanitizer.bypassSecurityTrustUrl(this.migrationFile);
   }
 
+  viewDocument(url: string) {
+    window.open(`${url}${url.includes('?') ? '&' : '?'}view=1`, '_blank', 'noopener');
+  }
+
 
   //=========================================================
   // SCAN STATUS
