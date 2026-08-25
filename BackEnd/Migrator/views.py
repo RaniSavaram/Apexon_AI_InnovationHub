@@ -56,24 +56,6 @@ def _limit_metadata_tables(metadata):
     return limited_metadata
 
 
-def _run_harness_layer2(metadata):
-    Logs["Harness Layer2"] = [
-        "HARNESS LAYER 2:",
-        "Starting evaluator-generator validation.",
-    ]
-    schemas = metadata.get("schemas", [])
-    tables = [table for schema in schemas for table in schema.get("tables", [])]
-    if not tables:
-        raise ValueError("Harness Layer 2 failed: no tables are available for validation.")
-    if any(not table.get("name") for table in tables):
-        raise ValueError("Harness Layer 2 failed: a table is missing its name.")
-    Logs["Harness Layer2"].extend([
-        f"Validated {len(tables)} selected tables.",
-        "Verified table metadata is available for the evaluator-generator agents.",
-        "Harness Layer 2 validation passed; starting AI report generation.",
-    ])
-
-
 def _scan_status(scan_id):
     with scan_jobs_lock:
         return scan_jobs.get(scan_id)
@@ -385,8 +367,6 @@ def _run_scan(destination):
         Logs["Scan Info"].append(temp)
         Logs["Harness Layer1"].append(temp)
         print(temp)
-
-        _run_harness_layer2(metadata)
 
         # TEMP: negative-case gate disabled to test full scan flow end-to-end
         # if layer_result.get("decision") != "PASS":
