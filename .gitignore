@@ -48,3 +48,6 @@ desktop.ini
 BackEnd/data/
 BackEnd/output/
 BackEnd/logs/
+BackEnd/AI_Agent_Pipeline.zip
+BackEnd/Artifacts_Generator.zip
+BackEnd/AI_Agent_Pipeline/output/*.docx

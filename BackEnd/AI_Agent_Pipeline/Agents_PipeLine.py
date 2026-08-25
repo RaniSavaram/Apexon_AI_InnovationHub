@@ -168,7 +168,17 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
     Logs["Harness Layer2"].append("Table summarizer agent completed.")
     Logs["Scan Info"].append("[INFO] Starting assessment DOCX generation.")
-    create_table_summary_document(overall_summary, table_summaries, table_summary_docx_path)
+    
+    create_table_summary_document(
+        overall_summary=overall_summary,
+        table_summaries=table_summaries,
+        output_path=table_summary_docx_path,
+        source_hint=source_hint,
+        tables_df=tables_df,
+        columns_df=columns_df,
+        stats_df=stats_df
+    )
+    
     Logs["Harness Layer2"].append("Assessment DOCX generated successfully.")
     
     # 5. Generate Database Migration Assessment Report
@@ -222,9 +232,22 @@ Columns Sample:
         procedures_df=procedures_df,
         agent_writeups=agent_writeups,
         output_path=migration_plan_docx_path,
-        tokens_used=orchestrator.tokens_used if orchestrator.client_type else None
+        tokens_used=orchestrator.tokens_used if orchestrator.client_type else None,
+        source_hint=source_hint
     )
     Logs["Harness Layer2"].append("Migration Plan DOCX generated successfully.")
+    
+    # Replicate files for compatibility with frontend and other components
+    import shutil
+    try:
+        shutil.copy2(table_summary_docx_path, os.path.join(output_dir, "Assesment Report.docx"))
+        shutil.copy2(table_summary_docx_path, os.path.join(output_dir, "Metadata_Report.docx"))
+        shutil.copy2(migration_plan_docx_path, os.path.join(output_dir, "AI_Migration_Plan.docx"))
+        shutil.copy2(migration_plan_docx_path, os.path.join(output_dir, "Migration_Assessment.docx"))
+        print("[INFO] Replicated reports for frontend compatibility.")
+    except Exception as copy_err:
+        print(f"[WARN] Failed to copy files for compatibility: {copy_err}")
+        
     print("\n==================================================")
     print("Assessment Pipeline Executed Successfully!")
     print(f"Total API Tokens Used: {orchestrator.tokens_used['total']}")

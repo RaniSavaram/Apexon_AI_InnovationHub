@@ -17,6 +17,7 @@ type changed, are reported as warnings and left untouched.
 """
 import os
 import sys
+import re
 from pathlib import Path
 
 import docx
@@ -41,55 +42,89 @@ def get_onelake_token():
 
 def parse_report(doc_path):
     doc = docx.Document(str(doc_path))
-    lines = [p.text.strip() for p in doc.paragraphs if p.text and p.text.strip()]
-
-    tables = []  # list of dicts: {schema, table, columns: [(name, type_raw)]}
+    
+    tables = []
     current = None
-    in_columns = False
+    in_columns_old = False
+    
+    for element in doc.element.body:
+        if element.tag.endswith('p'):
+            p = docx.text.paragraph.Paragraph(element, doc)
+            text = p.text.strip()
+            if not text:
+                continue
+                
+            # --- OLD FORMAT CHECK ---
+            if text.startswith("Table Name:"):
+                if current:
+                    tables.append(current)
+                t_name = text.split(":", 1)[1].strip()
+                current = {"schema": "dbo", "table": t_name, "columns": []}
+                in_columns_old = False
+                continue
+                
+            if current and text.startswith("Schema:"):
+                current["schema"] = text.split(":", 1)[1].strip()
+                continue
+                
+            if current and text.startswith("- Columns:"):
+                in_columns_old = True
+                continue
+                
+            if current and in_columns_old:
+                if text.startswith("-") and not text.startswith(BULLET):
+                    # ends the columns block
+                    in_columns_old = False
+                elif text.endswith(":") and not text.startswith(BULLET):
+                    in_columns_old = False
+                elif text.startswith(BULLET) or text.startswith("-") or text.startswith("*"):
+                    col_part = text.lstrip("•-*").strip()
+                    if "(" in col_part and ")" in col_part:
+                        name_part, type_part = col_part.split("(", 1)
+                        col_name = name_part.strip()
+                        data_type_raw = type_part.rsplit(")", 1)[0].strip()
+                    else:
+                        col_name = col_part.strip()
+                        data_type_raw = "string"
+                    current["columns"].append((col_name, data_type_raw))
+                continue
 
-    for line in lines:
-        if line.startswith("Table Name:"):
+            # --- NEW FORMAT CHECK ---
+            is_heading2 = False
+            if p.style and p.style.name == 'Heading 2':
+                is_heading2 = True
+            elif p.paragraph_format and p.style and p.style.name.startswith('Heading 2'):
+                is_heading2 = True
+                
+            if (is_heading2 or text.startswith("5.")) and re.match(r"^5\.\d+\s+", text):
+                if current:
+                    tables.append(current)
+                parts = text.split(" ", 1)
+                t_name = parts[1].strip()
+                current = {"schema": "dbo", "table": t_name, "columns": []}
+                in_columns_old = False
+                continue
+                
             if current:
-                tables.append(current)
-            current = {"schema": None, "table": line.split(":", 1)[1].strip(), "columns": []}
-            in_columns = False
-            continue
-
-        if current is None:
-            continue
-
-        if line.startswith("Schema:"):
-            current["schema"] = line.split(":", 1)[1].strip()
-            continue
-
-        if line.startswith("- Columns:"):
-            in_columns = True
-            continue
-
-        # Any other "- Label:" line inside Structure/General Info/etc. ends the columns block
-        if in_columns and line.startswith("-"):
-            in_columns = False
-            continue
-
-        # Section headers like "Dependencies:", "Usage:", "Summary:" also end it
-        if in_columns and line.endswith(":") and not line.startswith(BULLET):
-            in_columns = False
-            continue
-
-        if in_columns and line.startswith(BULLET):
-            col_part = line.lstrip(BULLET).strip()
-            if "(" in col_part and ")" in col_part:
-                name_part, type_part = col_part.split("(", 1)
-                col_name = name_part.strip()
-                data_type_raw = type_part.rsplit(")", 1)[0].strip()
-            else:
-                col_name = col_part.strip()
-                data_type_raw = "string"
-            current["columns"].append((col_name, data_type_raw))
-
+                match = re.search(r"The table ([a-zA-Z0-9_]+)\." + re.escape(current["table"]) + r" is mapped", text)
+                if match:
+                    current["schema"] = match.group(1)
+                    
+        elif element.tag.endswith('tbl') and current:
+            t = docx.table.Table(element, doc)
+            if len(t.rows) > 0 and len(t.columns) >= 2:
+                header_text = t.rows[0].cells[0].text.strip().lower()
+                if "column" in header_text:
+                    for row in t.rows[1:]:
+                        if len(row.cells) >= 2:
+                            c_name = row.cells[0].text.strip()
+                            c_type = row.cells[1].text.strip()
+                            if c_name and c_type:
+                                current["columns"].append((c_name, c_type))
+                                
     if current:
         tables.append(current)
-
+        
     return tables
 
 
