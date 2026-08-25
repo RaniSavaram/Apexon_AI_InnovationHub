@@ -308,6 +308,87 @@ def get_source_display_name(source_hint):
         return source_hint.title()
 
 
+def parse_agent_sections(agent_writeups):
+    sections = {}
+    if not agent_writeups:
+        return sections
+    
+    current_section = None
+    section_lines = []
+    
+    lines = str(agent_writeups).split("\n")
+    for line in lines:
+        match = re.search(r"SECTION\s+(\d+)", line, re.IGNORECASE)
+        if match:
+            if current_section is not None:
+                sections[current_section] = "\n".join(section_lines).strip()
+            current_section = int(match.group(1))
+            section_lines = []
+        else:
+            if current_section is not None:
+                section_lines.append(line)
+                
+    if current_section is not None:
+        sections[current_section] = "\n".join(section_lines).strip()
+        
+    return sections
+
+
+def parse_table_layers_from_agent(sections_text, tables_df):
+    mapping = {}
+    if not sections_text or tables_df is None:
+        return mapping
+    
+    lines = sections_text.split("\n")
+    for _, row in tables_df.iterrows():
+        t_name = row["table_name"]
+        for line in lines:
+            if t_name.lower() in line.lower():
+                layer = None
+                if "gold" in line.lower():
+                    layer = "Gold"
+                elif "silver" in line.lower():
+                    layer = "Silver"
+                elif "bronze" in line.lower():
+                    layer = "Bronze"
+                
+                if layer:
+                    reason = "Categorized based on dependencies and naming"
+                    parts = re.split(r"[-–—:|]", line)
+                    if len(parts) > 1:
+                        for idx, part in enumerate(parts):
+                            if layer.lower() in part.lower() and idx + 1 < len(parts):
+                                reason = parts[idx + 1].strip()
+                                break
+                    reason = re.sub(r"\*\*|__", "", reason)
+                    mapping[t_name] = (layer, reason)
+                    break
+    return mapping
+
+
+def add_agent_writeup_section(doc, sections, section_num):
+    writeup = sections.get(section_num)
+    if not writeup:
+        return
+    
+    lines = writeup.split("\n")
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+        
+        if re.match(r"^SECTION\s+\d+", line_stripped, re.IGNORECASE):
+            continue
+            
+        is_bullet = False
+        if line_stripped.startswith("•") or line_stripped.startswith("-") or line_stripped.startswith("*"):
+            is_bullet = True
+            line_stripped = re.sub(r"^[•\-*]\s*", "", line_stripped)
+            
+        line_stripped = re.sub(r"\*\*|__", "", line_stripped)
+        add_custom_paragraph(doc, line_stripped, is_bullet=is_bullet)
+
+
 def create_table_summary_document(overall_summary, table_summaries, output_path, source_hint="database", tables_df=None, columns_df=None, stats_df=None):
     """
     Compiles the redesigned Assessment Report into a Microsoft Word document (.docx)
@@ -518,6 +599,7 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     """
     print(f"[INFO] Generating Visual Migration Plan: {output_path}...")
     doc = docx.Document()
+    sections = parse_agent_sections(agent_writeups)
     
     # Calculate basic parameters upfront
     total_tables = len(tables_df) if tables_df is not None else 0
@@ -643,6 +725,10 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     else:
         add_custom_paragraph(doc, "None detected.", is_bullet=True)
         
+    if sections.get(1):
+        add_bold_label_paragraph(doc, "Detailed Metadata Observations:")
+        add_agent_writeup_section(doc, sections, 1)
+        
     add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 2: DEPENDENCY ANALYSIS ------------------
@@ -713,6 +799,10 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     for rt in root_tables:
         add_custom_paragraph(doc, rt, is_bullet=True)
         
+    if sections.get(2):
+        add_bold_label_paragraph(doc, "Detailed Dependency Findings:")
+        add_agent_writeup_section(doc, sections, 2)
+        
     add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 3: MIGRATION SEQUENCE ------------------
@@ -751,6 +841,10 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         populate_and_style_cell(table4.cell(idx + 1, 2), obj_t)
         populate_and_style_cell(table4.cell(idx + 1, 3), rsn)
         
+    if sections.get(3):
+        add_bold_label_paragraph(doc, "Detailed Migration Sequence Logic:")
+        add_agent_writeup_section(doc, sections, 3)
+        
     add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 4: BATCH MIGRATION PLAN ------------------
@@ -785,6 +879,10 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     else:
         add_custom_paragraph(doc, "None", is_bullet=True)
         
+    if sections.get(4):
+        add_bold_label_paragraph(doc, "Detailed Batch Ingestion Guidelines:")
+        add_agent_writeup_section(doc, sections, 4)
+        
     add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 5: MEDALLION ARCHITECTURE MAPPING ------------------
@@ -796,22 +894,28 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     
     # Table 5: Medallion mapping
     med_rows = []
+    parsed_layers = parse_table_layers_from_agent(sections.get(5), tables_df)
     if tables_df is not None:
         for _, row in tables_df.iterrows():
             t_name = row["table_name"]
-            is_dependent = False
-            if dep_df is not None and not dep_df.empty:
-                is_dependent = t_name in dep_df["parent_table"].values or t_name in dep_df["referenced_table"].values
             
-            if t_name.lower().startswith("demo") or "vehicle" in t_name.lower():
-                layer = "Gold"
-                reason = "Aggregated data"
-            elif is_dependent:
-                layer = "Silver"
-                reason = "Cleaned data"
+            if t_name in parsed_layers:
+                layer, reason = parsed_layers[t_name]
             else:
-                layer = "Bronze"
-                reason = "Raw ingestion"
+                is_dependent = False
+                if dep_df is not None and not dep_df.empty:
+                    is_dependent = t_name in dep_df["parent_table"].values or t_name in dep_df["referenced_table"].values
+                
+                t_name_lower = t_name.lower()
+                if "gold" in t_name_lower or "fact" in t_name_lower or "dim" in t_name_lower or "agg" in t_name_lower or "summary" in t_name_lower or t_name_lower.startswith("demo") or "vehicle" in t_name_lower:
+                    layer = "Gold"
+                    reason = "Aggregated reporting or analytical table"
+                elif "silver" in t_name_lower or is_dependent:
+                    layer = "Silver"
+                    reason = "Cleaned and relational structured table"
+                else:
+                    layer = "Bronze"
+                    reason = "Raw staging or ingestion layer"
             med_rows.append((t_name, layer, reason))
             
     table5 = doc.add_table(rows=len(med_rows) + 1, cols=3)
@@ -824,6 +928,10 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         populate_and_style_cell(table5.cell(idx + 1, 0), t, is_first_col=True)
         populate_and_style_cell(table5.cell(idx + 1, 1), lyr)
         populate_and_style_cell(table5.cell(idx + 1, 2), rsn)
+        
+    if sections.get(5):
+        add_bold_label_paragraph(doc, "Architectural Mapping Rationale:")
+        add_agent_writeup_section(doc, sections, 5)
         
     add_custom_paragraph(doc, "") # spacing
 
@@ -847,6 +955,10 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     for idx, (comp, role) in enumerate(fabric_details, start=1):
         populate_and_style_cell(table_fabric.cell(idx, 0), comp, is_first_col=True)
         populate_and_style_cell(table_fabric.cell(idx, 1), role)
+        
+    if sections.get(6):
+        add_bold_label_paragraph(doc, "Fabric Design Details:")
+        add_agent_writeup_section(doc, sections, 6)
         
     add_custom_paragraph(doc, "") # spacing
 
@@ -919,5 +1031,44 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         add_custom_paragraph(doc, "For Medium tables (demo_motorvehicle_source), use incremental load due to their size.")
     add_custom_paragraph(doc, "For Small tables, perform a full load.")
     
+    if sections.get(7):
+        add_bold_label_paragraph(doc, "Data Flow Architecture:")
+        add_agent_writeup_section(doc, sections, 7)
+    if sections.get(8):
+        add_bold_label_paragraph(doc, "Actionable Execution Strategy:")
+        add_agent_writeup_section(doc, sections, 8)
+        
+    # ------------------ SECTION 8: TOKEN AND COST REPORT ------------------
+    if sections.get(9) or tokens_used:
+        add_custom_paragraph(doc, "") # spacing
+        add_custom_heading(doc, "SECTION 8: TOKEN AND COST REPORT", 1)
+        add_custom_heading(doc, "Description:", 2, space_before=Pt(4))
+        add_custom_paragraph(doc, "This section summarizes the pipeline execution metrics and associated API cost estimates.")
+        
+        if tokens_used:
+            table_costs = doc.add_table(rows=4, cols=2)
+            table_costs.style = 'Table Grid'
+            populate_and_style_cell(table_costs.cell(0, 0), "Cost Metric", is_header=True)
+            populate_and_style_cell(table_costs.cell(0, 1), "Value", is_header=True)
+            
+            prompt_cost = (tokens_used.get("prompt", 0) / 1000000.0) * 0.15
+            comp_cost = (tokens_used.get("completion", 0) / 1000000.0) * 0.60
+            total_cost = prompt_cost + comp_cost
+            
+            cost_details = [
+                ("Prompt Tokens", str(tokens_used.get("prompt", 0))),
+                ("Completion Tokens", str(tokens_used.get("completion", 0))),
+                ("Estimated Cost (USD)", f"${total_cost:.5f}")
+            ]
+            for idx, (m, v) in enumerate(cost_details, start=1):
+                populate_and_style_cell(table_costs.cell(idx, 0), m, is_first_col=True)
+                populate_and_style_cell(table_costs.cell(idx, 1), v)
+                
+            add_custom_paragraph(doc, "") # spacing
+            
+        if sections.get(9):
+            add_bold_label_paragraph(doc, "Detailed Token Utilization:")
+            add_agent_writeup_section(doc, sections, 9)
+            
     doc.save(output_path)
     print(f"[INFO] Successfully saved Migration Plan.")
