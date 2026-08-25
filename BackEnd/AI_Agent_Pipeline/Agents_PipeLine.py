@@ -239,15 +239,14 @@ Columns Sample:
     print(f"  - Table Summaries: {table_summary_docx_path}")
     print(f"  - Migration Plan: {migration_plan_docx_path}")
     print("==================================================")
-    Logs["Harness Layer2"] = [
-        "HARNESS LAYER 2:",
+    Logs["Harness Layer2"].extend([
         "Evaluator-generator agents completed.",
         "Metadata loaded successfully.",
         "Schema relationships analyzed.",
         "Assessment report generated.",
         "Migration plan generated.",
         "AI output validated and ready for human review.",
-    ]
+    ])
     return {
         "assessment_report": table_summary_filename,
         "migration_plan": migration_plan_filename,
