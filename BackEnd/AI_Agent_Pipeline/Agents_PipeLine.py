@@ -239,13 +239,22 @@ Columns Sample:
     print(f"  - Table Summaries: {table_summary_docx_path}")
     print(f"  - Migration Plan: {migration_plan_docx_path}")
     print("==================================================")
+    generated_sections = sum(
+        f"SECTION {section}" in str(agent_writeups).upper()
+        for section in range(1, 10)
+    )
     Logs["Harness Layer2"].extend([
-        "Evaluator-generator agents completed.",
-        "Metadata loaded successfully.",
-        "Schema relationships analyzed.",
-        "Assessment report generated.",
-        "Migration plan generated.",
-        "AI output validated and ready for human review.",
+        "EVALUATOR-GENERATOR OUTPUT:",
+        f"Source: {source_hint or 'unknown'}",
+        f"Tables analyzed: {len(tables_df)}",
+        f"Columns analyzed: {len(columns_df)}",
+        f"Migration plan sections generated: {generated_sections}/9",
+        f"Assessment report: {Path(table_summary_docx_path).name} ({Path(table_summary_docx_path).stat().st_size} bytes)",
+        f"Migration report: {Path(migration_plan_docx_path).name} ({Path(migration_plan_docx_path).stat().st_size} bytes)",
+        f"Prompt tokens: {orchestrator.tokens_used['prompt']}",
+        f"Completion tokens: {orchestrator.tokens_used['completion']}",
+        f"Total tokens: {orchestrator.tokens_used['total']}",
+        "Evaluator-generator output validated and ready for human review.",
     ])
     return {
         "assessment_report": table_summary_filename,
