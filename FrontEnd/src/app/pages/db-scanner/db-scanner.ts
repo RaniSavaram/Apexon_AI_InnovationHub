@@ -58,6 +58,10 @@ export class DbScannerComponent {
 
   showScanCompletedDialog = false;
 
+  showConnectionSuccessDialog = false;
+
+  connectionSuccessMessage = '';
+
   backendCompleted = false;
 
   backendResponse: any;
@@ -630,9 +634,9 @@ export class DbScannerComponent {
           'Database Connected Successfully.'
         );
 
-        setTimeout(() => {
-          alert(response.message ?? 'Connection Successful');
-        }, 100);
+        this.connectionSuccessMessage = response.message ?? 'Connection successful.';
+        this.showConnectionSuccessDialog = true;
+        this.cdr.detectChanges();
 
       },
 
@@ -1102,6 +1106,10 @@ export class DbScannerComponent {
 
     this.showScanCompletedDialog = false;
 
+  }
+
+  closeConnectionSuccessDialog() {
+    this.showConnectionSuccessDialog = false;
   }
 
   //=========================================================

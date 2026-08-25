@@ -842,6 +842,31 @@ SCAN STATUS + ACTION BUTTONS
 
 </div>
 
+    <div
+        class="dialog-overlay"
+        *ngIf="showConnectionSuccessDialog">
+
+        <div class="dialog connection-success-dialog">
+            <h2>
+                <i class="bi bi-check-circle-fill success-icon"></i>
+                Connection Successful
+            </h2>
+
+            <div class="dialog-body">
+                <p>{{connectionSuccessMessage}}</p>
+            </div>
+
+            <div class="dialog-buttons">
+                <button
+                    class="connect-btn"
+                    (click)="closeConnectionSuccessDialog()">
+                    Continue
+                </button>
+            </div>
+        </div>
+
+    </div>
+
 <!-- ==========================================================
 END PART 3
 ===========================================================-->    

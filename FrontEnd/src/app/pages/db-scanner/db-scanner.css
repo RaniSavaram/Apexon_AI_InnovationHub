@@ -770,6 +770,14 @@ COMPLETED DIALOG / DOCUMENT LINKS
     border:1px solid #0e223a;
 }
 
+.connection-success-dialog {
+    border-color:#22c55e;
+}
+
+.connection-success-dialog .success-icon {
+    color:#22c55e;
+}
+
 .document-links {
     display:flex;
     flex-direction:column;
