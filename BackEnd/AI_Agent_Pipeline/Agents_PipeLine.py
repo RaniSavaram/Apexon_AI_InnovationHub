@@ -243,19 +243,14 @@ Columns Sample:
         f"SECTION {section}" in str(agent_writeups).upper()
         for section in range(1, 10)
     )
-    Logs["Harness Layer2"].extend([
-        "EVALUATOR-GENERATOR OUTPUT:",
-        f"Source: {source_hint or 'unknown'}",
-        f"Tables analyzed: {len(tables_df)}",
-        f"Columns analyzed: {len(columns_df)}",
-        f"Migration plan sections generated: {generated_sections}/9",
-        f"Assessment report: {Path(table_summary_docx_path).name} ({Path(table_summary_docx_path).stat().st_size} bytes)",
-        f"Migration report: {Path(migration_plan_docx_path).name} ({Path(migration_plan_docx_path).stat().st_size} bytes)",
-        f"Prompt tokens: {orchestrator.tokens_used['prompt']}",
-        f"Completion tokens: {orchestrator.tokens_used['completion']}",
-        f"Total tokens: {orchestrator.tokens_used['total']}",
-        "Evaluator-generator output validated and ready for human review.",
-    ])
+    Logs["Harness Layer2"].append(
+        f"[VALIDATION] {source_hint or 'unknown'}: {len(tables_df)} tables, "
+        f"{len(columns_df)} columns, {generated_sections}/9 migration sections."
+    )
+    Logs["Harness Layer2"].append(
+        f"[VALIDATION] Reports verified: {Path(table_summary_docx_path).name}, "
+        f"{Path(migration_plan_docx_path).name}."
+    )
     return {
         "assessment_report": table_summary_filename,
         "migration_plan": migration_plan_filename,

@@ -199,6 +199,7 @@ class AzureAIOrchestrator:
         self.tokens_used["total"] += total
 
     def run_agent_with_tool_calling(self, agent_name, user_msg, tool_map=None):
+        Logs["Harness Layer2"].append(f"[AGENT START] {agent_name}")
         # 1. Get OpenAI client bound to this agent
         openai_client = self.client.get_openai_client(agent_name=agent_name)
         
@@ -217,6 +218,9 @@ class AzureAIOrchestrator:
             }
         )
         self._accumulate_usage(response) 
+        Logs["Harness Layer2"].append(
+            f"[AGENT RESPONSE] {agent_name}: initial response received."
+        )
         
         # 4. Handle tool execution loops
         while True:
@@ -228,6 +232,10 @@ class AzureAIOrchestrator:
             for item in tool_calls:
                 func_name = item.name
                 func_args = json.loads(item.arguments)
+                Logs["Harness Layer2"].append(
+                    f"[TOOL REQUEST] {agent_name} requested {func_name} for "
+                    f"{func_args.get('schema_name', '')}.{func_args.get('table_name', '')}."
+                )
                 Logs["Scan Info"].append(f"  [AGENT RUN] Agent requested function '{func_name}' with args {func_args}...")
                 print(f"  [AGENT RUN] Agent requested function '{func_name}' with args {func_args}...")
                 
@@ -235,6 +243,7 @@ class AzureAIOrchestrator:
                     try:
                         output_str = tool_map[func_name](**func_args)
                     except Exception as e:
+                        Logs["Harness Layer2"].append(f"[TOOL FAILED] {func_name}: {e}")
                         Logs["Scan Info"].append(f"Error executing tool: {e}")
                         output_str = f"Error executing tool: {e}"
                 else:
@@ -254,6 +263,7 @@ class AzureAIOrchestrator:
                         "output": output_str
                     }
                 input_list.append(output_item)
+                Logs["Harness Layer2"].append(f"[TOOL COMPLETE] {func_name} returned.")
             Logs["Scan Info"].append(f"   [AGENT RUN] Submitting tool outputs back to agent...")
             print(f"  [AGENT RUN] Submitting tool outputs back to agent...")
             response = openai_client.responses.create(
@@ -261,13 +271,20 @@ class AzureAIOrchestrator:
                 input=input_list
             )
             self._accumulate_usage(response) 
+            Logs["Harness Layer2"].append(
+                f"[AGENT RESPONSE] {agent_name}: follow-up response received."
+            )
             
         # 5. Clean up conversation if supported, then return text
         try:
             openai_client.conversations.delete(conversation_id=conversation.id)
         except Exception:
             print(Exception)
-        return response.output_text
+        output_text = response.output_text
+        Logs["Harness Layer2"].append(
+            f"[AGENT COMPLETE] {agent_name}: generated {len(output_text or '')} characters."
+        )
+        return output_text
 
     def run_table_summarizer_agent(self, table_name, schema_name=None):
         Logs["Scan Info"].append(f"[INFO] Running Table Summarizer Agent for table '{table_name}' (Schema: '{schema_name}')...")
