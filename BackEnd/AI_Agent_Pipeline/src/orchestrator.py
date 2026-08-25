@@ -115,14 +115,27 @@ class AzureAIOrchestrator:
         straight into a prompt without extra branching.
         """
         sections = []
+        source_name_clean = (self.source_type or "").lower().strip()
+        
         if self._common_kb:
-            text = self._common_kb.retrieve_as_text(query, top_k=top_k, max_chars_per_chunk=max_chars_per_chunk)
-            if text:
-                sections.append(text)
+            # Retrieve slightly more than top_k to account for filtered items
+            raw_sections = self._common_kb.retrieve(query, top_k=top_k + 8, max_chars_per_chunk=max_chars_per_chunk)
+            filtered_sections = []
+            for heading, text in raw_sections:
+                # If active source is NOT databricks, exclude any databricks-specific guidelines
+                if source_name_clean != "databricks":
+                    if "databricks" in heading.lower() or "databricks" in text.lower():
+                        continue
+                filtered_sections.append((heading, text))
+            
+            for heading, text in filtered_sections[:top_k]:
+                sections.append(f"[{self._common_kb.label}] {heading}\n{text}")
+                
         if self._source_kb:
-            text = self._source_kb.retrieve_as_text(query, top_k=top_k, max_chars_per_chunk=max_chars_per_chunk)
-            if text:
-                sections.append(text)
+            raw_sections = self._source_kb.retrieve(query, top_k=top_k, max_chars_per_chunk=max_chars_per_chunk)
+            for heading, text in raw_sections:
+                sections.append(f"[{self._source_kb.label}] {heading}\n{text}")
+                
         return "\n\n".join(sections)
 
     def _delete_if_exists(self, agent_name):
