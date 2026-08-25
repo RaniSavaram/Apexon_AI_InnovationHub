@@ -1,12 +1,12 @@
 {
   "/api": {
-    "target": "https://apexon-ai-innovationhub-new.onrender.com",
-    "secure": true,
+    "target": "http://localhost:8000",
+    "secure": false,
     "changeOrigin": true
   },
   "/output": {
-    "target": "https://apexon-ai-innovationhub-new.onrender.com",
-    "secure": true,
+    "target": "http://localhost:8000",
+    "secure": false,
     "changeOrigin": true
   }
 }
