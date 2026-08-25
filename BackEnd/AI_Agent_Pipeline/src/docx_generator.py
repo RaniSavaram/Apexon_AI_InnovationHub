@@ -813,20 +813,40 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     add_bold_label_paragraph(doc, "Execution Order Table:")
     
     # Table 4: Execution Order
+    levels = {t: 1 for t in independent_tables}
+    for _ in range(10):
+        changed = False
+        if dep_df is not None and not dep_df.empty:
+            for _, row in dep_df.iterrows():
+                parent = row["parent_table"]
+                ref = row["referenced_table"]
+                ref_level = levels.get(ref, 1)
+                parent_level = levels.get(parent, 1)
+                if ref_level >= parent_level:
+                    levels[parent] = ref_level + 1
+                    changed = True
+        if not changed:
+            break
+            
     seq_list = []
-    for it in independent_tables:
-        seq_list.append(("1", it, "Table", "Independent"))
+    all_tables = []
+    if tables_df is not None:
+        for _, row in tables_df.iterrows():
+            all_tables.append(row["table_name"])
+    all_tables = list(set(all_tables))
+    sorted_tables = sorted(all_tables, key=lambda t: levels.get(t, 1))
     
-    if dep_df is not None and not dep_df.empty:
-        for _, row in dep_df.iterrows():
-            parent = row["parent_table"]
-            ref = row["referenced_table"]
-            order_val = "2"
-            if parent.lower() == "de_employee" or ref.lower() == "de_department":
-                order_val = "3" if parent.lower() == "de_employee" else "2"
-            if ref in dependent_tables:
-                order_val = "3"
-            seq_list.append((order_val, parent, "Table", f"Dependent on {ref}"))
+    for t_name in sorted_tables:
+        order_val = str(levels.get(t_name, 1))
+        is_dep = t_name in dependent_tables
+        if is_dep:
+            deps = []
+            if dep_df is not None and not dep_df.empty:
+                deps = dep_df[dep_df["parent_table"] == t_name]["referenced_table"].tolist()
+            deps_str = f"Dependent on {', '.join(deps)}" if deps else "Dependent"
+            seq_list.append((order_val, t_name, "Table", deps_str))
+        else:
+            seq_list.append((order_val, t_name, "Table", "Independent"))
             
     table4 = doc.add_table(rows=len(seq_list) + 1, cols=4)
     table4.style = 'Table Grid'
@@ -1026,10 +1046,9 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     medium_tables = stats_df[stats_df["size_mb"] >= 10.0]["table_name"].tolist() if stats_df is not None else []
     if len(medium_tables) > 0:
         med_str = ", ".join(medium_tables)
-        add_custom_paragraph(doc, f"For Medium tables ({med_str}), use incremental load due to their size.")
+        add_custom_paragraph(doc, f"For Medium/Large tables ({med_str}), use incremental load due to their size.")
     else:
-        add_custom_paragraph(doc, "For Medium tables (demo_motorvehicle_source), use incremental load due to their size.")
-    add_custom_paragraph(doc, "For Small tables, perform a full load.")
+        add_custom_paragraph(doc, "For all scanned tables, a full load strategy is recommended since all tables are within the small size threshold.")
     
     if sections.get(7):
         add_bold_label_paragraph(doc, "Data Flow Architecture:")
