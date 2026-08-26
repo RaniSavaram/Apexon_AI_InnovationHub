@@ -128,6 +128,17 @@ def serve_generated_document(request, filename):
     if file_path.suffix.lower() != ".docx" or not file_path.is_file():
         raise Http404("Document not found.")
 
+    if request.GET.get("view") == "1":
+        host = request.get_host()
+        if "localhost" not in host and "127.0.0.1" not in host:
+            from django.http import HttpResponseRedirect
+            import urllib.parse
+            public_url = request.build_absolute_uri(request.path)
+            if public_url.startswith("http://"):
+                public_url = "https://" + public_url[7:]
+            viewer_url = f"https://view.officeapps.live.com/op/view.aspx?src={urllib.parse.quote(public_url)}"
+            return HttpResponseRedirect(viewer_url)
+
     response = FileResponse(file_path.open("rb"), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     disposition = "inline" if request.GET.get("view") == "1" else "attachment"
     response["Content-Disposition"] = f'{disposition}; filename="{file_path.name}"'
