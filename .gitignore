@@ -52,3 +52,4 @@ BackEnd/output/
 BackEnd/logs/
 BackEnd/scratch/
 BackEnd/AI_Agent_Pipeline/output/*.docx
+samples/

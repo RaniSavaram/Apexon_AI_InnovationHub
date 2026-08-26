@@ -725,10 +725,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     else:
         add_custom_paragraph(doc, "None detected.", is_bullet=True)
         
-    if sections.get(1):
-        add_bold_label_paragraph(doc, "Detailed Metadata Observations:")
-        add_agent_writeup_section(doc, sections, 1)
-        
     add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 2: DEPENDENCY ANALYSIS ------------------
@@ -799,10 +795,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     for rt in root_tables:
         add_custom_paragraph(doc, rt, is_bullet=True)
         
-    if sections.get(2):
-        add_bold_label_paragraph(doc, "Detailed Dependency Findings:")
-        add_agent_writeup_section(doc, sections, 2)
-        
     add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 3: MIGRATION SEQUENCE ------------------
@@ -861,10 +853,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         populate_and_style_cell(table4.cell(idx + 1, 2), obj_t)
         populate_and_style_cell(table4.cell(idx + 1, 3), rsn)
         
-    if sections.get(3):
-        add_bold_label_paragraph(doc, "Detailed Migration Sequence Logic:")
-        add_agent_writeup_section(doc, sections, 3)
-        
     add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 4: BATCH MIGRATION PLAN ------------------
@@ -898,10 +886,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
             add_custom_paragraph(doc, row["procedure_name"], is_bullet=True)
     else:
         add_custom_paragraph(doc, "None", is_bullet=True)
-        
-    if sections.get(4):
-        add_bold_label_paragraph(doc, "Detailed Batch Ingestion Guidelines:")
-        add_agent_writeup_section(doc, sections, 4)
         
     add_custom_paragraph(doc, "") # spacing
 
@@ -949,10 +933,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         populate_and_style_cell(table5.cell(idx + 1, 1), lyr)
         populate_and_style_cell(table5.cell(idx + 1, 2), rsn)
         
-    if sections.get(5):
-        add_bold_label_paragraph(doc, "Architectural Mapping Rationale:")
-        add_agent_writeup_section(doc, sections, 5)
-        
     add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 6: MICROSOFT FABRIC ARCHITECTURE ------------------
@@ -975,10 +955,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     for idx, (comp, role) in enumerate(fabric_details, start=1):
         populate_and_style_cell(table_fabric.cell(idx, 0), comp, is_first_col=True)
         populate_and_style_cell(table_fabric.cell(idx, 1), role)
-        
-    if sections.get(6):
-        add_bold_label_paragraph(doc, "Fabric Design Details:")
-        add_agent_writeup_section(doc, sections, 6)
         
     add_custom_paragraph(doc, "") # spacing
 
@@ -1050,12 +1026,7 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     else:
         add_custom_paragraph(doc, "For all scanned tables, a full load strategy is recommended since all tables are within the small size threshold.")
     
-    if sections.get(7):
-        add_bold_label_paragraph(doc, "Data Flow Architecture:")
-        add_agent_writeup_section(doc, sections, 7)
-    if sections.get(8):
-        add_bold_label_paragraph(doc, "Actionable Execution Strategy:")
-        add_agent_writeup_section(doc, sections, 8)
+
         
     # ------------------ SECTION 8: TOKEN AND COST REPORT ------------------
     if sections.get(9) or tokens_used:
@@ -1085,9 +1056,7 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
                 
             add_custom_paragraph(doc, "") # spacing
             
-        if sections.get(9):
-            add_bold_label_paragraph(doc, "Detailed Token Utilization:")
-            add_agent_writeup_section(doc, sections, 9)
+
             
     doc.save(output_path)
     print(f"[INFO] Successfully saved Migration Plan.")

@@ -942,15 +942,3 @@ SCROLLBAR
 .logs-window::-webkit-scrollbar-track{
     background:#030c18;
 }
-
-.version-badge {
-    font-size: 12px;
-    background: #FF5A1F;
-    color: white;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-weight: 500;
-    vertical-align: middle;
-    margin-left: 10px;
-    display: inline-block;
-}
