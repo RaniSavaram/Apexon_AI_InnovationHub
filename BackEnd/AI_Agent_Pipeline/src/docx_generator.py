@@ -454,8 +454,6 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     for idx, (m, v) in enumerate(metrics, start=1):
         populate_and_style_cell(table1.cell(idx, 0), m, is_first_col=True)
         populate_and_style_cell(table1.cell(idx, 1), v)
-    
-    add_custom_paragraph(doc, "") # spacing
 
     # Section 2: Assessment Scope
     schemas_list = [s.strip() for s in str(distinct_schemas).split(",") if s.strip()]
@@ -481,8 +479,6 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     for idx, (p, v) in enumerate(db_details, start=1):
         populate_and_style_cell(table2.cell(idx, 0), p, is_first_col=True)
         populate_and_style_cell(table2.cell(idx, 1), v)
-        
-    add_custom_paragraph(doc, "") # spacing
 
     # Section 4: Overall Status & Key Findings
     add_custom_heading(doc, "4. Overall Status & Key Findings", 1)
@@ -503,8 +499,6 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     for idx, (a, s) in enumerate(status_areas, start=1):
         populate_and_style_cell(table3.cell(idx, 0), a, is_first_col=True)
         populate_and_style_cell(table3.cell(idx, 1), s)
-        
-    add_custom_paragraph(doc, "") # spacing
     
     add_custom_heading(doc, "Key Findings", 2, space_before=Pt(6))
     table4 = doc.add_table(rows=5, cols=2)
@@ -521,8 +515,6 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     for idx, (a, f) in enumerate(findings, start=1):
         populate_and_style_cell(table4.cell(idx, 0), a, is_first_col=True)
         populate_and_style_cell(table4.cell(idx, 1), f)
-        
-    add_custom_paragraph(doc, "") # spacing
 
     # Section 5: Table-Wise Assessment
     add_custom_heading(doc, "5. Table-Wise Assessment", 1)
@@ -557,8 +549,6 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
             populate_and_style_cell(col_table.cell(c_idx, 0), col_name, is_first_col=True)
             populate_and_style_cell(col_table.cell(c_idx, 1), col_type)
             populate_and_style_cell(col_table.cell(c_idx, 2), key_type)
-            
-        add_custom_paragraph(doc, "") # spacing
         
         # Findings Table
         add_custom_paragraph(doc, "Findings Metadata:")
@@ -580,8 +570,6 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
         for f_idx, (a, fd) in enumerate(table_findings, start=1):
             populate_and_style_cell(findings_table.cell(f_idx, 0), a, is_first_col=True)
             populate_and_style_cell(findings_table.cell(f_idx, 1), fd)
-            
-        add_custom_paragraph(doc, "") # spacing
 
     # Section 6: Assessment Conclusion
     add_custom_heading(doc, "6. Assessment Conclusion", 1)
@@ -724,8 +712,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
             add_custom_paragraph(doc, bullet_text, is_bullet=True)
     else:
         add_custom_paragraph(doc, "None detected.", is_bullet=True)
-        
-    add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 2: DEPENDENCY ANALYSIS ------------------
     add_custom_heading(doc, "SECTION 2: DEPENDENCY ANALYSIS", 1)
@@ -794,8 +780,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     add_bold_label_paragraph(doc, "Root Tables:")
     for rt in root_tables:
         add_custom_paragraph(doc, rt, is_bullet=True)
-        
-    add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 3: MIGRATION SEQUENCE ------------------
     add_custom_heading(doc, "SECTION 3: MIGRATION SEQUENCE", 1)
@@ -852,8 +836,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         populate_and_style_cell(table4.cell(idx + 1, 1), obj)
         populate_and_style_cell(table4.cell(idx + 1, 2), obj_t)
         populate_and_style_cell(table4.cell(idx + 1, 3), rsn)
-        
-    add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 4: BATCH MIGRATION PLAN ------------------
     add_custom_heading(doc, "SECTION 4: BATCH MIGRATION PLAN", 1)
@@ -886,8 +868,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
             add_custom_paragraph(doc, row["procedure_name"], is_bullet=True)
     else:
         add_custom_paragraph(doc, "None", is_bullet=True)
-        
-    add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 5: MEDALLION ARCHITECTURE MAPPING ------------------
     add_custom_heading(doc, "SECTION 5: MEDALLION ARCHITECTURE MAPPING", 1)
@@ -932,8 +912,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         populate_and_style_cell(table5.cell(idx + 1, 0), t, is_first_col=True)
         populate_and_style_cell(table5.cell(idx + 1, 1), lyr)
         populate_and_style_cell(table5.cell(idx + 1, 2), rsn)
-        
-    add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 6: MICROSOFT FABRIC ARCHITECTURE ------------------
     add_custom_heading(doc, "SECTION 6: MICROSOFT FABRIC ARCHITECTURE", 1)
@@ -955,8 +933,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     for idx, (comp, role) in enumerate(fabric_details, start=1):
         populate_and_style_cell(table_fabric.cell(idx, 0), comp, is_first_col=True)
         populate_and_style_cell(table_fabric.cell(idx, 1), role)
-        
-    add_custom_paragraph(doc, "") # spacing
 
     # ------------------ SECTION 7: EXECUTION PLAN (ACTIONABLE) ------------------
     add_custom_heading(doc, "SECTION 7: EXECUTION PLAN (ACTIONABLE)", 1)
@@ -1030,7 +1006,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         
     # ------------------ SECTION 8: TOKEN AND COST REPORT ------------------
     if sections.get(9) or tokens_used:
-        add_custom_paragraph(doc, "") # spacing
         add_custom_heading(doc, "SECTION 8: TOKEN AND COST REPORT", 1)
         add_custom_heading(doc, "Description:", 2, space_before=Pt(4))
         add_custom_paragraph(doc, "This section summarizes the pipeline execution metrics and associated API cost estimates.")
@@ -1054,9 +1029,6 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
                 populate_and_style_cell(table_costs.cell(idx, 0), m, is_first_col=True)
                 populate_and_style_cell(table_costs.cell(idx, 1), v)
                 
-            add_custom_paragraph(doc, "") # spacing
-            
-
             
     doc.save(output_path)
     print(f"[INFO] Successfully saved Migration Plan.")
