@@ -61,13 +61,48 @@ def _scan_status(scan_id):
         return scan_jobs.get(scan_id)
 
 
+def update_scan_job_state(scan_id=None, progress=None, current_message=None, log_entry=None, log_type="Scan Info"):
+    if log_entry:
+        print(f"[LOG][{log_type}] {log_entry}")
+        if log_type in Logs:
+            Logs[log_type].append(log_entry)
+        if log_type == "Scan Info":
+            Logs["Scan Info"].append(log_entry)
+
+    if progress is not None:
+        Logs["Progress Percentage"] = progress
+
+    if not scan_id:
+        return
+
+    with scan_jobs_lock:
+        job = scan_jobs.get(scan_id)
+        if not job:
+            return
+        if progress is not None:
+            job["progress"] = progress
+        if current_message is not None:
+            job["current_message"] = current_message
+        if log_entry:
+            if log_type == "Scan Info":
+                job["logs"].append(log_entry)
+            elif log_type == "Harness Layer1":
+                job["harness1_logs"].append(log_entry)
+            elif log_type == "Harness Layer2":
+                job["harness2_logs"].append(log_entry)
+            elif log_type == "Token Info":
+                job["token_info"].append(log_entry)
+
+
 def _run_scan_in_background(scan_id, destination):
     try:
         job = None
         with scan_jobs_lock:
             job = scan_jobs.get(scan_id)
         job_source = job.get("source") if job else None
-        result = _run_scan(destination, job_source)
+        
+        # Pass scan_id down to _run_scan
+        result = _run_scan(destination, job_source, scan_id)
         status = "Completed" if result.status_code < 400 else "Failed"
         error = result.data.get("message") if status == "Failed" else None
         result_data = dict(result.data)
@@ -75,44 +110,43 @@ def _run_scan_in_background(scan_id, destination):
         status = "Failed"
         error = str(exc)
         result_data = {}
-        Logs["Scan Info"].append(f"[ERROR] Scan failed: {exc}")
-        Logs["Scan Info"].append(traceback.format_exc())
-        Logs["Harness Layer2"].append(f"[FAILED] Scan stopped during Layer 2 or report generation: {exc}")
+        update_scan_job_state(scan_id, log_entry=f"[ERROR] Scan failed: {exc}", log_type="Scan Info")
+        update_scan_job_state(scan_id, log_entry=traceback.format_exc(), log_type="Scan Info")
+        update_scan_job_state(scan_id, log_entry=f"[FAILED] Scan stopped during Layer 2 or report generation: {exc}", log_type="Harness Layer2")
 
     with scan_jobs_lock:
-        scan_jobs[scan_id].update({
-            "status": status,
-            "error": error,
-            "result": result_data,
-            "phase": "completed" if status == "Completed" else "failed",
-            "logs": {
-                "Token Info": list(Logs.get("Token Info", [])),
-                "Scan Info": list(Logs.get("Scan Info", [])),
-                "Harness Layer1": list(Logs.get("Harness Layer1", [])),
-                "Harness Layer2": list(Logs.get("Harness Layer2", [])) or DEFAULT_HARNESS_LAYER2_LOGS,
-            },
-        })
+        job = scan_jobs.get(scan_id)
+        if job:
+            job.update({
+                "status": status,
+                "error": error,
+                "result": result_data,
+                "phase": "completed" if status == "Completed" else "failed",
+                "progress": 100 if status == "Completed" else job.get("progress", 0),
+                "current_message": "Scan completed successfully." if status == "Completed" else "Scan failed."
+            })
 
 
 @api_view(["GET"])
 def scan_status(request, scan_id):
-    job = _scan_status(str(scan_id))
+    scan_id_str = str(scan_id)
+    job = _scan_status(scan_id_str)
     if not job:
         return Response({"status": "Failed", "error": "Scan not found."}, status=404)
 
-    response = dict(job)
-    logs = response.get("logs", {})
-    if response.get("status") == "Running":
-        logs = {
-            "Token Info": list(Logs.get("Token Info", [])),
-            "Scan Info": list(Logs.get("Scan Info", [])),
-            "Harness Layer1": list(Logs.get("Harness Layer1", [])),
-            "Harness Layer2": list(Logs.get("Harness Layer2", [])),
-        }
-    response["Logs"] = logs
-    response["token info"] = response["Logs"].get("Token Info", [])
-    response["scan info"] = response["Logs"].get("Scan Info", [])
-    response["progressbar"] = Logs.get("Progress Percentage", 0)
+    response = {
+        "status": job["status"],
+        "progressbar": job.get("progress", 0),
+        "scan_status_message": job.get("current_message", ""),
+        "Logs": {
+            "Token Info": job.get("token_info", []),
+            "Scan Info": job.get("logs", []),
+            "Harness Layer1": job.get("harness1_logs", []),
+            "Harness Layer2": job.get("harness2_logs", []) or DEFAULT_HARNESS_LAYER2_LOGS,
+        },
+        "result": job.get("result"),
+        "error": job.get("error")
+    }
     return Response(response)
 
 
@@ -308,6 +342,12 @@ def Db_Scanner(request):
             "scan_id": scan_id,
             "error": None,
             "phase": "starting",
+            "progress": 5,
+            "current_message": "Initializing scan...",
+            "logs": ["Scan job initialized."],
+            "harness1_logs": [],
+            "harness2_logs": [],
+            "token_info": []
         }
 
     Thread(target=_run_scan_in_background, args=(scan_id, destination), daemon=True).start()
@@ -318,7 +358,7 @@ def Db_Scanner(request):
     }, status=202)
 
 
-def _run_scan(destination, scan_source=None):
+def _run_scan(destination, scan_source=None, scan_id=None):
 
     # Some DB types don't populate both fields: SQLite has no server (just
     # a database file path), Dynamics 365 has no database (just an org
@@ -332,7 +372,7 @@ def _run_scan(destination, scan_source=None):
             status=400
         )
     
-    Logs["Scan Info"].append(f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
+    update_scan_job_state(scan_id, progress=10, current_message="Starting database scan...", log_entry=f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
     print(f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
 
     db_type = (scan_source or source or "").lower()
@@ -353,7 +393,7 @@ def _run_scan(destination, scan_source=None):
         obj = Dynamics365Extractor(Creds)
 
     else:
-        Logs["Scan Info"].append(f"[Err]: Unsupported database type: '{source}'")
+        update_scan_job_state(scan_id, log_entry=f"[Err]: Unsupported database type: '{source}'")
         return Response(
                 {
                     "status": "error",
@@ -366,7 +406,7 @@ def _run_scan(destination, scan_source=None):
                 status=400
             )
     try:
-        Logs["Scan Info"].append(f"Extracting Metadata from DataBase")
+        update_scan_job_state(scan_id, progress=25, current_message="Extracting schema and table metadata...", log_entry="Extracting Metadata from DataBase")
         print("Extracting Metadata from DataBase")
         metadata = obj.extract()
         original_table_count = sum(
@@ -376,58 +416,51 @@ def _run_scan(destination, scan_source=None):
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
-        Logs["Scan Info"].append(
-            f"Selected {selected_table_count} of {original_table_count} tables for analysis."
-        )
+        update_scan_job_state(scan_id, progress=45, current_message=f"Metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
 
-        Logs["Scan Info"].append(f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
+        update_scan_job_state(scan_id, progress=55, current_message="Running Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
         print("MetaData Extracted\nRunning Harnness Layer-1")
-        layer_result= layer1_Harness(metadata)
+        layer_result = layer1_Harness(metadata)
         temp = format_harness_report(layer_result)
-        Logs["Scan Info"].append(temp)
-        Logs["Harness Layer1"].append(temp)
+        
+        update_scan_job_state(scan_id, progress=65, current_message="Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
+        update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
         print(temp)
 
-        # TEMP: negative-case gate disabled to test full scan flow end-to-end
-        # if layer_result.get("decision") != "PASS":
-        #     Logs["Scan Info"].append(
-        #         "[Err]: DDL or DML statement identified - terminating process before the Assessment Agent / migration plan."
-        #     )
-        #     print("[Err]: DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.")
-        #     return Response(
-        #         {
-        #             "status": "error",
-        #             "message": "DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.",
-        #             "source": source,
-        #             "destination": destination,
-        #             "Logs": Logs,
-        #             "harness_result": layer_result,
-        #         },
-        #         status=400
-        #     )
-
-        Logs["Scan Info"].append(f"Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
+        update_scan_job_state(scan_id, progress=70, current_message="Generating Assessment Report and Migration Plan...", log_entry="Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
         print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
-        output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source))
+        
+        # Forward scan_id to Agents_PipeLine
+        output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
 
-        Logs["Scan Info"].append(f"Output is avaliable at Show Logs embedded in the UI Screen")
+        update_scan_job_state(scan_id, progress=95, current_message="Finalizing reports and logs...", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
         print(f"Output is avaliable at Show Logs embedded in the UI Screen")
 
-
-        Logs["Scan Info"].append(f"Database scan completed successfully.")
+        update_scan_job_state(scan_id, progress=100, current_message="Database scan completed successfully.", log_entry="Database scan completed successfully.")
         print(f"Database scan completed successfully.")
+        
+        # Retrieve logs for direct response compat
+        with scan_jobs_lock:
+            job = scan_jobs.get(scan_id)
+            job_logs = job.get("logs", []) if job else list(Logs.get("Scan Info", []))
+            job_tokens = job.get("token_info", []) if job else list(Logs.get("Token Info", []))
+
         return Response({
                 "status": "success",
                 "message": "Database scan completed successfully. Refer to View Output tab below ",
                 "source": source,
                 "destination": destination,
-                "data":Logs["Token Info"],
-                "Logs":Logs,
+                "data": job_tokens,
+                "Logs": {
+                    "Scan Info": job_logs,
+                    "Harness Layer1": job.get("harness1_logs", []) if job else list(Logs.get("Harness Layer1", [])),
+                    "Harness Layer2": job.get("harness2_logs", []) if job else list(Logs.get("Harness Layer2", [])),
+                },
                 "output_files": output_files,
                 "tables_found": selected_table_count,
             })
     except Exception as e:
-        Logs["Scan Info"].append(str(e))
+        update_scan_job_state(scan_id, log_entry=str(e))
         return Response(
                         {
                             "status": "Error",

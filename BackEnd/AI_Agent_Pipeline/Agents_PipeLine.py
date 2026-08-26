@@ -25,7 +25,21 @@ except AttributeError:
     pass
 
 
-def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
+def _update_progress(scan_id, progress=None, current_message=None, log_entry=None, log_type="Scan Info"):
+    if log_entry:
+        if log_type in Logs:
+            Logs[log_type].append(log_entry)
+        if log_type == "Scan Info":
+            Logs["Scan Info"].append(log_entry)
+            
+    try:
+        from Migrator.views import update_scan_job_state
+        update_scan_job_state(scan_id, progress, current_message, log_entry, log_type)
+    except Exception:
+        pass
+
+
+def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str = None):
     """
     metadata: the dict a Metadata_Scanner extractor's extract() just
     returned for the source that was scanned this request. When given,
@@ -80,15 +94,15 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
 
     source_name = (source_hint or "database").replace(" ", "_").lower()
     try:
-        return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint)
+        return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint, scan_id)
     except Exception as exc:
-        Logs["Harness Layer2"].append(f"[FAILED] Layer 2 stopped: {exc}")
-        Logs["Scan Info"].append(f"[ERROR] Assessment pipeline failed: {exc}")
-        Logs["Scan Info"].append(traceback.format_exc())
+        _update_progress(scan_id, log_entry=f"[FAILED] Layer 2 stopped: {exc}", log_type="Harness Layer2")
+        _update_progress(scan_id, log_entry=f"[ERROR] Assessment pipeline failed: {exc}", log_type="Scan Info")
+        _update_progress(scan_id, log_entry=traceback.format_exc(), log_type="Scan Info")
         raise
     finally:
         if orchestrator.tokens_used["total"]:
-            Logs["Token Info"].append({
+            _update_progress(scan_id, log_entry={
                 "total": orchestrator.tokens_used["total"],
                 "prompt": orchestrator.tokens_used["prompt"],
                 "completion": orchestrator.tokens_used["completion"],
@@ -97,21 +111,19 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None):
                     + (orchestrator.tokens_used["completion"] / 1000000.0) * 0.60,
                     5,
                 ),
-            })
+            }, log_type="Token Info")
         # Always clean up agents created on Azure AI Foundry, even if the
         # pipeline fails partway through - otherwise the next run's
         # create_agents() collides with these leftovers (409 conflict).
         orchestrator.cleanup_agents()
 
 
-def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None):
+def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None, scan_id=None):
     # Create agents using Microsoft AI Foundry SDK
-    Logs["Harness Layer2"] = [
-        "HARNESS LAYER 2:",
-        "Starting evaluator-generator agents.",
-    ]
+    _update_progress(scan_id, progress=65, current_message="Initializing Azure AI Foundry agents...", log_entry="HARNESS LAYER 2:\nStarting evaluator-generator agents.", log_type="Harness Layer2")
+    
     orchestrator.create_agents()
-    Logs["Harness Layer2"].append("Evaluator-generator agents created successfully.")
+    _update_progress(scan_id, log_entry="Evaluator-generator agents created successfully.", log_type="Harness Layer2")
 
     # 4. Generate Table-Wise Summary Report
     print("\n--------------------------------------------------")
@@ -155,9 +167,14 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     print(overall_summary)
     
     table_summaries = []
-    for _, r in tables_df.iterrows():
+    for idx, (_, r) in enumerate(tables_df.iterrows()):
         t_name = r["table_name"]
         s_name = r["schema_name"]
+        
+        # Calculate dynamic table summary progress between 65% and 80%
+        current_pct = int(65 + (idx / total_tables) * 15)
+        _update_progress(scan_id, progress=current_pct, current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})...")
+        
         summary = orchestrator.run_table_summarizer_agent(t_name, schema_name=s_name)
         table_summaries.append(summary)
         print(f"[INFO] Summary for '{s_name}.{t_name}' generated successfully.")
@@ -166,8 +183,9 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     table_summary_filename = f"{source_name}_Assessment_Report.docx"
     migration_plan_filename = f"{source_name}_Migration_Plan.docx"
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
-    Logs["Harness Layer2"].append("Table summarizer agent completed.")
-    Logs["Scan Info"].append("[INFO] Starting assessment DOCX generation.")
+    
+    _update_progress(scan_id, progress=80, current_message="Compiling table assessment report document...", log_entry="Table summarizer agent completed.", log_type="Harness Layer2")
+    _update_progress(scan_id, log_entry="[INFO] Starting assessment DOCX generation.", log_type="Scan Info")
     
     create_table_summary_document(
         overall_summary=overall_summary,
@@ -179,7 +197,7 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         stats_df=stats_df
     )
     
-    Logs["Harness Layer2"].append("Assessment DOCX generated successfully.")
+    _update_progress(scan_id, log_entry="Assessment DOCX generated successfully.", log_type="Harness Layer2")
     
     # 5. Generate Database Migration Assessment Report
     print("\n--------------------------------------------------")
@@ -218,11 +236,14 @@ Columns Sample:
 {cols_summary_str}
 """
     
-    Logs["Harness Layer2"].append("Migration plan generator agent started.")
-    Logs["Scan Info"].append("[INFO] Starting migration plan agent.")
+    _update_progress(scan_id, progress=85, current_message="Generating database migration roadmap...", log_entry="Migration plan generator agent started.", log_type="Harness Layer2")
+    _update_progress(scan_id, log_entry="[INFO] Starting migration plan agent.", log_type="Scan Info")
+    
     agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
+    _update_progress(scan_id, progress=92, current_message="Compiling execution order and Medallion plan...", log_entry="Compiling execution order and Medallion plan...")
+    
     create_migration_plan_document(
         tables_df=tables_df,
         columns_df=columns_df,
@@ -235,7 +256,7 @@ Columns Sample:
         tokens_used=orchestrator.tokens_used if orchestrator.client_type else None,
         source_hint=source_hint
     )
-    Logs["Harness Layer2"].append("Migration Plan DOCX generated successfully.")
+    _update_progress(scan_id, log_entry="Migration Plan DOCX generated successfully.", log_type="Harness Layer2")
     
     # Replicate files for compatibility with frontend and other components
     import shutil
@@ -262,19 +283,17 @@ Columns Sample:
     print(f"  - Table Summaries: {table_summary_docx_path}")
     print(f"  - Migration Plan: {migration_plan_docx_path}")
     print("==================================================")
+    
     generated_sections = sum(
         f"SECTION {section}" in str(agent_writeups).upper()
         for section in range(1, 10)
     )
-    Logs["Harness Layer2"].append(
-        f"[VALIDATION] {source_hint or 'unknown'}: {len(tables_df)} tables, "
-        f"{len(columns_df)} columns, {generated_sections}/9 migration sections."
-    )
-    Logs["Harness Layer2"].append(
-        f"[VALIDATION] Reports verified: {Path(table_summary_docx_path).name}, "
-        f"{Path(migration_plan_docx_path).name}."
-    )
+    _update_progress(scan_id, log_entry=f"[VALIDATION] {source_hint or 'unknown'}: {len(tables_df)} tables, {len(columns_df)} columns, {generated_sections}/9 migration sections.", log_type="Harness Layer2")
+    _update_progress(scan_id, progress=98, current_message="Finalizing database scanner outputs...", log_entry=f"[VALIDATION] Reports verified: {Path(table_summary_docx_path).name}, {Path(migration_plan_docx_path).name}.", log_type="Harness Layer2")
+
     return {
         "assessment_report": table_summary_filename,
         "migration_plan": migration_plan_filename,
     }
+
+

@@ -718,149 +718,37 @@ export class DbScannerComponent {
     this.scanFailed = false;
 
     this.showScanCompletedDialog = false;
-
     this.progress = 1;
-
     this.scanStatus = 'Scanning started';
-
     this.statusMessages = [];
-
     this.statusMessages.push('Scanning started');
-
     this.backendCompleted = false;
-
     this.backendResponse = null;
 
     if (this.scanInterval) {
-
       clearInterval(this.scanInterval);
-
     }
 
-    const keyframes = [
-      { time: 0, percentage: 1, status: 'Scanning started' },
-      { time: 15, percentage: 15, status: 'Establishing database connection' },
-      { time: 40, percentage: 25, status: 'Collecting database metadata' },
-      { time: 70, percentage: 40, status: 'Analyzing schemas & table relationships' },
-      { time: 100, percentage: 55, status: 'Extracting column definitions and data types' },
-      { time: 125, percentage: 70, status: 'Running semantic analysis on tables' },
-      { time: 145, percentage: 85, status: 'Generating migration compatibility report' },
-      { time: 165, percentage: 95, status: 'Finalizing documentation and logs' }
-    ];
-
-    let elapsedSeconds = 0;
-
-    this.scanInterval = setInterval(() => {
-      elapsedSeconds++;
-
-      if (elapsedSeconds < 165) {
-        let currentKeyframe = keyframes[0];
-        let nextKeyframe = keyframes[1];
-        for (let i = 0; i < keyframes.length - 1; i++) {
-          if (elapsedSeconds >= keyframes[i].time && elapsedSeconds < keyframes[i + 1].time) {
-            currentKeyframe = keyframes[i];
-            nextKeyframe = keyframes[i + 1];
-            break;
-          }
-        }
-
-        const tStart = currentKeyframe.time;
-        const tEnd = nextKeyframe.time;
-        const pStart = currentKeyframe.percentage;
-        const pEnd = nextKeyframe.percentage;
-
-        const fraction = (elapsedSeconds - tStart) / (tEnd - tStart);
-        const smoothProgress = Math.round(pStart + fraction * (pEnd - pStart));
-
-        // Random jump logic: Only update when the gap between smooth progress and current progress
-        // is at least a random threshold of 4% to 8%, or we've reached the 95% mark.
-        const diff = smoothProgress - this.progress;
-        if (diff >= Math.floor(Math.random() * 5) + 4 || smoothProgress >= 95) {
-          this.progress = smoothProgress;
-        }
-
-        const newStatus = currentKeyframe.status;
-        if (this.scanStatus !== newStatus) {
-          this.scanStatus = newStatus;
-          if (!this.statusMessages.includes(newStatus)) {
-            this.statusMessages.push(newStatus);
-          }
-        }
-      } else {
-        if (this.backendCompleted) {
-          if (elapsedSeconds >= 180) {
-            this.progress = 100;
-            if (this.scanInterval) {
-              clearInterval(this.scanInterval);
-            }
-            this.completeScanProgress();
-          } else {
-            const fraction = (elapsedSeconds - 165) / 15;
-            this.progress = Math.round(95 + fraction * 5);
-            const newStatus = 'Finalizing documentation and logs';
-            if (this.scanStatus !== newStatus) {
-              this.scanStatus = newStatus;
-              if (!this.statusMessages.includes(newStatus)) {
-                this.statusMessages.push(newStatus);
-              }
-            }
-          }
-        } else {
-          this.progress = 95;
-          const newStatus = 'Finalizing documentation and logs... waiting for server response';
-          if (this.scanStatus !== newStatus) {
-            this.scanStatus = newStatus;
-            if (!this.statusMessages.includes(newStatus)) {
-              this.statusMessages.push(newStatus);
-            }
-          }
-        }
-      }
-      this.cdr.detectChanges();
-    }, 1000);
-
     this.scanner.startScan(
-
       this.source,
-
       this.destination,
-
       this.connection
-
     ).subscribe({
-
       next: (response: any) => {
         if (response.scan_id) {
           this.pollScanStatus(response.scan_id);
         }
-
       },
-
       error: (err) => {
-
         this.loading = false;
-
         this.progress = 0;
-
         this.scanFailed = true;
         this.scanStatus = 'Scan Failed';
-
         this.statusMessages.push('Database Scan Failed.');
-
-        if (this.scanInterval) {
-
-          clearInterval(this.scanInterval);
-
-        }
-
         console.error(err);
-
         alert(err.error?.message ?? 'Scan Failed');
-
         this.cdr.detectChanges();
-
       }
-
     });
 
   }
@@ -869,9 +757,14 @@ export class DbScannerComponent {
     this.scanner.getScanStatus(scanId).subscribe({
       next: (status) => {
         this.applyScanLogs(status.Logs);
+        
+        // Dynamically update progress and status message from backend
+        this.progress = status.progressbar || this.progress;
+        this.scanStatus = status.scan_status_message || this.scanStatus;
 
         if (status.status === 'Running') {
           this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 2000);
+          this.cdr.detectChanges();
           return;
         }
 
@@ -882,7 +775,6 @@ export class DbScannerComponent {
           this.statusMessages.push(status.error ?? 'Database Scan Failed.');
           this.showLogsDialog = true;
           this.activeTab = 'logs';
-          if (this.scanInterval) clearInterval(this.scanInterval);
           this.cdr.detectChanges();
           return;
         }
@@ -894,7 +786,6 @@ export class DbScannerComponent {
           Logs: status.Logs,
         };
         this.progress = 100;
-        if (this.scanInterval) clearInterval(this.scanInterval);
         this.completeScanProgress();
         this.cdr.detectChanges();
       },

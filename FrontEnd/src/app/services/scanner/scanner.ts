@@ -51,6 +51,7 @@ export interface ScanStatus {
   }>;
   'scan info': string[];
   progressbar: number;
+  scan_status_message?: string;
   status?: 'Running' | 'Completed' | 'Failed';
   error?: string;
   source?: string;
