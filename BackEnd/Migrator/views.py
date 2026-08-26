@@ -131,6 +131,9 @@ def serve_generated_document(request, filename):
     response = FileResponse(file_path.open("rb"), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     disposition = "inline" if request.GET.get("view") == "1" else "attachment"
     response["Content-Disposition"] = f'{disposition}; filename="{file_path.name}"'
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
     return response
 
 

@@ -954,10 +954,10 @@ export class DbScannerComponent {
       const logs = this.backendResponse.Logs;
       const outputFiles = this.backendResponse.output_files;
       if (outputFiles?.assessment_report) {
-        this.metadataFile = `/output/${encodeURIComponent(outputFiles.assessment_report)}`;
+        this.metadataFile = `/output/${encodeURIComponent(outputFiles.assessment_report)}?t=${Date.now()}`;
       }
       if (outputFiles?.migration_plan) {
-        this.migrationFile = `/output/${encodeURIComponent(outputFiles.migration_plan)}`;
+        this.migrationFile = `/output/${encodeURIComponent(outputFiles.migration_plan)}?t=${Date.now()}`;
       }
 
       const selectedSource = this.lastScanSource || this.source || 'Database';
