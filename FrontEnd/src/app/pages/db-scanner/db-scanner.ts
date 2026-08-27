@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -15,7 +15,9 @@ import { Scanner, SavedConnectionProfile } from '../../services/scanner/scanner'
   styleUrl: './db-scanner.css'
 })
 
-export class DbScannerComponent {
+export class DbScannerComponent implements AfterViewChecked {
+
+  @ViewChild('terminalBody') private terminalBody!: ElementRef;
 
   //=========================================================
   // SERVICE
@@ -763,7 +765,7 @@ export class DbScannerComponent {
         this.scanStatus = status.scan_status_message || this.scanStatus;
 
         if (status.status === 'Running') {
-          this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 2000);
+          this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 1000);
           this.cdr.detectChanges();
           return;
         }
@@ -1173,6 +1175,18 @@ export class DbScannerComponent {
 
     );
 
+  }
+
+  ngAfterViewChecked() {
+    this.scrollToBottom();
+  }
+
+  private scrollToBottom() {
+    try {
+      if (this.terminalBody) {
+        this.terminalBody.nativeElement.scrollTop = this.terminalBody.nativeElement.scrollHeight;
+      }
+    } catch (err) {}
   }
 
 }  

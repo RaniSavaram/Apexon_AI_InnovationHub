@@ -438,6 +438,71 @@ PROGRESS BAR
     transition:width 0.8s ease-in-out;
 }
 
+.live-terminal {
+    margin-top: 18px;
+    background: rgba(2, 8, 16, 0.95);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+    overflow: hidden;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.terminal-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(16, 36, 61, 0.5);
+    border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.terminal-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.terminal-dots .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.terminal-dots .dot.red { background: #ff5f56; }
+.terminal-dots .dot.yellow { background: #ffbd2e; }
+.terminal-dots .dot.green { background: #27c93f; }
+
+.terminal-title {
+    margin-left: 12px;
+    font-size: 11px;
+    color: #8a99ad;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.terminal-body {
+    padding: 12px;
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.terminal-line {
+    font-size: 13px;
+    color: #38bdf8;
+    line-height: 1.4;
+    word-break: break-all;
+    text-align: left;
+}
+
+.terminal-prompt {
+    color: #FF5A1F;
+    margin-right: 6px;
+    user-select: none;
+}
+
 .latest-status{
     margin-top:14px;
     padding:14px;
