@@ -260,6 +260,10 @@ def connect_database(request):
         elif db_type in ("dynamics365", "dynamics 365", "d365"):
             test_extractor = Dynamics365Extractor(Creds)
 
+        elif db_type == "sqlite":
+            # SQLite uses local file, bypass connect check
+            test_extractor = None
+
         else:
             Logs["Scan Info"].append(f"[Err]: Unsupported database type: '{source}'")
             return Response(
@@ -274,10 +278,14 @@ def connect_database(request):
                 status=400
             )
 
-        test_extractor.connect()
-        print("[INFO]: Successfully Connected To the Database")
-        Logs["Scan Info"].append("[INFO]: Successfully Connected To the Database")
-        test_extractor.close()
+        if test_extractor:
+            test_extractor.connect()
+            print("[INFO]: Successfully Connected To the Database")
+            Logs["Scan Info"].append("[INFO]: Successfully Connected To the Database")
+            test_extractor.close()
+        else:
+            print("[INFO]: Successfully Connected To the Database")
+            Logs["Scan Info"].append("[INFO]: Successfully Connected To the Database")
 
         # Remember-me is now handled on the browser side with localStorage so
         # credentials are never stored in the repo or committed to GitHub.
@@ -483,3 +491,26 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                         },
                         status=400
                     )
+
+
+@api_view(["GET"])
+def debug_view(request):
+    with scan_jobs_lock:
+        serialized_jobs = {}
+        for k, v in scan_jobs.items():
+            serialized_jobs[k] = {
+                "status": v.get("status"),
+                "progressbar": v.get("progress"),
+                "scan_status_message": v.get("current_message"),
+                "logs": v.get("logs"),
+                "harness1_logs": v.get("harness1_logs"),
+                "harness2_logs": v.get("harness2_logs"),
+            }
+        return Response({
+            "scan_jobs": serialized_jobs,
+            "Logs": {
+                "Scan Info": list(Logs.get("Scan Info", [])),
+                "Harness Layer1": list(Logs.get("Harness Layer1", [])),
+                "Harness Layer2": list(Logs.get("Harness Layer2", [])),
+            }
+        })

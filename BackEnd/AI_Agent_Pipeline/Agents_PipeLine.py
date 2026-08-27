@@ -26,12 +26,6 @@ except AttributeError:
 
 
 def _update_progress(scan_id, progress=None, current_message=None, log_entry=None, log_type="Scan Info"):
-    if log_entry:
-        if log_type in Logs:
-            Logs[log_type].append(log_entry)
-        if log_type == "Scan Info":
-            Logs["Scan Info"].append(log_entry)
-            
     try:
         from Migrator.views import update_scan_job_state
         update_scan_job_state(scan_id, progress, current_message, log_entry, log_type)

@@ -6,6 +6,16 @@ class ObservableList(list):
     def append(self, item):
         super().append(item)
         try:
+            import traceback
+            import os
+            # Write to a trace file in the backend folder
+            trace_file = os.path.join(os.path.dirname(__file__), "logs_trace.txt")
+            with open(trace_file, "a", encoding="utf-8") as f:
+                f.write(f"\n--- ObservableList.append({item}) for {self.log_type} ---\n")
+                traceback.print_stack(file=f)
+        except Exception:
+            pass
+        try:
             from Migrator.views import update_scan_job_state, thread_local
             scan_id = getattr(thread_local, "active_scan_id", None)
             if scan_id:
@@ -36,10 +46,6 @@ Logs = {
 
 
 def reset_Logs():
-    # Mutate the existing dict in place (clear + update) rather than
-    # rebinding the name - modules that did `from Logs import Logs` hold
-    # their own reference to this same dict object, and a plain
-    # reassignment here wouldn't be visible to them.
     Logs.clear()
     Logs.update({
         "Token Info": ObservableList(log_type="Token Info"),
