@@ -355,23 +355,6 @@ SCAN STATUS + ACTION BUTTONS
 
         </div>
 
-        <!-- Live Scan Terminal Output -->
-        <div class="live-terminal" *ngIf="loading && statusMessages.length">
-            <div class="terminal-header">
-                <div class="terminal-dots">
-                    <span class="dot red"></span>
-                    <span class="dot yellow"></span>
-                    <span class="dot green"></span>
-                </div>
-                <span class="terminal-title">Live Engine Log Stream</span>
-            </div>
-            <div class="terminal-body" #terminalBody>
-                <div class="terminal-line" *ngFor="let log of statusMessages">
-                    <span class="terminal-prompt">></span> {{ log }}
-                </div>
-            </div>
-        </div>
-
 
 
     </div>

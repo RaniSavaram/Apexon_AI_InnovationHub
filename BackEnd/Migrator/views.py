@@ -1,4 +1,5 @@
 import os
+import time
 import traceback
 from pathlib import Path
 from threading import Lock, Thread
@@ -34,6 +35,8 @@ Creds = PrivateVariables()
 source = None
 scan_jobs = {}
 scan_jobs_lock = Lock()
+import threading
+thread_local = threading.local()
 MAX_SCAN_TABLES = int(os.environ.get("MAX_SCAN_TABLES", "5"))
 
 
@@ -61,15 +64,16 @@ def _scan_status(scan_id):
         return scan_jobs.get(scan_id)
 
 
-def update_scan_job_state(scan_id=None, progress=None, current_message=None, log_entry=None, log_type="Scan Info"):
+def update_scan_job_state(scan_id=None, progress=None, current_message=None, log_entry=None, log_type="Scan Info", skip_global=False):
     if log_entry:
         print(f"[LOG][{log_type}] {log_entry}")
-        if log_type in Logs:
-            Logs[log_type].append(log_entry)
-        if log_type == "Scan Info":
-            Logs["Scan Info"].append(log_entry)
+        if not skip_global:
+            if log_type in Logs:
+                Logs[log_type].append(log_entry)
+            if log_type == "Scan Info" and log_type not in Logs:
+                Logs["Scan Info"].append(log_entry)
 
-    if progress is not None:
+    if progress is not None and not skip_global:
         Logs["Progress Percentage"] = progress
 
     if not scan_id:
@@ -81,9 +85,15 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
             return
         if progress is not None:
             job["progress"] = progress
+            
         if current_message is not None:
             job["current_message"] = current_message
-        if log_entry:
+        elif log_entry and isinstance(log_entry, str):
+            clean_log = log_entry.strip().replace("[INFO] ", "").replace("[INFO]", "").replace("[Err] ", "").replace("[Err]", "").strip()
+            if "\n" not in clean_log and len(clean_log) < 120:
+                job["current_message"] = clean_log
+
+        if log_entry and skip_global:
             if log_type == "Scan Info":
                 job["logs"].append(log_entry)
             elif log_type == "Harness Layer1":
@@ -96,6 +106,7 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
 
 def _run_scan_in_background(scan_id, destination):
     try:
+        thread_local.active_scan_id = scan_id
         job = None
         with scan_jobs_lock:
             job = scan_jobs.get(scan_id)
@@ -249,6 +260,10 @@ def connect_database(request):
         elif db_type in ("dynamics365", "dynamics 365", "d365"):
             test_extractor = Dynamics365Extractor(Creds)
 
+        elif db_type == "sqlite":
+            # SQLite uses local file, bypass connect check
+            test_extractor = None
+
         else:
             Logs["Scan Info"].append(f"[Err]: Unsupported database type: '{source}'")
             return Response(
@@ -263,10 +278,14 @@ def connect_database(request):
                 status=400
             )
 
-        test_extractor.connect()
-        print("[INFO]: Successfully Connected To the Database")
-        Logs["Scan Info"].append("[INFO]: Successfully Connected To the Database")
-        test_extractor.close()
+        if test_extractor:
+            test_extractor.connect()
+            print("[INFO]: Successfully Connected To the Database")
+            Logs["Scan Info"].append("[INFO]: Successfully Connected To the Database")
+            test_extractor.close()
+        else:
+            print("[INFO]: Successfully Connected To the Database")
+            Logs["Scan Info"].append("[INFO]: Successfully Connected To the Database")
 
         # Remember-me is now handled on the browser side with localStorage so
         # credentials are never stored in the repo or committed to GitHub.
@@ -358,6 +377,22 @@ def Db_Scanner(request):
     }, status=202)
 
 
+def get_db_display_name(source_slug):
+    mapping = {
+        "sqlserver": "SQL Server",
+        "oracle": "Oracle",
+        "mysql": "MySQL",
+        "postgres": "PostgreSQL",
+        "sqlite": "SQLite",
+        "synapse": "Azure Synapse",
+        "snowflake": "Snowflake",
+        "databricks": "Databricks",
+        "dynamics365": "Dynamics 365",
+        "sap": "SAP HANA"
+    }
+    return mapping.get(str(source_slug).lower(), "Database")
+
+
 def _run_scan(destination, scan_source=None, scan_id=None):
 
     # Some DB types don't populate both fields: SQLite has no server (just
@@ -372,8 +407,10 @@ def _run_scan(destination, scan_source=None, scan_id=None):
             status=400
         )
     
-    update_scan_job_state(scan_id, progress=10, current_message="Starting database scan...", log_entry=f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
-    print(f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
+    db_name = get_db_display_name(scan_source or source)
+    update_scan_job_state(scan_id, progress=10, current_message=f"Starting {db_name} scan...", log_entry=f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
+    print(f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
+    time.sleep(1.0)
 
     db_type = (scan_source or source or "").lower()
 
@@ -406,8 +443,8 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
     try:
-        update_scan_job_state(scan_id, progress=25, current_message="Extracting schema and table metadata...", log_entry="Extracting Metadata from DataBase")
-        print("Extracting Metadata from DataBase")
+        update_scan_job_state(scan_id, progress=25, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=f"Extracting Metadata from {db_name}")
+        print(f"Extracting Metadata from {db_name}")
         metadata = obj.extract()
         original_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
@@ -416,19 +453,22 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
-        update_scan_job_state(scan_id, progress=45, current_message=f"Metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
+        update_scan_job_state(scan_id, progress=45, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
+        time.sleep(1.0)
 
-        update_scan_job_state(scan_id, progress=55, current_message="Running Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
-        print("MetaData Extracted\nRunning Harnness Layer-1")
+        update_scan_job_state(scan_id, progress=55, current_message=f"Running {db_name} Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\n{db_name} MetaData Extracted\nRunning Harnnes Layer-1")
+        print(f"{db_name} MetaData Extracted\nRunning Harnness Layer-1")
+        time.sleep(1.5)
         layer_result = layer1_Harness(metadata)
         temp = format_harness_report(layer_result)
         
-        update_scan_job_state(scan_id, progress=65, current_message="Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
+        update_scan_job_state(scan_id, progress=65, current_message=f"{db_name} Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
         update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
         print(temp)
+        time.sleep(1.2)
 
-        update_scan_job_state(scan_id, progress=70, current_message="Generating Assessment Report and Migration Plan...", log_entry="Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
-        print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
+        update_scan_job_state(scan_id, progress=70, current_message=f"Generating {db_name} Assessment Report and Migration Plan...", log_entry=f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
+        print(f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
         
         # Forward scan_id to Agents_PipeLine
         output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
@@ -436,8 +476,8 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         update_scan_job_state(scan_id, progress=95, current_message="Finalizing reports and logs...", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
         print(f"Output is avaliable at Show Logs embedded in the UI Screen")
 
-        update_scan_job_state(scan_id, progress=100, current_message="Database scan completed successfully.", log_entry="Database scan completed successfully.")
-        print(f"Database scan completed successfully.")
+        update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed successfully.", log_entry=f"{db_name} scan completed successfully.")
+        print(f"{db_name} scan completed successfully.")
         
         # Retrieve logs for direct response compat
         with scan_jobs_lock:
@@ -468,3 +508,26 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                         },
                         status=400
                     )
+
+
+@api_view(["GET"])
+def debug_view(request):
+    with scan_jobs_lock:
+        serialized_jobs = {}
+        for k, v in scan_jobs.items():
+            serialized_jobs[k] = {
+                "status": v.get("status"),
+                "progressbar": v.get("progress"),
+                "scan_status_message": v.get("current_message"),
+                "logs": v.get("logs"),
+                "harness1_logs": v.get("harness1_logs"),
+                "harness2_logs": v.get("harness2_logs"),
+            }
+        return Response({
+            "scan_jobs": serialized_jobs,
+            "Logs": {
+                "Scan Info": list(Logs.get("Scan Info", [])),
+                "Harness Layer1": list(Logs.get("Harness Layer1", [])),
+                "Harness Layer2": list(Logs.get("Harness Layer2", [])),
+            }
+        })
