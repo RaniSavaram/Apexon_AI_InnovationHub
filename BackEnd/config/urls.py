@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/connect/", views.connect_database),
     path("api/connection/", views.saved_connection),
     path("api/connections/", views.saved_connections),
+    path("api/debug/", views.debug_view),
     path("output/<str:filename>", views.serve_generated_document, name="generated-document"),
     re_path(r"^.*$", TemplateView.as_view(template_name="index.html")),
 ]
