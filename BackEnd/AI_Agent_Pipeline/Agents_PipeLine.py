@@ -256,6 +256,30 @@ Columns Sample:
     )
     _update_progress(scan_id, log_entry="Migration Plan DOCX generated successfully.", log_type="Harness Layer2")
     
+    # Generate Fabric JSON Metadata
+    fabric_json_filename = f"{source_name}_Fabric_Migration_Metadata.json"
+    fabric_json_path = os.path.join(output_dir, fabric_json_filename)
+    _update_progress(scan_id, progress=95, current_message="Generating Fabric JSON Metadata...", log_entry="Generating Fabric-compatible JSON metadata step...", log_type="Harness Layer2")
+    
+    try:
+        from AI_Agent_Pipeline.src.fabric_json_generator import generate_fabric_json_metadata
+        generate_fabric_json_metadata(
+            tables_df=tables_df,
+            columns_df=columns_df,
+            stats_df=stats_df,
+            dep_df=dep_df,
+            views_df=views_df,
+            procedures_df=procedures_df,
+            agent_writeups=agent_writeups,
+            output_path=fabric_json_path,
+            source_hint=source_hint,
+            scan_id=scan_id
+        )
+        _update_progress(scan_id, log_entry="Fabric JSON metadata generated successfully.", log_type="Harness Layer2")
+    except Exception as json_err:
+        print(f"[WARN] Failed to generate Fabric JSON metadata: {json_err}")
+        _update_progress(scan_id, log_entry=f"[WARN] Fabric JSON metadata generation failed: {json_err}", log_type="Harness Layer2")
+
     # Replicate files for compatibility with frontend and other components
     import shutil
     try:
@@ -263,6 +287,8 @@ Columns Sample:
         shutil.copy2(table_summary_docx_path, os.path.join(output_dir, "Metadata_Report.docx"))
         shutil.copy2(migration_plan_docx_path, os.path.join(output_dir, "AI_Migration_Plan.docx"))
         shutil.copy2(migration_plan_docx_path, os.path.join(output_dir, "Migration_Assessment.docx"))
+        if os.path.exists(fabric_json_path):
+            shutil.copy2(fabric_json_path, os.path.join(output_dir, "Fabric_Migration_Metadata.json"))
         print("[INFO] Replicated reports for frontend compatibility.")
     except Exception as copy_err:
         print(f"[WARN] Failed to copy files for compatibility: {copy_err}")
@@ -293,6 +319,7 @@ Columns Sample:
     return {
         "assessment_report": table_summary_filename,
         "migration_plan": migration_plan_filename,
+        "fabric_migration_metadata": fabric_json_filename,
     }
 
-
+
