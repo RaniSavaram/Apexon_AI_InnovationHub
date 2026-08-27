@@ -64,7 +64,45 @@ def _scan_status(scan_id):
         return scan_jobs.get(scan_id)
 
 
+def get_progress_from_log(log_entry):
+    if not log_entry or not isinstance(log_entry, str):
+        return None
+    log_lower = log_entry.lower()
+    if "scan started" in log_lower:
+        return 10
+    if "extracting metadata" in log_lower:
+        return 25
+    if "selected" in log_lower and "tables for analysis" in log_lower:
+        return 45
+    if "running harnnes layer-1" in log_lower or "running harness layer 1" in log_lower:
+        return 55
+    if "harness layer 1 validation completed" in log_lower:
+        return 65
+    if "creating agents" in log_lower:
+        return 68
+    if "azure ai projects client initialized" in log_lower or "initializing azure ai projects client" in log_lower:
+        return 72
+    if "fetching metadata summary for table" in log_lower:
+        return 75
+    if "compiling table summaries" in log_lower:
+        return 80
+    if "roadmap generated" in log_lower or "assessment roadmap generated" in log_lower:
+        return 85
+    if "word report compiled" in log_lower:
+        return 90
+    if "output is avaliable" in log_lower or "finalizing reports" in log_lower:
+        return 95
+    if "completed successfully" in log_lower:
+        return 100
+    return None
+
+
 def update_scan_job_state(scan_id=None, progress=None, current_message=None, log_entry=None, log_type="Scan Info", skip_global=False):
+    if progress is None and log_entry and isinstance(log_entry, str):
+        detected_progress = get_progress_from_log(log_entry)
+        if detected_progress is not None:
+            progress = detected_progress
+
     if log_entry:
         print(f"[LOG][{log_type}] {log_entry}")
         if not skip_global:
