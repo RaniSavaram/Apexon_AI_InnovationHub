@@ -35,6 +35,8 @@ Creds = PrivateVariables()
 source = None
 scan_jobs = {}
 scan_jobs_lock = Lock()
+import threading
+thread_local = threading.local()
 MAX_SCAN_TABLES = int(os.environ.get("MAX_SCAN_TABLES", "5"))
 
 
@@ -62,15 +64,16 @@ def _scan_status(scan_id):
         return scan_jobs.get(scan_id)
 
 
-def update_scan_job_state(scan_id=None, progress=None, current_message=None, log_entry=None, log_type="Scan Info"):
+def update_scan_job_state(scan_id=None, progress=None, current_message=None, log_entry=None, log_type="Scan Info", skip_global=False):
     if log_entry:
         print(f"[LOG][{log_type}] {log_entry}")
-        if log_type in Logs:
-            Logs[log_type].append(log_entry)
-        if log_type == "Scan Info":
-            Logs["Scan Info"].append(log_entry)
+        if not skip_global:
+            if log_type in Logs:
+                Logs[log_type].append(log_entry)
+            if log_type == "Scan Info" and log_type not in Logs:
+                Logs["Scan Info"].append(log_entry)
 
-    if progress is not None:
+    if progress is not None and not skip_global:
         Logs["Progress Percentage"] = progress
 
     if not scan_id:
@@ -103,6 +106,7 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
 
 def _run_scan_in_background(scan_id, destination):
     try:
+        thread_local.active_scan_id = scan_id
         job = None
         with scan_jobs_lock:
             job = scan_jobs.get(scan_id)
