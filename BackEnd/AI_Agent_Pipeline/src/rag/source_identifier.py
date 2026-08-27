@@ -16,11 +16,8 @@ guidance.
 # work here.
 _SOURCE_SYNONYMS = {
     "databricks": "databricks",
-    "sql": "sqlserver",
     "sqlserver": "sqlserver",
     "sql server": "sqlserver",
-    "mssql": "sqlserver",
-    "microsoft sql server": "sqlserver",
     "synapse": "synapse",
     "snowflake": "snowflake",
     "dynamics365": "dynamics365",
