@@ -93,7 +93,7 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
             if "\n" not in clean_log and len(clean_log) < 120:
                 job["current_message"] = clean_log
 
-        if log_entry:
+        if log_entry and skip_global:
             if log_type == "Scan Info":
                 job["logs"].append(log_entry)
             elif log_type == "Harness Layer1":
