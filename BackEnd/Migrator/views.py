@@ -81,8 +81,14 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
             return
         if progress is not None:
             job["progress"] = progress
+            
         if current_message is not None:
             job["current_message"] = current_message
+        elif log_entry and isinstance(log_entry, str):
+            clean_log = log_entry.strip().replace("[INFO] ", "").replace("[INFO]", "").replace("[Err] ", "").replace("[Err]", "").strip()
+            if "\n" not in clean_log and len(clean_log) < 120:
+                job["current_message"] = clean_log
+
         if log_entry:
             if log_type == "Scan Info":
                 job["logs"].append(log_entry)
