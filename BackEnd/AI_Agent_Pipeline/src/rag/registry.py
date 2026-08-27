@@ -24,7 +24,6 @@ COMMON_FABRIC_RAG_FILE = os.path.join(_KNOWLEDGE_DIR, "common_fabric_rag.md")
 # Add new source types here as their RAG knowledge files are authored.
 SOURCE_RAG_FILES = {
     "databricks": os.path.join(_KNOWLEDGE_DIR, "databricks_to_fabric_rag.md"),
-    "sqlserver": os.path.join(_KNOWLEDGE_DIR, "sqlserver_to_fabric_rag.md"),
     # "dynamics365": os.path.join(_KNOWLEDGE_DIR, "dynamics365_to_fabric_rag.md"),
 }
 
