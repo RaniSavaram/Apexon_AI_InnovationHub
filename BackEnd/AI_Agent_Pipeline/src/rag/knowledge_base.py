@@ -17,6 +17,13 @@ import os
 import re
 from functools import lru_cache
 
+import faiss # type: ignore
+import pickle
+import numpy as np # type: ignore
+from sentence_transformers import SentenceTransformer # type: ignore
+
+EMBEDDING_MODEL = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
 _STOPWORDS = {
     "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with",
     "is", "are", "be", "this", "that", "it", "as", "by", "from", "at",
@@ -38,6 +45,9 @@ class KnowledgeChunk:
         self.text = text
         self.tokens = _tokenize(f"{heading} {text}")
 
+    @property
+    def content(self):
+        return f"{self.heading}\n{self.text}"
 
 class MarkdownKnowledgeBase:
     """
@@ -50,6 +60,9 @@ class MarkdownKnowledgeBase:
         self.path = path
         self.label = label or os.path.splitext(os.path.basename(path))[0]
         self._chunks = None
+
+        self.index_file = f"{path}.faiss"
+        self.metadata_file = f"{path}.pkl"
 
     def _load(self):
         if self._chunks is not None:
@@ -81,35 +94,89 @@ class MarkdownKnowledgeBase:
         self._chunks = chunks
         return self._chunks
 
-    def retrieve(self, query: str, top_k: int = 5, max_chars_per_chunk: int = 1200) -> list:
+    def build_index(self):
+        chunks = self._load()
+        if not chunks:
+            return
+        texts = [chunk.content for chunk in chunks]
+        embeddings = EMBEDDING_MODEL.encode(texts,convert_to_numpy=True).astype("float32")
+        faiss.normalize_L2(embeddings)
+        dimension = embeddings.shape[1]
+        index = faiss.IndexFlatIP(dimension)
+        index.add(embeddings)
+    
+        faiss.write_index(
+            index,
+            self.index_file
+            )
+    
+        metadata = [
+        {
+            "heading": chunk.heading,
+            "text": chunk.text
+        }
+        for chunk in chunks
+        ]
+    
+        with open(self.metadata_file, "wb") as f:
+            pickle.dump(metadata, f)
+    
+        print(f"FAISS index created successfully.")
+        print(f"Stored vectors: {index.ntotal}")
+        print(f"Index File: {self.index_file}")
+
+    def _needs_rebuild(self):
+        if not os.path.exists(self.index_file):
+            return True
+
+        if not os.path.exists(self.metadata_file):
+            return True
+        return (os.path.getmtime(self.path) > os.path.getmtime(self.index_file))
+
+    def load_index(self):
+        if self._needs_rebuild():
+            print("Building FAISS index...")
+
+            self.build_index()
+        index = faiss.read_index(self.index_file)
+
+        with open(self.metadata_file,"rb") as f:
+            metadata = pickle.load(f)
+
+        return index, metadata
+
+    def retrieve(self, query: str,top_k: int = 5,max_chars_per_chunk: int = 1200):
         """
         Returns up to `top_k` (heading, text) tuples ranked by keyword
         overlap with the query. Falls back to the first `top_k` chunks
         (document order) if nothing scores above zero, so retrieval still
         returns useful context even for terse/unusual metadata summaries.
         """
-        chunks = self._load()
-        if not chunks:
-            return []
+        index, metadata = self.load_index()
+        query_embedding = EMBEDDING_MODEL.encode(
+            [query],
+            convert_to_numpy=True
+        )
 
-        query_tokens = _tokenize(query)
-        scored = []
-        for chunk in chunks:
-            overlap = len(query_tokens & chunk.tokens)
-            if overlap:
-                scored.append((overlap, chunk))
+        query_embedding = query_embedding.astype(np.float32)
 
-        if scored:
-            scored.sort(key=lambda pair: pair[0], reverse=True)
-            selected = [c for _, c in scored[:top_k]]
-        else:
-            selected = chunks[:top_k]
+        faiss.normalize_L2(query_embedding)
+        scores, indices = index.search(
+            query_embedding,
+            top_k
+        )
 
         results = []
-        for chunk in selected:
-            text = chunk.text
+        for score, idx in zip(scores[0], indices[0]):
+            if idx < 0:
+                continue
+
+            chunk = metadata[idx]
+            text = chunk["text"]
+
             if len(text) > max_chars_per_chunk:
-                text = text[:max_chars_per_chunk].rsplit("\n", 1)[0] + "\n... (truncated)"
+                text = (text[:max_chars_per_chunk].rsplit("\n", 1)[0]+ "\n... (truncated)")
+
             results.append((chunk.heading, text))
         return results
 
