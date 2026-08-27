@@ -377,6 +377,22 @@ def Db_Scanner(request):
     }, status=202)
 
 
+def get_db_display_name(source_slug):
+    mapping = {
+        "sqlserver": "SQL Server",
+        "oracle": "Oracle",
+        "mysql": "MySQL",
+        "postgres": "PostgreSQL",
+        "sqlite": "SQLite",
+        "synapse": "Azure Synapse",
+        "snowflake": "Snowflake",
+        "databricks": "Databricks",
+        "dynamics365": "Dynamics 365",
+        "sap": "SAP HANA"
+    }
+    return mapping.get(str(source_slug).lower(), "Database")
+
+
 def _run_scan(destination, scan_source=None, scan_id=None):
 
     # Some DB types don't populate both fields: SQLite has no server (just
@@ -391,8 +407,9 @@ def _run_scan(destination, scan_source=None, scan_id=None):
             status=400
         )
     
-    update_scan_job_state(scan_id, progress=10, current_message="Starting database scan...", log_entry=f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
-    print(f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
+    db_name = get_db_display_name(scan_source or source)
+    update_scan_job_state(scan_id, progress=10, current_message=f"Starting {db_name} scan...", log_entry=f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
+    print(f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
     time.sleep(1.0)
 
     db_type = (scan_source or source or "").lower()
@@ -426,8 +443,8 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
     try:
-        update_scan_job_state(scan_id, progress=25, current_message="Extracting schema and table metadata...", log_entry="Extracting Metadata from DataBase")
-        print("Extracting Metadata from DataBase")
+        update_scan_job_state(scan_id, progress=25, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=f"Extracting Metadata from {db_name}")
+        print(f"Extracting Metadata from {db_name}")
         metadata = obj.extract()
         original_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
@@ -436,22 +453,22 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
-        update_scan_job_state(scan_id, progress=45, current_message=f"Metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
+        update_scan_job_state(scan_id, progress=45, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
         time.sleep(1.0)
 
-        update_scan_job_state(scan_id, progress=55, current_message="Running Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
-        print("MetaData Extracted\nRunning Harnness Layer-1")
+        update_scan_job_state(scan_id, progress=55, current_message=f"Running {db_name} Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\n{db_name} MetaData Extracted\nRunning Harnnes Layer-1")
+        print(f"{db_name} MetaData Extracted\nRunning Harnness Layer-1")
         time.sleep(1.5)
         layer_result = layer1_Harness(metadata)
         temp = format_harness_report(layer_result)
         
-        update_scan_job_state(scan_id, progress=65, current_message="Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
+        update_scan_job_state(scan_id, progress=65, current_message=f"{db_name} Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
         update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
         print(temp)
         time.sleep(1.2)
 
-        update_scan_job_state(scan_id, progress=70, current_message="Generating Assessment Report and Migration Plan...", log_entry="Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
-        print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
+        update_scan_job_state(scan_id, progress=70, current_message=f"Generating {db_name} Assessment Report and Migration Plan...", log_entry=f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
+        print(f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
         
         # Forward scan_id to Agents_PipeLine
         output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
@@ -459,8 +476,8 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         update_scan_job_state(scan_id, progress=95, current_message="Finalizing reports and logs...", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
         print(f"Output is avaliable at Show Logs embedded in the UI Screen")
 
-        update_scan_job_state(scan_id, progress=100, current_message="Database scan completed successfully.", log_entry="Database scan completed successfully.")
-        print(f"Database scan completed successfully.")
+        update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed successfully.", log_entry=f"{db_name} scan completed successfully.")
+        print(f"{db_name} scan completed successfully.")
         
         # Retrieve logs for direct response compat
         with scan_jobs_lock:
