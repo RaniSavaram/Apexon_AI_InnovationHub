@@ -120,10 +120,11 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
 
 def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None, scan_id=None):
     # Create agents using Microsoft AI Foundry SDK
-    _update_progress(scan_id, progress=65, current_message="Initializing Azure AI Foundry agents...", log_entry="HARNESS LAYER 2:\nStarting evaluator-generator agents.", log_type="Harness Layer2")
-    
+    _update_progress(scan_id, progress=65, current_message="Initializing Harness Layer 2 AI agents...", log_entry="HARNESS LAYER 2:\nStarting evaluator-generator agents.", log_type="Harness Layer2")
     orchestrator.create_agents()
-    _update_progress(scan_id, log_entry="Evaluator-generator agents created successfully.", log_type="Harness Layer2")
+    
+    _update_progress(scan_id, progress=69, current_message="Harness Layer 2 AI agents initialized.", log_entry="Evaluator-generator agents created successfully.", log_type="Harness Layer2")
+    time.sleep(1.2)
 
     # 4. Generate Table-Wise Summary Report
     print("\n--------------------------------------------------")
@@ -171,8 +172,8 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         t_name = r["table_name"]
         s_name = r["schema_name"]
         
-        # Calculate dynamic table summary progress between 65% and 80%
-        current_pct = int(65 + (idx / total_tables) * 15)
+        # Calculate dynamic table summary progress between 70% and 80%
+        current_pct = int(70 + (idx / total_tables) * 10)
         _update_progress(scan_id, progress=current_pct, current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})...")
         
         summary = orchestrator.run_table_summarizer_agent(t_name, schema_name=s_name)
@@ -198,6 +199,7 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     )
     
     _update_progress(scan_id, log_entry="Assessment DOCX generated successfully.", log_type="Harness Layer2")
+    time.sleep(1.2)
     
     # 5. Generate Database Migration Assessment Report
     print("\n--------------------------------------------------")
@@ -236,13 +238,15 @@ Columns Sample:
 {cols_summary_str}
 """
     
-    _update_progress(scan_id, progress=85, current_message="Generating database migration roadmap...", log_entry="Migration plan generator agent started.", log_type="Harness Layer2")
+    _update_progress(scan_id, progress=85, current_message="Running Migration Planner AI Agent...", log_entry="Migration plan generator agent started.", log_type="Harness Layer2")
     _update_progress(scan_id, log_entry="[INFO] Starting migration plan agent.", log_type="Scan Info")
+    time.sleep(1.2)
     
     agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
     _update_progress(scan_id, progress=92, current_message="Compiling execution order and Medallion plan...", log_entry="Compiling execution order and Medallion plan...")
+    time.sleep(1.2)
     
     create_migration_plan_document(
         tables_df=tables_df,
@@ -290,6 +294,7 @@ Columns Sample:
     )
     _update_progress(scan_id, log_entry=f"[VALIDATION] {source_hint or 'unknown'}: {len(tables_df)} tables, {len(columns_df)} columns, {generated_sections}/9 migration sections.", log_type="Harness Layer2")
     _update_progress(scan_id, progress=98, current_message="Finalizing database scanner outputs...", log_entry=f"[VALIDATION] Reports verified: {Path(table_summary_docx_path).name}, {Path(migration_plan_docx_path).name}.", log_type="Harness Layer2")
+    time.sleep(1.0)
 
     return {
         "assessment_report": table_summary_filename,

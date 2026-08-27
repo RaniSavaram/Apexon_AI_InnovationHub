@@ -1,4 +1,5 @@
 import os
+import time
 import traceback
 from pathlib import Path
 from threading import Lock, Thread
@@ -380,6 +381,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
     
     update_scan_job_state(scan_id, progress=10, current_message="Starting database scan...", log_entry=f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
     print(f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
+    time.sleep(1.0)
 
     db_type = (scan_source or source or "").lower()
 
@@ -423,15 +425,18 @@ def _run_scan(destination, scan_source=None, scan_id=None):
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
         update_scan_job_state(scan_id, progress=45, current_message=f"Metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
+        time.sleep(1.0)
 
         update_scan_job_state(scan_id, progress=55, current_message="Running Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
         print("MetaData Extracted\nRunning Harnness Layer-1")
+        time.sleep(1.5)
         layer_result = layer1_Harness(metadata)
         temp = format_harness_report(layer_result)
         
         update_scan_job_state(scan_id, progress=65, current_message="Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
         update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
         print(temp)
+        time.sleep(1.2)
 
         update_scan_job_state(scan_id, progress=70, current_message="Generating Assessment Report and Migration Plan...", log_entry="Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
         print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
