@@ -135,4 +135,15 @@ export class Scanner {
   getScanStatus(scanId: string) {
     return this.http.get<ScanStatus>(`${this.api.baseUrl}/scan-status/${scanId}/`);
   }
+
+  /**
+   * Invokes BackEnd/Artifacts_Generator/SQL_2_Fabric.py to deploy the
+   * scanned tables directly into the Microsoft Fabric OneLake Lakehouse.
+   */
+  generateFabricArtifacts(filename?: string) {
+    return this.http.post<{ status: string; message: string; tables?: string[]; errors?: string[] }>(
+      `${this.api.baseUrl}/generate-fabric-artifacts/`,
+      filename ? { filename } : {}
+    );
+  }
 }

@@ -575,3 +575,26 @@ def debug_view(request):
                 "Harness Layer2": list(Logs.get("Harness Layer2", [])),
             }
         })
+
+
+@api_view(["POST", "GET"])
+def generate_fabric_artifacts(request):
+    """
+    Executes BackEnd/Artifacts_Generator/SQL_2_Fabric.py to create
+    empty Delta tables directly in a Microsoft Fabric OneLake Lakehouse
+    based on the latest assessment report.
+    """
+    try:
+        from Artifacts_Generator.SQL_2_Fabric import Generator
+        doc_filename = request.data.get("filename") if request.method == "POST" else request.GET.get("filename")
+        doc_path = None
+        if doc_filename:
+            output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+            doc_path = output_dir / doc_filename
+
+        result = Generator(doc_path=doc_path)
+        status_code = 200 if result.get("status") in ("success", "warning") else 400
+        return Response(result, status=status_code)
+    except Exception as exc:
+        traceback.print_exc()
+        return Response({"status": "error", "message": str(exc)}, status=500)

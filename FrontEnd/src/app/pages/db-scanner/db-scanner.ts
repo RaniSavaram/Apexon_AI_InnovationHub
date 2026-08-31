@@ -53,6 +53,7 @@ export class DbScannerComponent implements AfterViewChecked {
   connecting = false;
 
   showLogsDialog = false;
+  generatingFabric = false;
 
   activeTab: 'logs' | 'harness1' | 'harness2' | 'output' = 'logs';
 
@@ -1134,6 +1135,43 @@ export class DbScannerComponent implements AfterViewChecked {
   closeLogsDialog() {
 
     this.showLogsDialog = false;
+
+  }
+
+  //=========================================================
+  // GENERATE FABRIC ARTIFACTS (SQL_2_FABRIC)
+  //=========================================================
+
+  generateFabricArtifacts() {
+
+    if (!this.scanCompleted) {
+      alert('Please complete a database scan first.');
+      return;
+    }
+
+    this.generatingFabric = true;
+    this.cdr.detectChanges();
+
+    this.scanner.generateFabricArtifacts().subscribe({
+      next: (res) => {
+        this.generatingFabric = false;
+        if (res.status === 'success') {
+          const count = res.tables?.length || 0;
+          const tableList = res.tables && res.tables.length > 0 ? `\n\nSynced Tables (${count}):\n` + res.tables.join('\n') : '';
+          alert(`Fabric Artifacts Deployed Successfully!\n${res.message}${tableList}`);
+        } else {
+          const errList = res.errors && res.errors.length > 0 ? `\n\nErrors:\n` + res.errors.join('\n') : '';
+          alert(`Fabric Artifacts: ${res.message}${errList}`);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.generatingFabric = false;
+        const msg = err.error?.message || err.message || 'Failed to deploy Fabric artifacts.';
+        alert(`Fabric Artifacts Error:\n${msg}`);
+        this.cdr.detectChanges();
+      }
+    });
 
   }
 

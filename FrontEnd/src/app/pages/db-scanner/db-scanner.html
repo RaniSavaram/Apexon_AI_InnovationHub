@@ -152,6 +152,19 @@ START PART 1
 
                     </button>
 
+                    <button
+                        class="fabric-btn"
+                        (click)="generateFabricArtifacts()"
+                        [disabled]="!scanCompleted || generatingFabric"
+                        [title]="!scanCompleted ? 'Complete scan first to generate Fabric artifacts' : 'Generate Fabric Delta Lake Tables via SQL_2_Fabric'">
+
+                        <i class="bi bi-cloud-arrow-up-fill" *ngIf="!generatingFabric"></i>
+                        <i class="bi bi-arrow-repeat spin" *ngIf="generatingFabric"></i>
+
+                        {{ generatingFabric ? 'Generating Artifacts...' : 'Generate Fabric Artifacts' }}
+
+                    </button>
+
                 </div>
 
             </div>

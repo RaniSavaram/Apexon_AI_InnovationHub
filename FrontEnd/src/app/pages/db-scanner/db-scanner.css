@@ -214,6 +214,46 @@ BUTTONS
     color:#030c18;
 }
 
+.fabric-btn{
+    background:rgba(0, 164, 239, 0.12);
+    color:#38bdf8;
+    border:2px solid #38bdf8;
+    border-radius:8px;
+    padding:12px 24px;
+    cursor:pointer;
+    font-size:15px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    transition:.25s;
+}
+
+.fabric-btn:hover:not(:disabled){
+    background:#0284c7;
+    color:#ffffff;
+    border-color:#0284c7;
+    box-shadow:0 0 14px rgba(56, 189, 248, 0.45);
+}
+
+.fabric-btn:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+    border-color:#334155;
+    color:#64748b;
+    background:transparent;
+    box-shadow:none;
+}
+
+.fabric-btn .spin{
+    animation:fabric-spin 1s linear infinite;
+}
+
+@keyframes fabric-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 /*====================================================
 TOKEN PLACE HOLDER
 ====================================================*/
