@@ -70,6 +70,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
   scanInterval: any;
   scanStatusTimeout: any;
+  private pollErrorCount = 0;
 
   metadataFile = '/output/Assesment%20Report.docx';
 
@@ -731,6 +732,7 @@ export class DbScannerComponent implements AfterViewChecked {
     this.statusMessages.push(`Starting ${activeDb} scan`);
     this.backendCompleted = false;
     this.backendResponse = null;
+    this.pollErrorCount = 0;
 
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
@@ -763,6 +765,7 @@ export class DbScannerComponent implements AfterViewChecked {
   private pollScanStatus(scanId: string) {
     this.scanner.getScanStatus(scanId).subscribe({
       next: (status) => {
+        this.pollErrorCount = 0;
         this.applyScanLogs(status.Logs);
         
         // Dynamically update progress and status message from backend
@@ -797,6 +800,15 @@ export class DbScannerComponent implements AfterViewChecked {
         this.cdr.detectChanges();
       },
       error: () => {
+        this.pollErrorCount++;
+        if (this.pollErrorCount >= 4) {
+          this.loading = false;
+          this.scanFailed = true;
+          this.scanStatus = 'Scan session interrupted (server reloaded). Please click Scan to restart.';
+          this.statusMessages.push('Scan session interrupted (server reloaded). Please click Scan to restart.');
+          this.cdr.detectChanges();
+          return;
+        }
         this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 3000);
       },
     });
