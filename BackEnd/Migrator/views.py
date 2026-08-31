@@ -593,8 +593,7 @@ def generate_fabric_artifacts(request):
             doc_path = output_dir / doc_filename
 
         result = Generator(doc_path=doc_path)
-        status_code = 200 if result.get("status") in ("success", "warning") else 400
-        return Response(result, status=status_code)
+        return Response(result, status=200)
     except Exception as exc:
         traceback.print_exc()
-        return Response({"status": "error", "message": str(exc)}, status=500)
+        return Response({"status": "error", "message": str(exc), "logs": [str(exc)]}, status=200)

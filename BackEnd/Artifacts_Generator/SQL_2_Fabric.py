@@ -227,13 +227,16 @@ def Generator(doc_path=None):
         return {"status": "error", "message": msg}
 
     print(f"[INFO] Using assessment report: {target_doc}")
+    logs_list = [f"[INFO] Using assessment report: {target_doc.name}"]
 
     try:
         token = get_onelake_token()
+        logs_list.append("[INFO] OneLake token acquired via DefaultAzureCredential.")
     except Exception as e:
-        msg = f"Azure OneLake Authentication failed: {e}. Please ensure Azure credentials are configured."
+        msg = f"Azure OneLake Authentication failed: {e}. Please ensure Azure credentials (e.g. AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID) are configured."
         print(f"ERROR: {msg}", file=sys.stderr)
-        return {"status": "error", "message": msg}
+        logs_list.append(f"[ERROR] {msg}")
+        return {"status": "error", "message": msg, "logs": logs_list}
 
     storage_options = {
         "bearer_token": token,
@@ -246,16 +249,20 @@ def Generator(doc_path=None):
     except Exception as e:
         msg = f"Failed to parse report {target_doc.name}: {e}"
         print(f"ERROR: {msg}", file=sys.stderr)
-        return {"status": "error", "message": msg}
+        logs_list.append(f"[ERROR] {msg}")
+        return {"status": "error", "message": msg, "logs": logs_list}
 
     print(f"Parsed {len(parsed)} table(s) from report:\n")
+    logs_list.append(f"[INFO] Parsed {len(parsed)} table(s) from {target_doc.name}.")
 
     if not parsed:
         msg = f"No tables found in assessment report {target_doc.name}."
         print(f"WARN: {msg}")
-        return {"status": "warning", "message": msg, "tables": []}
+        logs_list.append(f"[WARN] {msg}")
+        return {"status": "warning", "message": msg, "tables": [], "logs": logs_list}
 
     synced_tables = []
+    tables_info = []
     errors = []
 
     for t in parsed:
@@ -263,12 +270,25 @@ def Generator(doc_path=None):
         table_name = clean_identifier(t["table"])
         cols = t["columns"]
 
-        print(f"=== {schema_name}.{table_name} ({len(cols)} columns) ===")
+        table_meta = {
+            "schema": schema_name,
+            "table": table_name,
+            "columns_count": len(cols),
+            "columns": [{"name": c[0], "type": c[1]} for c in cols]
+        }
+        tables_info.append(table_meta)
+
+        log_hdr = f"=== {schema_name}.{table_name} ({len(cols)} columns) ==="
+        print(log_hdr)
+        logs_list.append(log_hdr)
+
         fields = []
         for col_name, dt_raw in cols:
             arrow_type = map_arrow_type(dt_raw)
             fields.append(pa.field(clean_identifier(col_name), arrow_type, nullable=True))
-            print(f"  {col_name:30s} {dt_raw:20s} -> {arrow_type}")
+            col_log = f"  {col_name:30s} {dt_raw:20s} -> {arrow_type}"
+            print(col_log)
+            logs_list.append(col_log)
 
         schema = pa.schema(fields)
 
@@ -280,25 +300,43 @@ def Generator(doc_path=None):
         try:
             sync_table(table_uri, schema_name, table_name, schema, storage_options)
             synced_tables.append(f"{schema_name}.{table_name} ({len(cols)} columns)")
+            logs_list.append(f"  [SUCCESS] Delta Table synced: {schema_name}.{table_name}")
         except Exception as exc:
             err_msg = f"{schema_name}.{table_name}: {exc}"
             print(f"  [ERROR] {err_msg}")
+            logs_list.append(f"  [ERROR] {err_msg}")
             errors.append(err_msg)
         print()
 
     print("Done.")
+    logs_list.append(f"[INFO] Execution completed. Synced: {len(synced_tables)}, Errors: {len(errors)}")
+
     if errors:
         return {
             "status": "partial" if synced_tables else "error",
             "message": f"Synced {len(synced_tables)} table(s) to Fabric Lakehouse, {len(errors)} error(s).",
             "tables": synced_tables,
-            "errors": errors
+            "tables_info": tables_info,
+            "errors": errors,
+            "logs": logs_list,
+            "target": {
+                "workspace_id": WORKSPACE_ID,
+                "lakehouse_id": LAKEHOUSE_ID,
+                "report_name": target_doc.name
+            }
         }
 
     return {
         "status": "success",
         "message": f"Successfully created {len(synced_tables)} Delta table(s) directly in Microsoft Fabric OneLake Lakehouse.",
-        "tables": synced_tables
+        "tables": synced_tables,
+        "tables_info": tables_info,
+        "logs": logs_list,
+        "target": {
+            "workspace_id": WORKSPACE_ID,
+            "lakehouse_id": LAKEHOUSE_ID,
+            "report_name": target_doc.name
+        }
     }
 
 

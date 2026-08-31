@@ -53,7 +53,10 @@ export class DbScannerComponent implements AfterViewChecked {
   connecting = false;
 
   showLogsDialog = false;
+  showArtifactsDialog = false;
   generatingFabric = false;
+  artifactsTab: 'overview' | 'tables' | 'logs' = 'overview';
+  fabricArtifactsResult: any = null;
 
   activeTab: 'logs' | 'harness1' | 'harness2' | 'output' = 'logs';
 
@@ -1139,11 +1142,26 @@ export class DbScannerComponent implements AfterViewChecked {
   }
 
   //=========================================================
-  // GENERATE FABRIC ARTIFACTS (SQL_2_FABRIC)
+  // GENERATE ARTIFACTS DIALOG & EXECUTION (SQL_2_FABRIC)
   //=========================================================
 
-  generateFabricArtifacts() {
+  openArtifactsDialog() {
+    if (!this.scanCompleted) {
+      alert('Please complete a database scan first.');
+      return;
+    }
+    this.showArtifactsDialog = true;
+    if (!this.fabricArtifactsResult && !this.generatingFabric) {
+      this.generateFabricArtifacts();
+    }
+    this.cdr.detectChanges();
+  }
 
+  closeArtifactsDialog() {
+    this.showArtifactsDialog = false;
+  }
+
+  generateFabricArtifacts() {
     if (!this.scanCompleted) {
       alert('Please complete a database scan first.');
       return;
@@ -1155,24 +1173,35 @@ export class DbScannerComponent implements AfterViewChecked {
     this.scanner.generateFabricArtifacts().subscribe({
       next: (res) => {
         this.generatingFabric = false;
-        if (res.status === 'success') {
-          const count = res.tables?.length || 0;
-          const tableList = res.tables && res.tables.length > 0 ? `\n\nSynced Tables (${count}):\n` + res.tables.join('\n') : '';
-          alert(`Fabric Artifacts Deployed Successfully!\n${res.message}${tableList}`);
-        } else {
-          const errList = res.errors && res.errors.length > 0 ? `\n\nErrors:\n` + res.errors.join('\n') : '';
-          alert(`Fabric Artifacts: ${res.message}${errList}`);
-        }
+        this.fabricArtifactsResult = res;
         this.cdr.detectChanges();
       },
       error: (err) => {
         this.generatingFabric = false;
         const msg = err.error?.message || err.message || 'Failed to deploy Fabric artifacts.';
-        alert(`Fabric Artifacts Error:\n${msg}`);
+        this.fabricArtifactsResult = {
+          status: 'error',
+          message: msg,
+          errors: [msg],
+          logs: [msg]
+        };
         this.cdr.detectChanges();
       }
     });
+  }
 
+  getArtifactsStatusTitle(): string {
+    const status = this.fabricArtifactsResult?.status;
+    if (status === 'success') return 'Fabric Artifacts Generated & Synced Successfully';
+    if (status === 'warning') return 'Assessment Report Notice';
+    if (status === 'partial') return 'Partial Artifacts Deployment';
+    return 'Artifacts Deployment Details';
+  }
+
+  isTableSynced(t: any): boolean {
+    if (!this.fabricArtifactsResult?.tables) return false;
+    const key = `${t.schema}.${t.table}`;
+    return this.fabricArtifactsResult.tables.some((s: string) => s.startsWith(key));
   }
 
   //=========================================================
