@@ -925,10 +925,10 @@ SCAN STATUS + ACTION BUTTONS
             </div>
 
             <!-- Tab 3: Deployment Logs -->
-            <div class="artifacts-body" *ngIf="!generatingFabric && artifactsTab === 'logs'">
+            <div class="artifacts-body artifacts-logs-tab" *ngIf="!generatingFabric && artifactsTab === 'logs'">
                 <textarea
                     readonly
-                    class="logs-window">
+                    class="logs-window artifacts-logs-window">
 {{ (fabricArtifactsResult?.logs || []).join('\n') }}
                 </textarea>
             </div>
