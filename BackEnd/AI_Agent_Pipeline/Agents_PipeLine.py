@@ -232,10 +232,24 @@ Columns Sample:
 {cols_summary_str}
 """
     
-    _update_progress(scan_id, progress=85, current_message=f"Running Migration Planner AI Agent", log_entry=f"[INFO] Running Migration Plan Generator Agent for {source_name}...", log_type="Scan Info")
-    time.sleep(1.2)
+    _update_progress(
+        scan_id,
+        progress=85,
+        current_message=f"Generating {source_name} Migration Roadmap with Azure AI",
+        log_entry=f"[INFO] Generating comprehensive Migration Roadmap (Sections 1 to 9) via Azure AI Foundry (estimated 30-45s)...",
+        log_type="Scan Info"
+    )
+    time.sleep(1.0)
     
     agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
+    
+    _update_progress(
+        scan_id,
+        progress=90,
+        current_message=f"Azure AI Migration Roadmap completed",
+        log_entry=f"[INFO] Successfully received Migration Roadmap from Azure AI Foundry.",
+        log_type="Scan Info"
+    )
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
     _update_progress(scan_id, progress=92, current_message="Compiling execution order and Medallion plan", log_entry=f"[INFO] Compiling execution order and Medallion plan for {source_name}...", log_type="Scan Info")
