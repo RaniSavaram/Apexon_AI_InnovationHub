@@ -399,7 +399,7 @@ def Db_Scanner(request):
             "error": None,
             "phase": "starting",
             "progress": 5,
-            "current_message": "Initializing scan...",
+            "current_message": "Initializing scan",
             "logs": ["Scan job initialized."],
             "harness1_logs": [],
             "harness2_logs": [],
@@ -445,7 +445,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         )
     
     db_name = get_db_display_name(scan_source or source)
-    update_scan_job_state(scan_id, progress=10, current_message=f"Starting {db_name} scan...", log_entry=f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
+    update_scan_job_state(scan_id, progress=10, current_message=f"Starting {db_name} scan", log_entry=f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
     print(f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
     time.sleep(1.0)
 
@@ -480,7 +480,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
     try:
-        update_scan_job_state(scan_id, progress=25, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=f"Extracting Metadata from {db_name}")
+        update_scan_job_state(scan_id, progress=25, current_message=f"Extracting {db_name} schema and table metadata", log_entry=f"Extracting Metadata from {db_name}")
         print(f"Extracting Metadata from {db_name}")
         metadata = obj.extract()
         original_table_count = sum(
@@ -493,24 +493,24 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         update_scan_job_state(scan_id, progress=45, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
         time.sleep(1.0)
 
-        update_scan_job_state(scan_id, progress=55, current_message=f"Running {db_name} Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\n{db_name} MetaData Extracted\nRunning Harnnes Layer-1")
+        update_scan_job_state(scan_id, progress=55, current_message=f"Running {db_name} Harness Layer 1 validation", log_entry=f"\n{'='*30}\n{'='*30}\n{db_name} MetaData Extracted\nRunning Harnnes Layer-1")
         print(f"{db_name} MetaData Extracted\nRunning Harnness Layer-1")
         time.sleep(1.5)
         layer_result = layer1_Harness(metadata)
         temp = format_harness_report(layer_result)
         
-        update_scan_job_state(scan_id, progress=65, current_message=f"{db_name} Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
+        update_scan_job_state(scan_id, progress=65, current_message=f"{db_name} Harness Layer 1 validation completed", log_entry=temp, log_type="Scan Info")
         update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
         print(temp)
         time.sleep(1.2)
 
-        update_scan_job_state(scan_id, progress=70, current_message=f"Generating {db_name} Assessment Report and Migration Plan...", log_entry=f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
+        update_scan_job_state(scan_id, progress=70, current_message=f"Generating {db_name} Assessment Report and Migration Plan", log_entry=f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
         print(f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
         
         # Forward scan_id to Agents_PipeLine
         output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
 
-        update_scan_job_state(scan_id, progress=95, current_message="Finalizing reports and logs...", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
+        update_scan_job_state(scan_id, progress=95, current_message="Finalizing reports and logs", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
         print(f"Output is avaliable at Show Logs embedded in the UI Screen")
 
         update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed successfully.", log_entry=f"{db_name} scan completed successfully.")

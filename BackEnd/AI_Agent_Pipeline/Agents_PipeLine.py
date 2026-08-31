@@ -168,7 +168,7 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         
         # Calculate dynamic table summary progress between 70% and 80%
         current_pct = int(70 + (idx / total_tables) * 10)
-        _update_progress(scan_id, progress=current_pct, current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})...")
+        _update_progress(scan_id, progress=current_pct, current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})")
         
         summary = orchestrator.run_table_summarizer_agent(t_name, schema_name=s_name)
         table_summaries.append(summary)
@@ -179,7 +179,7 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     migration_plan_filename = f"{source_name}_Migration_Plan.docx"
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
     
-    _update_progress(scan_id, progress=80, current_message="Compiling table assessment report document...", log_entry="Table summarizer agent completed.", log_type="Harness Layer2")
+    _update_progress(scan_id, progress=80, current_message="Compiling table assessment report document", log_entry="Table summarizer agent completed.", log_type="Harness Layer2")
     _update_progress(scan_id, log_entry="[INFO] Starting assessment DOCX generation.", log_type="Scan Info")
     
     create_table_summary_document(
@@ -232,14 +232,14 @@ Columns Sample:
 {cols_summary_str}
 """
     
-    _update_progress(scan_id, progress=85, current_message="Running Migration Planner AI Agent...", log_entry="Migration plan generator agent started.", log_type="Harness Layer2")
+    _update_progress(scan_id, progress=85, current_message="Running Migration Planner AI Agent", log_entry="Migration plan generator agent started.", log_type="Harness Layer2")
     _update_progress(scan_id, log_entry="[INFO] Starting migration plan agent.", log_type="Scan Info")
     time.sleep(1.2)
     
     agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
-    _update_progress(scan_id, progress=92, current_message="Compiling execution order and Medallion plan...", log_entry="Compiling execution order and Medallion plan...")
+    _update_progress(scan_id, progress=92, current_message="Compiling execution order and Medallion plan", log_entry="Compiling execution order and Medallion plan...")
     time.sleep(1.2)
     
     create_migration_plan_document(
@@ -259,7 +259,7 @@ Columns Sample:
     # Generate Fabric JSON Metadata
     fabric_json_filename = f"{source_name}_Fabric_Migration_Metadata.json"
     fabric_json_path = os.path.join(output_dir, fabric_json_filename)
-    _update_progress(scan_id, progress=95, current_message="Generating Fabric JSON Metadata...", log_entry="Generating Fabric-compatible JSON metadata step...", log_type="Harness Layer2")
+    _update_progress(scan_id, progress=95, current_message="Generating Fabric JSON Metadata", log_entry="Generating Fabric-compatible JSON metadata step...", log_type="Harness Layer2")
     
     try:
         from AI_Agent_Pipeline.src.fabric_json_generator import generate_fabric_json_metadata
@@ -313,7 +313,7 @@ Columns Sample:
         for section in range(1, 10)
     )
     _update_progress(scan_id, log_entry=f"[VALIDATION] {source_hint or 'unknown'}: {len(tables_df)} tables, {len(columns_df)} columns, {generated_sections}/9 migration sections.", log_type="Harness Layer2")
-    _update_progress(scan_id, progress=98, current_message="Finalizing database scanner outputs...", log_entry=f"[VALIDATION] Reports verified: {Path(table_summary_docx_path).name}, {Path(migration_plan_docx_path).name}.", log_type="Harness Layer2")
+    _update_progress(scan_id, progress=98, current_message="Finalizing database scanner outputs", log_entry=f"[VALIDATION] Reports verified: {Path(table_summary_docx_path).name}, {Path(migration_plan_docx_path).name}.", log_type="Harness Layer2")
     time.sleep(1.0)
 
     return {
