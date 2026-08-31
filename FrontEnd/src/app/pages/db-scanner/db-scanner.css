@@ -215,34 +215,38 @@ BUTTONS
 }
 
 .fabric-btn{
-    background:rgba(0, 164, 239, 0.12);
-    color:#38bdf8;
-    border:2px solid #38bdf8;
+    background:linear-gradient(135deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%);
+    color:#ffffff;
+    border:1.5px solid #38bdf8;
     border-radius:8px;
-    padding:12px 24px;
+    padding:12px 26px;
     cursor:pointer;
     font-size:15px;
-    font-weight:600;
+    font-weight:700;
     display:flex;
     align-items:center;
     gap:10px;
-    transition:.25s;
+    transition:all .25s ease-in-out;
+    box-shadow:0 4px 16px rgba(14, 165, 233, 0.45);
+    letter-spacing:0.3px;
 }
 
 .fabric-btn:hover:not(:disabled){
-    background:#0284c7;
+    background:linear-gradient(135deg, #38bdf8 0%, #0ea5e9 50%, #0284c7 100%);
     color:#ffffff;
-    border-color:#0284c7;
-    box-shadow:0 0 14px rgba(56, 189, 248, 0.45);
+    border-color:#7dd3fc;
+    box-shadow:0 6px 22px rgba(56, 189, 248, 0.65);
+    transform:translateY(-2px);
 }
 
 .fabric-btn:disabled{
-    opacity:0.4;
+    background:rgba(14, 165, 233, 0.12);
+    color:#7dd3fc;
+    border:1.5px dashed rgba(56, 189, 248, 0.45);
+    opacity:0.8;
     cursor:not-allowed;
-    border-color:#334155;
-    color:#64748b;
-    background:transparent;
     box-shadow:none;
+    transform:none;
 }
 
 .fabric-btn .spin{
