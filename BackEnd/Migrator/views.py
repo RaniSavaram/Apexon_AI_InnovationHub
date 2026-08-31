@@ -67,7 +67,10 @@ def _scan_status(scan_id):
 def get_progress_from_log(log_entry):
     if not log_entry or not isinstance(log_entry, str):
         return None
-    log_lower = log_entry.lower()
+    # Multi-line reports (e.g. Harness Layer 1 validation report) should not trigger single-line progress steps
+    if "\n" in log_entry or len(log_entry) > 200:
+        return None
+    log_lower = log_entry.lower().strip()
     if "scan started" in log_lower:
         return 10
     if "extracting metadata" in log_lower:
@@ -92,7 +95,7 @@ def get_progress_from_log(log_entry):
         return 92
     if "output is avaliable" in log_lower or "finalizing reports" in log_lower or "generating fabric migration metadata" in log_lower:
         return 95
-    if "completed successfully" in log_lower or "assessment pipeline executed successfully" in log_lower:
+    if log_lower.endswith("scan completed successfully.") or log_lower == "scan completed successfully":
         return 100
     return None
 
@@ -111,7 +114,9 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
                 Logs["Scan Info"].append(log_entry)
 
     if progress is not None and not skip_global:
-        Logs["Progress Percentage"] = progress
+        current_global = Logs.get("Progress Percentage", 0)
+        if not isinstance(current_global, (int, float)) or progress > current_global:
+            Logs["Progress Percentage"] = progress
 
     if not scan_id:
         return
@@ -121,7 +126,9 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
         if not job:
             return
         if progress is not None:
-            job["progress"] = progress
+            current_job_progress = job.get("progress", 0)
+            if not isinstance(current_job_progress, (int, float)) or progress > current_job_progress:
+                job["progress"] = progress
             
         if current_message is not None:
             clean_msg = current_message.strip()

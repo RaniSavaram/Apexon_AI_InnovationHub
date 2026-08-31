@@ -769,7 +769,9 @@ export class DbScannerComponent implements AfterViewChecked {
         this.applyScanLogs(status.Logs);
         
         // Dynamically update progress and status message from backend
-        this.progress = status.progressbar || this.progress;
+        if (status.progressbar && status.progressbar > this.progress) {
+          this.progress = status.progressbar;
+        }
         this.scanStatus = status.scan_status_message || this.scanStatus;
 
         if (status.status === 'Running') {
