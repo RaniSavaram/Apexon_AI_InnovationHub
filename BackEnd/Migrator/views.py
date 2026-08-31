@@ -124,11 +124,11 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
             job["progress"] = progress
             
         if current_message is not None:
-            job["current_message"] = current_message
-        elif log_entry and isinstance(log_entry, str):
-            clean_log = log_entry.strip().replace("[INFO] ", "").replace("[INFO]", "").replace("[Err] ", "").replace("[Err]", "").strip()
-            if "\n" not in clean_log and len(clean_log) < 120:
-                job["current_message"] = clean_log
+            clean_msg = current_message.strip()
+            # Strip trailing dots so badge always shows a complete sentence
+            while clean_msg.endswith("."):
+                clean_msg = clean_msg[:-1].strip()
+            job["current_message"] = clean_msg
 
         if log_entry and skip_global:
             if log_type == "Scan Info":
