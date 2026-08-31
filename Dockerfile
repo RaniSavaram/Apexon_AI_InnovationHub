@@ -143,4 +143,4 @@ EXPOSE 10000
 # START APPLICATION
 # ============================================================
 
-CMD ["sh", "-c", "gunicorn config.wsgi:application --chdir BackEnd --bind 0.0.0.0:${PORT:-10000} --timeout 600 --workers 1 --access-logfile - --error-logfile -"]
+CMD ["sh", "-c", "gunicorn config.wsgi:application --chdir BackEnd --bind 0.0.0.0:${PORT:-10000} --timeout 600 --workers 1 --error-logfile -"]
