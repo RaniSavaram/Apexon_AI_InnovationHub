@@ -114,7 +114,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
   progress = 0;
 
-  scanStatus = 'Waiting for Scan...';
+  scanStatus = 'Select a database to begin';
 
   //=========================================================
   // STATUS MESSAGES
@@ -122,7 +122,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
   statusMessages: string[] = [
 
-    'Waiting for Scan...'
+    'Select a database to begin'
 
   ];
 
@@ -380,11 +380,12 @@ export class DbScannerComponent implements AfterViewChecked {
 
     this.showScanCompletedDialog = false;
 
-    this.scanStatus = 'Waiting for Scan...';
+    const selectedDb = this.getFormatSourceForFilename(this.source);
+    this.scanStatus = this.source ? `Waiting to connect to ${selectedDb}` : 'Select a database to begin';
 
     this.statusMessages = [
 
-      'Waiting for Scan...'
+      this.scanStatus
 
     ];
 
@@ -618,6 +619,10 @@ export class DbScannerComponent implements AfterViewChecked {
 
         this.connected = true;
 
+        const connectedDb = this.getFormatSourceForFilename(this.source);
+        this.scanStatus = `Connected to ${connectedDb}. Ready to scan`;
+        this.statusMessages = [this.scanStatus];
+
         this.saveRememberedConnection();
 
         this.showConnection = false;
@@ -720,10 +725,10 @@ export class DbScannerComponent implements AfterViewChecked {
     this.scanFailed = false;
 
     this.showScanCompletedDialog = false;
-    this.progress = 1;
-    this.scanStatus = 'Scanning started';
+    const activeDb = this.getFormatSourceForFilename(this.source);
+    this.scanStatus = `Starting ${activeDb} scan`;
     this.statusMessages = [];
-    this.statusMessages.push('Scanning started');
+    this.statusMessages.push(`Starting ${activeDb} scan`);
     this.backendCompleted = false;
     this.backendResponse = null;
 
@@ -832,9 +837,16 @@ export class DbScannerComponent implements AfterViewChecked {
 
     this.connected = false;
 
-    this.scanStatus = 'Scan Completed Successfully';
+    const completedSource = this.lastScanSource || this.source;
+    const formattedSource = this.getFormatSourceForFilename(completedSource);
+    const completedMsg = this.backendResponse?.scan_status_message 
+      || `${formattedSource} scan completed successfully.`;
 
-    this.statusMessages.push('Scan Completed Successfully');
+    this.scanStatus = completedMsg;
+
+    if (!this.statusMessages.includes(completedMsg)) {
+      this.statusMessages.push(completedMsg);
+    }
 
     if (this.backendResponse) {
 
