@@ -82,17 +82,17 @@ def get_progress_from_log(log_entry):
         return 68
     if "azure ai projects client initialized" in log_lower or "initializing azure ai projects client" in log_lower:
         return 72
-    if "fetching metadata summary for table" in log_lower:
+    if "fetching metadata summary for table" in log_lower or "running table summarizer agent" in log_lower:
         return 75
-    if "compiling table summaries" in log_lower:
+    if "compiling table summaries" in log_lower or "generating assessment report" in log_lower:
         return 80
-    if "roadmap generated" in log_lower or "assessment roadmap generated" in log_lower:
+    if "roadmap generated" in log_lower or "assessment roadmap generated" in log_lower or "running migration plan generator agent" in log_lower:
         return 85
-    if "word report compiled" in log_lower:
-        return 90
-    if "output is avaliable" in log_lower or "finalizing reports" in log_lower:
+    if "word report compiled" in log_lower or "compiling execution order and medallion plan" in log_lower:
+        return 92
+    if "output is avaliable" in log_lower or "finalizing reports" in log_lower or "generating fabric migration metadata" in log_lower:
         return 95
-    if "completed successfully" in log_lower:
+    if "completed successfully" in log_lower or "assessment pipeline executed successfully" in log_lower:
         return 100
     return None
 
