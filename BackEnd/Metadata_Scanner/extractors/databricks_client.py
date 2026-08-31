@@ -30,10 +30,11 @@ class DatabricksExtractor(BaseExtractor):
     """
 
     def __init__(self, Creds):
-        self.server_hostname = Creds.get_servername()
-        self.catalog = Creds.get_database_name()
-        self.access_token = Creds.get_password()
-        self.http_path = Creds.get_extra("http_path")
+        self.server_hostname = (Creds.get_servername() or "").strip()
+        self.server_hostname = re.sub(r"^https?://", "", self.server_hostname).rstrip("/")
+        self.catalog = (Creds.get_database_name() or "").strip()
+        self.access_token = (Creds.get_password() or "").strip()
+        self.http_path = (Creds.get_extra("http_path") or "").strip()
         self.connection = None
 
     def connect(self):
