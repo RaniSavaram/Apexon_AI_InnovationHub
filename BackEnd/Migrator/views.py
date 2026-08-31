@@ -104,7 +104,6 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
             progress = detected_progress
 
     if log_entry:
-        print(f"[LOG][{log_type}] {log_entry}")
         if not skip_global:
             if log_type in Logs:
                 Logs[log_type].append(log_entry)
