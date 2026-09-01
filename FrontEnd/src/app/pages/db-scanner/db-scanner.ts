@@ -1104,48 +1104,19 @@ export class DbScannerComponent implements AfterViewChecked {
   }
 
   //=========================================================
-  // RETRY CONSTRAINT HARNESS LAYER (HARNESS 1)
+  // RETRY CONSTRAINT HARNESS LAYER (HARNESS 1) - ACTION REMOVED
   //=========================================================
 
   retryHarness1() {
-
-    if (!this.lastScanSource) {
-
-      return;
-
-    }
-
-    const feedback = this.harness1Feedback.trim();
-    if (feedback) {
-      this.statusMessages.push(`Constraint harness feedback for retry: ${feedback}`);
-    }
-
-    this.source = this.lastScanSource;
-
-    this.connected = true;
-
-    this.activeTab = 'harness1';
-
-    this.startScan();
-
+    // Action removed per user request
   }
 
   //=========================================================
-  // SUBMIT CONSTRAINT HARNESS LAYER (HARNESS 1)
+  // SUBMIT CONSTRAINT HARNESS LAYER (HARNESS 1) - ACTION REMOVED
   //=========================================================
 
   submitHarness1() {
-
-    const feedback = this.harness1Feedback.trim();
-    if (feedback) {
-      this.harness1Messages = [
-        ...this.harness1Messages,
-        `User feedback submitted: ${feedback}`
-      ];
-    }
-
-    this.activeTab = 'harness2';
-
+    // Action removed per user request
   }
 
   //=========================================================

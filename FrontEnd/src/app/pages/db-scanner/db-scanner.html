@@ -370,7 +370,11 @@ SCAN STATUS + ACTION BUTTONS
 
         </div>
 
-
+        <!-- Demo Dataset Notice -->
+        <div class="demo-limit-note">
+            <i class="bi bi-info-circle"></i>
+            <span>* For demo purposes, we have limited the dataset to 5 tables.</span>
+        </div>
 
     </div>
 
@@ -662,7 +666,7 @@ SCAN STATUS + ACTION BUTTONS
 
                     <button
                         class="cancel-btn"
-                        (click)="retryHarness1()">
+                        type="button">
 
                         <i class="bi bi-arrow-repeat"></i>
                         Retry
@@ -671,7 +675,7 @@ SCAN STATUS + ACTION BUTTONS
 
                     <button
                         class="connect-btn"
-                        (click)="submitHarness1()">
+                        type="button">
 
                         <i class="bi bi-check-lg"></i>
                         Submit
@@ -824,15 +828,6 @@ SCAN STATUS + ACTION BUTTONS
                     Deployment Logs
                 </button>
 
-                <button
-                    class="re-run-btn"
-                    [disabled]="generatingFabric"
-                    (click)="generateFabricArtifacts()"
-                    style="margin-left: auto;">
-                    <i class="bi bi-arrow-repeat" [class.spin]="generatingFabric"></i>
-                    {{ generatingFabric ? 'Generating...' : 'Re-run ' + getActiveGeneratorScript() }}
-                </button>
-
             </div>
 
             <!-- Loading State -->
@@ -929,7 +924,7 @@ SCAN STATUS + ACTION BUTTONS
                     </table>
                 </div>
                 <div class="empty-state" *ngIf="!fabricArtifactsResult?.tables_info?.length">
-                    <p>No table schema information available. Click Re-run Generation to parse the assessment report.</p>
+                    <p>No table schema information available.</p>
                 </div>
             </div>
 
