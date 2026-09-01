@@ -69,7 +69,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
     # otherwise fall back to scanning data/ for CSV/JSON uploads.
     if metadata is not None:
         print("[INFO] Using metadata from the live scan just performed...")
-        tables_df, columns_df, stats_df, views_df, procedures_df, dep_df = metadata_to_dataframes(
+        tables_df, columns_df, stats_df, views_df, procedures_df, functions_df, volumes_df, dep_df = metadata_to_dataframes(
             metadata, label=metadata.get("database", "live_scan")
         )
     else:
@@ -78,7 +78,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
             print("[ERROR] Please upload source files to the 'data/' directory.")
             sys.exit(1)
         print("[INFO] Collecting metadata from files in data/ directory...")
-        tables_df, columns_df, stats_df, views_df, procedures_df, dep_df = collect_metadata(data_dir)
+        tables_df, columns_df, stats_df, views_df, procedures_df, functions_df, volumes_df, dep_df = collect_metadata(data_dir)
 
     if tables_df.empty:
         print("[ERROR] No tables found in the scanned metadata.")
@@ -94,7 +94,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
 
     source_name = (source_hint or "database").replace(" ", "_").lower()
     try:
-        return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint, scan_id)
+        return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint, scan_id, functions_df=functions_df, volumes_df=volumes_df)
     except Exception as exc:
         _update_progress(scan_id, log_entry=f"[FAILED] Layer 2 stopped: {exc}", log_type="Harness Layer2")
         _update_progress(scan_id, log_entry=f"[ERROR] Assessment pipeline failed: {exc}", log_type="Scan Info")
@@ -118,7 +118,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
         orchestrator.cleanup_agents()
 
 
-def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None, scan_id=None):
+def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None, scan_id=None, functions_df=None, volumes_df=None):
     # Create agents using Microsoft AI Foundry SDK
     _update_progress(scan_id, progress=65, current_message="Initializing Harness Layer 2 AI agents...", log_entry="HARNESS LAYER 2:\nStarting evaluator-generator agents.", log_type="Harness Layer2")
     orchestrator.create_agents()
@@ -195,7 +195,11 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         source_hint=source_hint,
         tables_df=tables_df,
         columns_df=columns_df,
-        stats_df=stats_df
+        stats_df=stats_df,
+        views_df=views_df,
+        procedures_df=procedures_df,
+        functions_df=functions_df,
+        volumes_df=volumes_df
     )
     
     _update_progress(scan_id, log_entry="Assessment DOCX generated successfully.", log_type="Harness Layer2")
@@ -255,6 +259,8 @@ Columns Sample:
         dep_df=dep_df,
         views_df=views_df,
         procedures_df=procedures_df,
+        functions_df=functions_df,
+        volumes_df=volumes_df,
         agent_writeups=agent_writeups,
         output_path=migration_plan_docx_path,
         tokens_used=orchestrator.tokens_used if orchestrator.client_type else None,
