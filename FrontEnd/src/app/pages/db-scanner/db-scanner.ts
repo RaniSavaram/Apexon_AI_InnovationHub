@@ -750,9 +750,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     this.backendResponse = null;
     this.pollErrorCount = 0;
 
-    this.progress = 1;
-    this.targetProgress = 6;
-    this.startProgressAnimation();
+    this.progress = 8;
 
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
@@ -790,9 +788,11 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
         this.pollErrorCount = 0;
         this.applyScanLogs(status.Logs);
         
-        // Dynamically update target progress from backend milestone
-        if (status.progressbar && status.progressbar > this.targetProgress) {
-          this.targetProgress = Math.min(98, status.progressbar);
+        // Dynamically update progress directly from backend scan stage (no 1-by-1 stepping)
+        if (status.progressbar !== undefined && status.progressbar !== null) {
+          if (status.progressbar > this.progress) {
+            this.progress = status.progressbar;
+          }
         }
         this.scanStatus = status.scan_status_message || this.scanStatus;
 
@@ -803,10 +803,8 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
         }
 
         if (status.status === 'Failed') {
-          this.stopProgressAnimation();
           this.loading = false;
           this.progress = 0;
-          this.targetProgress = 0;
           this.scanFailed = true;
           this.scanStatus = 'Scan Failed';
           this.scanFailedMessage = status.error ?? 'Database Scan Failed.';
@@ -823,20 +821,12 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
           ...(status.result ?? {}),
           Logs: status.Logs,
         };
-        this.targetProgress = 100;
-        
-        // Smoothly accelerate to 100% then finish
-        const finishTimer = setInterval(() => {
-          if (this.progress < 100) {
-            this.progress = Math.min(100, Math.round((this.progress + 2) * 10) / 10);
-            this.cdr.detectChanges();
-          } else {
-            clearInterval(finishTimer);
-            this.stopProgressAnimation();
-            this.completeScanProgress();
-            this.cdr.detectChanges();
-          }
-        }, 30);
+        this.progress = 100;
+        this.cdr.detectChanges();
+        setTimeout(() => {
+          this.completeScanProgress();
+          this.cdr.detectChanges();
+        }, 500);
       },
       error: () => {
         this.pollErrorCount++;
@@ -1356,26 +1346,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
   }
 
   startProgressAnimation() {
-    this.stopProgressAnimation();
-    this.progressInterval = setInterval(() => {
-      if (!this.loading) {
-        this.stopProgressAnimation();
-        return;
-      }
-
-      if (this.progress < this.targetProgress) {
-        const diff = this.targetProgress - this.progress;
-        // Dynamically scale step: faster when far behind, smooth when close
-        const step = Math.max(0.12, Math.min(1.2, diff * 0.15));
-        this.progress = Math.min(this.targetProgress, Math.round((this.progress + step) * 100) / 100);
-      } else if (this.loading && this.progress < 96) {
-        // Continuous live crawling while backend performs heavier processing
-        // so the bar is always visually dynamic and increasing gradually
-        this.progress = Math.min(96, Math.round((this.progress + 0.05) * 100) / 100);
-      }
-
-      this.cdr.detectChanges();
-    }, 60);
+    // No artificial incrementing: progress is driven purely by dynamic backend stages
   }
 
   stopProgressAnimation() {
@@ -1386,7 +1357,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
   }
 
   getDisplayProgress(): number {
-    return Math.min(100, Math.floor(this.progress));
+    return Math.min(100, Math.round(this.progress));
   }
 
   ngOnDestroy() {
