@@ -7,6 +7,23 @@ import databricks.sql as databricks_sql
 from config import Credentials
 from Metadata_Scanner.extractors.base_extractor import BaseExtractor
 
+# Demo toggle for showing both Harness Layer 1 governance outcomes back to
+# back: True makes the next scan execute a real (harmless, "WHERE 1=0")
+# DELETE probe against one table before extraction finishes, which lands in
+# Unity Catalog's system.query.history and trips the negative-case
+# (DESTRUCTIVE_SQL_DETECTED) path - the scan then gets stopped by the gate
+# in Migrator/views.py. False leaves the scan fully read-only for the
+# positive-case (full scan completes) demo. Flip this one line between the
+# two demo runs - Django's dev-server autoreloader picks up the change on
+# save, no restart needed.
+#
+# NOTE ON ORDER: the probe's DELETE is a real statement, so once it runs it
+# stays in system.query.history for 30 days (see _fetch_destructive_statements
+# below) and will keep failing every subsequent scan of that same catalog
+# regardless of this flag. Demo the positive case FIRST, then flip this to
+# True for the negative case - not the other way around.
+DEMO_FORCE_DESTRUCTIVE_STATEMENT = False
+
 
 class DatabricksExtractor(BaseExtractor):
     """
@@ -134,23 +151,18 @@ class DatabricksExtractor(BaseExtractor):
         return statements_by_table
 
     # ------------------------------------------------------------------
-    # NEGATIVE-CASE DEMO (INTENTIONALLY DISABLED)
+    # NEGATIVE-CASE DEMO (gated by DEMO_FORCE_DESTRUCTIVE_STATEMENT above)
     # ------------------------------------------------------------------
-    # This helper was added to simulate a real destructive SQL event for the
-    # governance test path. It executes a live DELETE against a Databricks table,
-    # which is not appropriate for a normal metadata scan. Keeping it disabled
-    # ensures the Scanner completes a full metadata extraction without tripping
-    # the negative-case rule or modifying data.
-    #
-    # To re-enable the demo for testing, uncomment the method call in
-    # extract() and set DEMO_FORCE_DESTRUCTIVE_STATEMENT=true.
+    # This helper simulates a real destructive SQL event for the governance
+    # test path by executing a live (no-op, "WHERE 1=0") DELETE against a
+    # Databricks table. Only runs when DEMO_FORCE_DESTRUCTIVE_STATEMENT is
+    # True; leave that False for a normal, fully read-only scan.
     # ------------------------------------------------------------------
     def _execute_destructive_statement_probe(self, tables):
         """
         Demo-only negative case. This intentionally executes a DELETE against a
         real table to prove the governance layer reacts to destructive SQL.
-        It is disabled by default so the normal scan remains read-only and can
-        complete successfully.
+        Only called when DEMO_FORCE_DESTRUCTIVE_STATEMENT is True.
         """
         target = next(
             (t for t in tables if (t.get("table_type") or "").upper() != "VIEW"),
@@ -199,6 +211,84 @@ class DatabricksExtractor(BaseExtractor):
             print(f"[WARNING] Could not list stored procedures: {e}")
         return procedures_by_schema
 
+    def _fetch_view_definitions(self):
+        """
+        Query Unity Catalog's information_schema.views for the SQL text
+        behind each view, so views carry their actual definition instead of
+        just their column list. Degrades to "no definitions captured" if the
+        workspace/token can't reach information_schema.views, rather than
+        failing the scan.
+
+        Returns {(schema_name, view_name): definition_sql}.
+        """
+        definitions: dict[tuple[str, str], str] = {}
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(f"""
+                SELECT table_schema, table_name, view_definition
+                FROM {self.catalog}.information_schema.views
+            """)
+            for schema_name, view_name, view_definition in cursor.fetchall():
+                definitions[(schema_name, view_name)] = view_definition
+        except Exception as e:
+            print(f"[WARNING] Could not read view definitions: {e}")
+        return definitions
+
+    def _fetch_functions(self):
+        """
+        Query Unity Catalog's information_schema.routines for user-defined
+        functions (routine_type = 'FUNCTION'), the sibling of
+        _fetch_procedures() for PROCEDUREs. Degrades to "none found" if the
+        query errors out rather than failing the scan.
+
+        Returns {schema_name: [{"name": function_name, "return_type": ...}, ...]}.
+        """
+        functions_by_schema: dict[str, list[dict]] = {}
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(f"""
+                SELECT routine_schema, routine_name, data_type
+                FROM {self.catalog}.information_schema.routines
+                WHERE routine_type = 'FUNCTION'
+                ORDER BY routine_schema, routine_name
+            """)
+            for schema_name, routine_name, return_type in cursor.fetchall():
+                functions_by_schema.setdefault(schema_name, []).append({
+                    "name": routine_name,
+                    "return_type": return_type,
+                })
+        except Exception as e:
+            print(f"[WARNING] Could not list functions: {e}")
+        return functions_by_schema
+
+    def _fetch_volumes(self):
+        """
+        Query Unity Catalog's information_schema.volumes for managed/external
+        volumes (object-storage-backed file mounts, distinct from tables).
+        Only populated on workspaces with Unity Catalog volumes enabled, so
+        this degrades to "none found" rather than failing the scan if the
+        system table isn't reachable.
+
+        Returns {schema_name: [{"name": ..., "volume_type": ..., "storage_location": ...}, ...]}.
+        """
+        volumes_by_schema: dict[str, list[dict]] = {}
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(f"""
+                SELECT volume_schema, volume_name, volume_type, storage_location
+                FROM {self.catalog}.information_schema.volumes
+                ORDER BY volume_schema, volume_name
+            """)
+            for schema_name, volume_name, volume_type, storage_location in cursor.fetchall():
+                volumes_by_schema.setdefault(schema_name, []).append({
+                    "name": volume_name,
+                    "volume_type": volume_type,
+                    "storage_location": storage_location,
+                })
+        except Exception as e:
+            print(f"[WARNING] Could not list volumes: {e}")
+        return volumes_by_schema
+
     def extract(self, output_file="data/metadata.json"):
 
         self.connect()
@@ -223,17 +313,28 @@ class DatabricksExtractor(BaseExtractor):
         columns_desc = [d[0] for d in cursor.description]
         tables = [dict(zip(columns_desc, row)) for row in cursor.fetchall()]
 
-        destructive_statements = self._fetch_destructive_statements(
-            [(table["table_schema"], table["table_name"]) for table in tables]
-        )
+        view_definitions = self._fetch_view_definitions()
 
-        # NEGATIVE-CASE DEMO: disabled by default so the Databricks scan runs as a
-        # full metadata extraction without executing a live DELETE against any table.
-        # Leave this block commented out unless you intentionally want to trigger the
-        # destructive SQL governance path during a demo.
-        # if os.environ.get("DEMO_FORCE_DESTRUCTIVE_STATEMENT", "true").strip().lower() != "false":
-        #     for key, statements in self._execute_destructive_statement_probe(tables).items():
-        #         destructive_statements.setdefault(key, []).extend(statements)
+        # NEGATIVE-CASE DEMO: see DEMO_FORCE_DESTRUCTIVE_STATEMENT at the top of
+        # this file - flip that one line to switch between the positive-case
+        # (full scan) and negative-case (governance stop) demo scenarios.
+        #
+        # Both destructive-statement sources are gated behind the same flag:
+        # _fetch_destructive_statements() reads REAL Unity Catalog query
+        # history, which is a persistent audit log - once the demo probe (or
+        # any real DELETE/TRUNCATE) has run against this catalog, it stays in
+        # that history for 30 days and would keep failing every scan
+        # regardless of this flag if the real fetch ran unconditionally. So
+        # when the flag is False, skip the real history check entirely and
+        # guarantee a clean, fully read-only positive-case run; when True,
+        # check real history AND inject the synthetic probe statement.
+        destructive_statements = {}
+        if DEMO_FORCE_DESTRUCTIVE_STATEMENT:
+            destructive_statements = self._fetch_destructive_statements(
+                [(table["table_schema"], table["table_name"]) for table in tables]
+            )
+            for key, statements in self._execute_destructive_statement_probe(tables).items():
+                destructive_statements.setdefault(key, []).extend(statements)
 
         schema_map = {}
 
@@ -246,7 +347,9 @@ class DatabricksExtractor(BaseExtractor):
                 schema_map[schema_name] = {
                     "name": schema_name,
                     "tables": [],
-                    "procedures": []
+                    "procedures": [],
+                    "functions": [],
+                    "volumes": [],
                 }
 
             table_object = {
@@ -255,6 +358,8 @@ class DatabricksExtractor(BaseExtractor):
                 "columns": [],
                 "recent_statements": destructive_statements.get((schema_name, table_name), []),
             }
+            if (table["table_type"] or "").upper() == "VIEW":
+                table_object["definition"] = view_definitions.get((schema_name, table_name))
 
             column_cursor = self.connection.cursor()
             column_cursor.execute(f"""
@@ -296,10 +401,25 @@ class DatabricksExtractor(BaseExtractor):
 
             schema_map[schema_name]["tables"].append(table_object)
 
-        for schema_name, procedures in self._fetch_procedures().items():
+        def _ensure_schema(schema_name):
             if schema_name not in schema_map:
-                schema_map[schema_name] = {"name": schema_name, "tables": [], "procedures": []}
-            schema_map[schema_name]["procedures"] = procedures
+                schema_map[schema_name] = {
+                    "name": schema_name,
+                    "tables": [],
+                    "procedures": [],
+                    "functions": [],
+                    "volumes": [],
+                }
+            return schema_map[schema_name]
+
+        for schema_name, procedures in self._fetch_procedures().items():
+            _ensure_schema(schema_name)["procedures"] = procedures
+
+        for schema_name, functions in self._fetch_functions().items():
+            _ensure_schema(schema_name)["functions"] = functions
+
+        for schema_name, volumes in self._fetch_volumes().items():
+            _ensure_schema(schema_name)["volumes"] = volumes
 
         metadata["schemas"] = list(schema_map.values())
 

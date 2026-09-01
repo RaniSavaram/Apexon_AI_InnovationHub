@@ -64,6 +64,10 @@ export class DbScannerComponent implements AfterViewChecked {
 
   showScanCompletedDialog = false;
 
+  showScanFailedDialog = false;
+
+  scanFailedMessage = '';
+
   showConnectionSuccessDialog = false;
 
   connectionSuccessMessage = '';
@@ -788,8 +792,9 @@ export class DbScannerComponent implements AfterViewChecked {
           this.loading = false;
           this.scanFailed = true;
           this.scanStatus = 'Scan Failed';
-          this.statusMessages.push(status.error ?? 'Database Scan Failed.');
-          this.showLogsDialog = true;
+          this.scanFailedMessage = status.error ?? 'Database Scan Failed.';
+          this.statusMessages.push(this.scanFailedMessage);
+          this.showScanFailedDialog = true;
           this.activeTab = 'logs';
           this.cdr.detectChanges();
           return;
@@ -1053,6 +1058,28 @@ export class DbScannerComponent implements AfterViewChecked {
   closeScanCompletedDialog() {
 
     this.showScanCompletedDialog = false;
+
+  }
+
+  //=========================================================
+  // CLOSE / EXPAND SCAN FAILED DIALOG
+  //=========================================================
+
+  closeScanFailedDialog() {
+
+    this.showScanFailedDialog = false;
+
+  }
+
+  openLogsDialogFromScanFailed() {
+
+    this.showScanFailedDialog = false;
+
+    this.showLogsDialog = true;
+
+    this.activeTab = 'logs';
+
+    this.cdr.detectChanges();
 
   }
 

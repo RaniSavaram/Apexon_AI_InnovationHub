@@ -148,16 +148,38 @@ def parse_schema_dict(schema_data, label="metadata"):
     """
     Parses one {"database": ..., "schemas": [...]} metadata export - the
     shape every extractor in Metadata_Scanner/extractors returns - into
-    flat table/column/stat/view records. Shared by collect_metadata()
-    (reading such a file off disk) and metadata_to_dataframes() (consuming
-    a live scan's in-memory dict directly).
+    flat table/column/stat/view/procedure/function/volume records. Shared
+    by collect_metadata() (reading such a file off disk) and
+    metadata_to_dataframes() (consuming a live scan's in-memory dict
+    directly).
     """
     tables_list = []
     columns_list = []
     stats_list = []
     views_list = []
+    procedures_list = []
+    functions_list = []
+    volumes_list = []
     for schema in schema_data.get("schemas", []):
         schema_name = schema.get("name", "dbo")
+        for procedure in schema.get("procedures", []):
+            procedures_list.append({
+                "schema_name": schema_name,
+                "procedure_name": procedure.get("name"),
+            })
+        for function in schema.get("functions", []):
+            functions_list.append({
+                "schema_name": schema_name,
+                "function_name": function.get("name"),
+                "return_type": function.get("return_type"),
+            })
+        for volume in schema.get("volumes", []):
+            volumes_list.append({
+                "schema_name": schema_name,
+                "volume_name": volume.get("name"),
+                "volume_type": volume.get("volume_type"),
+                "storage_location": volume.get("storage_location"),
+            })
         for table in schema.get("tables", []):
             table_name = table.get("name")
             table_type = table.get("type", "BASE TABLE")
@@ -203,10 +225,10 @@ def parse_schema_dict(schema_data, label="metadata"):
                     "IsNullable": col.get("nullable", "YES").upper() == "YES",
                     "IsActive": 1
                 })
-    return tables_list, columns_list, stats_list, views_list
+    return tables_list, columns_list, stats_list, views_list, procedures_list, functions_list, volumes_list
 
 
-def build_dataframes(tables_list, columns_list, stats_list, views_list):
+def build_dataframes(tables_list, columns_list, stats_list, views_list, procedures_list=None, functions_list=None, volumes_list=None):
     """
     Turns the flat record lists gathered by collect_metadata()/
     metadata_to_dataframes() into the DataFrames the rest of the AI
@@ -217,7 +239,9 @@ def build_dataframes(tables_list, columns_list, stats_list, views_list):
     columns_df = pd.DataFrame(columns_list)
     stats_df = pd.DataFrame(stats_list)
     views_df = pd.DataFrame(views_list) if views_list else pd.DataFrame(columns=["schema_name", "view_name"])
-    procedures_df = pd.DataFrame(columns=["procedure_name", "schema_name"])
+    procedures_df = pd.DataFrame(procedures_list) if procedures_list else pd.DataFrame(columns=["schema_name", "procedure_name"])
+    functions_df = pd.DataFrame(functions_list) if functions_list else pd.DataFrame(columns=["schema_name", "function_name", "return_type"])
+    volumes_df = pd.DataFrame(volumes_list) if volumes_list else pd.DataFrame(columns=["schema_name", "volume_name", "volume_type", "storage_location"])
     dep_list = []
     for t_idx, t_row in tables_df.iterrows():
         t_name = t_row["table_name"]
@@ -243,7 +267,7 @@ def build_dataframes(tables_list, columns_list, stats_list, views_list):
                                 "referenced_table": ref_name
                             })
     dep_df = pd.DataFrame(dep_list) if dep_list else pd.DataFrame(columns=["fk_name", "parent_schema", "parent_table", "referenced_schema", "referenced_table"])
-    return tables_df, columns_df, stats_df, views_df, procedures_df, dep_df
+    return tables_df, columns_df, stats_df, views_df, procedures_df, functions_df, volumes_df, dep_df
 
 
 def metadata_to_dataframes(metadata: dict, label: str = "live_scan"):
@@ -254,8 +278,8 @@ def metadata_to_dataframes(metadata: dict, label: str = "live_scan"):
     Report reflect exactly the source that was just scanned, instead of
     whatever file happens to be sitting on disk in data/.
     """
-    tables_list, columns_list, stats_list, views_list = parse_schema_dict(metadata, label=label)
-    return build_dataframes(tables_list, columns_list, stats_list, views_list)
+    tables_list, columns_list, stats_list, views_list, procedures_list, functions_list, volumes_list = parse_schema_dict(metadata, label=label)
+    return build_dataframes(tables_list, columns_list, stats_list, views_list, procedures_list, functions_list, volumes_list)
 
 
 def collect_metadata(data_dir):
@@ -274,6 +298,9 @@ def collect_metadata(data_dir):
     columns_list = []
     stats_list = []
     views_list = []
+    procedures_list = []
+    functions_list = []
+    volumes_list = []
     def get_default_schema(table_name):
         name_upper = table_name.upper()
         if any(x in name_upper for x in ["DQ_", "OBJ_", "JOB_", "MDR_", "APPL_", "BSN_", "CONN_", "DATA_"]):
@@ -298,11 +325,14 @@ def collect_metadata(data_dir):
                 pass
         if is_schema_json:
             try:
-                t_list, c_list, s_list, v_list = parse_schema_dict(schema_data, label=raw_filename)
+                t_list, c_list, s_list, v_list, p_list, f_list, vol_list = parse_schema_dict(schema_data, label=raw_filename)
                 tables_list.extend(t_list)
                 columns_list.extend(c_list)
                 stats_list.extend(s_list)
                 views_list.extend(v_list)
+                procedures_list.extend(p_list)
+                functions_list.extend(f_list)
+                volumes_list.extend(vol_list)
                 print(f"[INFO] Successfully parsed database schema metadata JSON: {raw_filename}")
                 continue
             except Exception as e:
@@ -371,4 +401,4 @@ def collect_metadata(data_dir):
                 })
         except Exception as e:
             print(f"[ERROR] Error processing file {raw_filename}: {e}")
-    return build_dataframes(tables_list, columns_list, stats_list, views_list)
+    return build_dataframes(tables_list, columns_list, stats_list, views_list, procedures_list, functions_list, volumes_list)

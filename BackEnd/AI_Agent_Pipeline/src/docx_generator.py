@@ -389,7 +389,7 @@ def add_agent_writeup_section(doc, sections, section_num):
         add_custom_paragraph(doc, line_stripped, is_bullet=is_bullet)
 
 
-def create_table_summary_document(overall_summary, table_summaries, output_path, source_hint="database", tables_df=None, columns_df=None, stats_df=None):
+def create_table_summary_document(overall_summary, table_summaries, output_path, source_hint="database", tables_df=None, columns_df=None, stats_df=None, views_df=None, procedures_df=None, functions_df=None, volumes_df=None):
     """
     Compiles the redesigned Assessment Report into a Microsoft Word document (.docx)
     following the visual style tokens and content layout sections specified in the approved plan.
@@ -437,23 +437,64 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     add_custom_heading(doc, "1. Assessment Overview", 1, space_before=Pt(12))
     add_custom_paragraph(doc, "This report provides a comprehensive assessment of the scanned database structure, metadata properties, relationships, and sizing details. The findings help in planning a schema and data migration to Microsoft Fabric.")
     
+    total_views = len(views_df) if views_df is not None else 0
+    total_procedures = len(procedures_df) if procedures_df is not None else 0
+    total_functions = len(functions_df) if functions_df is not None else 0
+    total_volumes = len(volumes_df) if volumes_df is not None else 0
+
     # Table 1: Metadata Overview
-    table1 = doc.add_table(rows=7, cols=2)
-    table1.style = 'Table Grid'
-    populate_and_style_cell(table1.cell(0, 0), "Metric", is_header=True)
-    populate_and_style_cell(table1.cell(0, 1), "Value", is_header=True)
-    
     metrics = [
         ("Total Tables", str(total_tables)),
         ("Total Columns", str(total_columns)),
         ("Total Row Count", str(total_rows)),
         ("Total Data Size", f"{total_size} MB"),
+        ("Total Views", str(total_views)),
+        ("Total Stored Procedures", str(total_procedures)),
+        ("Total Functions", str(total_functions)),
+        ("Total Volumes", str(total_volumes)),
         ("Distinct Schemas", distinct_schemas),
         ("Metadata Refresh Date", refresh_date)
     ]
+    table1 = doc.add_table(rows=len(metrics) + 1, cols=2)
+    table1.style = 'Table Grid'
+    populate_and_style_cell(table1.cell(0, 0), "Metric", is_header=True)
+    populate_and_style_cell(table1.cell(0, 1), "Value", is_header=True)
     for idx, (m, v) in enumerate(metrics, start=1):
         populate_and_style_cell(table1.cell(idx, 0), m, is_first_col=True)
         populate_and_style_cell(table1.cell(idx, 1), v)
+
+    # Database Objects Inventory: lists views, stored procedures, functions,
+    # and volumes by name so they're not just counts - these object types
+    # don't get their own numbered section, only base tables do (Section 5).
+    add_custom_heading(doc, "Database Objects Inventory", 2, space_before=Pt(12))
+    inventory_rows = []
+    if views_df is not None:
+        for _, row in views_df.iterrows():
+            inventory_rows.append(("View", row.get("schema_name", ""), row.get("view_name", ""), ""))
+    if procedures_df is not None:
+        for _, row in procedures_df.iterrows():
+            inventory_rows.append(("Stored Procedure", row.get("schema_name", ""), row.get("procedure_name", ""), ""))
+    if functions_df is not None:
+        for _, row in functions_df.iterrows():
+            inventory_rows.append(("Function", row.get("schema_name", ""), row.get("function_name", ""), f"Returns {row.get('return_type', 'unknown')}"))
+    if volumes_df is not None:
+        for _, row in volumes_df.iterrows():
+            inventory_rows.append(("Volume", row.get("schema_name", ""), row.get("volume_name", ""), f"{row.get('volume_type', 'unknown')} - {row.get('storage_location', 'no location recorded')}"))
+
+    if inventory_rows:
+        table_inventory = doc.add_table(rows=len(inventory_rows) + 1, cols=4)
+        table_inventory.style = 'Table Grid'
+        populate_and_style_cell(table_inventory.cell(0, 0), "Object Type", is_header=True)
+        populate_and_style_cell(table_inventory.cell(0, 1), "Schema", is_header=True)
+        populate_and_style_cell(table_inventory.cell(0, 2), "Name", is_header=True)
+        populate_and_style_cell(table_inventory.cell(0, 3), "Detail", is_header=True)
+        for idx, (obj_type, schema, name, detail) in enumerate(inventory_rows, start=1):
+            populate_and_style_cell(table_inventory.cell(idx, 0), obj_type, is_first_col=True)
+            populate_and_style_cell(table_inventory.cell(idx, 1), str(schema))
+            populate_and_style_cell(table_inventory.cell(idx, 2), str(name))
+            populate_and_style_cell(table_inventory.cell(idx, 3), detail)
+    else:
+        add_custom_paragraph(doc, "No views, stored procedures, functions, or volumes were found in the scanned metadata.")
 
     # Section 2: Assessment Scope
     schemas_list = [s.strip() for s in str(distinct_schemas).split(",") if s.strip()]
@@ -579,7 +620,7 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     print(f"[INFO] Successfully saved Assessment Report.")
 
 
-def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, views_df, procedures_df, agent_writeups, output_path, tokens_used=None, source_hint="database"):
+def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, views_df, procedures_df, agent_writeups, output_path, functions_df=None, volumes_df=None, tokens_used=None, source_hint="database"):
     """
     Compiles the redesigned, visual, scan-friendly 9-section Migration Plan into a Microsoft Word document (.docx)
     following the visual layout style of 'AI_Migration_Plan (2).docx' but optimized for readability
@@ -719,18 +760,26 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     add_custom_paragraph(doc, "This section identifies foreign key links, topological relationships, and provides dependency mapping metrics.")
     
     # Structured Source Metrics Table (replacing text)
-    table_metrics = doc.add_table(rows=7, cols=2)
-    table_metrics.style = 'Table Grid'
-    populate_and_style_cell(table_metrics.cell(0, 0), "Database Parameter", is_header=True)
-    populate_and_style_cell(table_metrics.cell(0, 1), "Scanned Metadata Metric", is_header=True)
+    num_views_metric = len(views_df) if views_df is not None else 0
+    num_procedures_metric = len(procedures_df) if procedures_df is not None else 0
+    num_functions_metric = len(functions_df) if functions_df is not None else 0
+    num_volumes_metric = len(volumes_df) if volumes_df is not None else 0
     db_metrics = [
         ("Source Database Type", source_hint_name),
         ("Total Scanned Tables", str(total_tables)),
         ("Total Columns Mapped", str(total_columns)),
         ("Distinct Evaluated Schemas", distinct_schemas),
         ("Total Sizing Footprint", f"{total_size} MB"),
-        ("Cumulative Row Count", f"{total_rows} rows")
+        ("Cumulative Row Count", f"{total_rows} rows"),
+        ("Total Views", str(num_views_metric)),
+        ("Total Stored Procedures", str(num_procedures_metric)),
+        ("Total Functions", str(num_functions_metric)),
+        ("Total Volumes", str(num_volumes_metric))
     ]
+    table_metrics = doc.add_table(rows=len(db_metrics) + 1, cols=2)
+    table_metrics.style = 'Table Grid'
+    populate_and_style_cell(table_metrics.cell(0, 0), "Database Parameter", is_header=True)
+    populate_and_style_cell(table_metrics.cell(0, 1), "Scanned Metadata Metric", is_header=True)
     for idx, (param, metric) in enumerate(db_metrics, start=1):
         populate_and_style_cell(table_metrics.cell(idx, 0), param, is_first_col=True)
         populate_and_style_cell(table_metrics.cell(idx, 1), metric)
@@ -840,7 +889,7 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     # ------------------ SECTION 4: BATCH MIGRATION PLAN ------------------
     add_custom_heading(doc, "SECTION 4: BATCH MIGRATION PLAN", 1)
     add_custom_heading(doc, "Description:", 2, space_before=Pt(4))
-    add_custom_paragraph(doc, "This section groups the database tables, views, and procedures into logical execution loops:")
+    add_custom_paragraph(doc, "This section groups the database tables, views, procedures, functions, and volumes into logical execution loops:")
     
     add_bold_label_paragraph(doc, "Batch Ingestion Plan:")
     
@@ -866,6 +915,21 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     if procedures_df is not None and not procedures_df.empty:
         for _, row in procedures_df.iterrows():
             add_custom_paragraph(doc, row["procedure_name"], is_bullet=True)
+    else:
+        add_custom_paragraph(doc, "None", is_bullet=True)
+
+    add_bold_label_paragraph(doc, "Batch 6: Functions")
+    if functions_df is not None and not functions_df.empty:
+        for _, row in functions_df.iterrows():
+            add_custom_paragraph(doc, row["function_name"], is_bullet=True)
+    else:
+        add_custom_paragraph(doc, "None", is_bullet=True)
+
+    add_bold_label_paragraph(doc, "Volumes (Not Schema DDL - Storage Migration)")
+    if volumes_df is not None and not volumes_df.empty:
+        add_custom_paragraph(doc, "Volumes are Unity Catalog managed/external file storage, not relational objects. They are migrated by copying their underlying files to OneLake rather than through schema DDL, and can proceed in parallel with the table batches above.")
+        for _, row in volumes_df.iterrows():
+            add_custom_paragraph(doc, f"{row['volume_name']} ({row.get('volume_type', 'unknown')}, {row.get('storage_location', 'no location recorded')})", is_bullet=True)
     else:
         add_custom_paragraph(doc, "None", is_bullet=True)
 
@@ -939,26 +1003,29 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
     add_custom_heading(doc, "Description:", 2, space_before=Pt(4))
     add_custom_paragraph(doc, "This section details the step-by-step loading timeline sequences, table dependencies, and parallelization options.")
     
-    # Ingestion Batch execution summary table (replacing text)
-    table_batches = doc.add_table(rows=6, cols=4)
-    table_batches.style = 'Table Grid'
-    populate_and_style_cell(table_batches.cell(0, 0), "Batch Name", is_header=True)
-    populate_and_style_cell(table_batches.cell(0, 1), "Scope Objects", is_header=True)
-    populate_and_style_cell(table_batches.cell(0, 2), "Inbound Load Strategy", is_header=True)
-    populate_and_style_cell(table_batches.cell(0, 3), "Execution Dependencies", is_header=True)
-    
     num_independent = len(independent_tables)
     num_dependent = len(dependent_tables)
     num_views = len(views_df) if views_df is not None else 0
     num_procedures = len(procedures_df) if procedures_df is not None else 0
-    
+    num_functions = len(functions_df) if functions_df is not None else 0
+    num_volumes = len(volumes_df) if volumes_df is not None else 0
+
+    # Ingestion Batch execution summary table (replacing text)
     batch_rows = [
         ("Batch 1", f"{num_independent} Independent Tables", "Parallel Full Load Ingestion", "No prior dependencies"),
         ("Batch 2", "0 Medium Dependency Tables", "N/A", "None"),
         ("Batch 3", f"{num_dependent} Highly Dependent Tables", "Sequential Constraint Load", "Requires Batch 1 tables"),
         ("Batch 4", f"{num_views} Database Views", "SQL DDL creation runs", "Requires Batch 1 & 3 tables"),
-        ("Batch 5", f"{num_procedures} Stored Procedures", "SQL schema deploy scripts", "Requires Batch 4 views")
+        ("Batch 5", f"{num_procedures} Stored Procedures", "SQL schema deploy scripts", "Requires Batch 4 views"),
+        ("Batch 6", f"{num_functions} Functions", "SQL schema deploy scripts", "Requires Batch 1 & 3 tables"),
+        ("Batch 7", f"{num_volumes} Volumes", "File copy to OneLake (not schema DDL)", "Can run in parallel with table batches")
     ]
+    table_batches = doc.add_table(rows=len(batch_rows) + 1, cols=4)
+    table_batches.style = 'Table Grid'
+    populate_and_style_cell(table_batches.cell(0, 0), "Batch Name", is_header=True)
+    populate_and_style_cell(table_batches.cell(0, 1), "Scope Objects", is_header=True)
+    populate_and_style_cell(table_batches.cell(0, 2), "Inbound Load Strategy", is_header=True)
+    populate_and_style_cell(table_batches.cell(0, 3), "Execution Dependencies", is_header=True)
     for idx, (b_name, b_scope, b_strategy, b_deps) in enumerate(batch_rows, start=1):
         populate_and_style_cell(table_batches.cell(idx, 0), b_name, is_first_col=True)
         populate_and_style_cell(table_batches.cell(idx, 1), b_scope)
@@ -987,12 +1054,24 @@ def create_migration_plan_document(tables_df, columns_df, stats_df, dep_df, view
         
     add_custom_paragraph(doc, "5. Execute Batch 5: Stored Procedures")
     add_custom_paragraph(doc, "Execute all stored procedures after tables are migrated.", is_bullet=True)
-    
+
+    add_custom_paragraph(doc, "6. Execute Batch 6: Functions")
+    if num_functions > 0:
+        add_custom_paragraph(doc, "Deploy all functions after tables are migrated, since function bodies may reference table schemas.", is_bullet=True)
+    else:
+        add_custom_paragraph(doc, "No functions to execute.", is_bullet=True)
+
+    add_custom_paragraph(doc, "7. Execute Batch 7: Volumes")
+    if num_volumes > 0:
+        add_custom_paragraph(doc, "Copy volume files to their equivalent OneLake storage location. This is independent of table/view/procedure migration and can run in parallel.", is_bullet=True)
+    else:
+        add_custom_paragraph(doc, "No volumes to migrate.", is_bullet=True)
+
     add_bold_label_paragraph(doc, "Table-wise Execution Logic:")
     add_custom_paragraph(doc, "All tables in Batch 1 can be executed in parallel due to independence. Batch 3 tables should be executed sequentially after their dependencies are satisfied.")
-    
+
     add_bold_label_paragraph(doc, "Parallel Execution Opportunities:")
-    add_custom_paragraph(doc, "All tables in Batch 1 can be executed simultaneously. Stored procedures can be executed after all tables are migrated.")
+    add_custom_paragraph(doc, "All tables in Batch 1 can be executed simultaneously. Stored procedures and functions can be executed after all tables are migrated. Volume file copies are independent and can run in parallel with any batch.")
     
     add_bold_label_paragraph(doc, "Incremental Load Strategy:")
     medium_tables = stats_df[stats_df["size_mb"] >= 10.0]["table_name"].tolist() if stats_df is not None else []
