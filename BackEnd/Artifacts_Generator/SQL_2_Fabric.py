@@ -18,6 +18,8 @@ type changed, are reported as warnings and left untouched.
 import os
 import sys
 import re
+import base64
+import json
 from pathlib import Path
 
 import docx
@@ -253,8 +255,6 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
         token = get_onelake_token()
         logs_list.append("[INFO] OneLake token acquired via DefaultAzureCredential.")
         try:
-            import base64
-            import json
             payload = token.split(".")[1]
             payload += "=" * (-len(payload) % 4)
             claims = json.loads(base64.urlsafe_b64decode(payload))

@@ -48,6 +48,7 @@ writes entirely; it just prints what would be created/updated and where.
 Useful for validating the JSON and layer routing before touching Fabric.
 """
 import argparse
+import base64
 import json
 import sys
 from pathlib import Path
@@ -202,9 +203,17 @@ def load_plan(json_path):
     if not json_path.exists():
         print(f"ERROR: JSON plan not found at {json_path}", file=sys.stderr)
         print("Run plan_to_json.py first to generate it from the docx reports.", file=sys.stderr)
-        sys.exit(1)
-    with open(json_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        return {"meta": {}, "tables": []}
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                print(f"ERROR: JSON plan at {json_path} is empty.", file=sys.stderr)
+                return {"meta": {}, "tables": []}
+            return json.loads(content)
+    except Exception as e:
+        print(f"ERROR: Failed to parse JSON plan at {json_path}: {e}", file=sys.stderr)
+        return {"meta": {}, "tables": []}
 
 
 def resolve_lakehouse_target(layer, default_workspace_id, default_lakehouse_id):
@@ -303,13 +312,17 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
     json_path = Path(json_path).resolve()
 
-    should_rebuild = not json_path.exists()
-    if json_path.exists():
+    should_rebuild = not json_path.exists() or (json_path.exists() and json_path.stat().st_size == 0)
+    if json_path.exists() and not should_rebuild:
         try:
             with open(json_path, "r", encoding="utf-8") as f:
-                existing_meta = json.load(f).get("meta", {})
-                if source_system and existing_meta.get("source_system", "").lower() != source_system.lower():
+                content = f.read().strip()
+                if not content:
                     should_rebuild = True
+                else:
+                    existing_meta = json.loads(content).get("meta", {})
+                    if source_system and existing_meta.get("source_system", "").lower() != source_system.lower():
+                        should_rebuild = True
         except Exception:
             should_rebuild = True
 
@@ -340,8 +353,9 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
                     database_name=database_name
                 )
                 json_path.parent.mkdir(parents=True, exist_ok=True)
+                plan_json_str = json.dumps(plan_data, indent=2, ensure_ascii=False)
                 with open(json_path, "w", encoding="utf-8") as f:
-                    json.dump(plan_data, f, indent=2)
+                    f.write(plan_json_str)
                 print(f"[INFO] Auto-generated {json_path.name} from {assessment_doc.name}")
             except Exception as e:
                 print(f"[WARN] Could not auto-build {json_path.name}: {e}")
@@ -383,8 +397,6 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     if not dry_run:
         token = fabric_api.get_onelake_token()
         try:
-            import base64
-            import json
             payload = token.split(".")[1]
             payload += "=" * (-len(payload) % 4)
             claims = json.loads(base64.urlsafe_b64decode(payload))
