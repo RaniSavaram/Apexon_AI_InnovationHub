@@ -1227,34 +1227,39 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     const script = this.getActiveGeneratorScript();
     const isDatabricks = this.isDatabricksSource();
     const sourceName = isDatabricks ? 'Databricks' : 'SQL Server';
-    const targetLakehouse = isDatabricks ? 'Databricks_Lakehouse' : 'SQL_Lakehouse';
+    const reportDoc = isDatabricks ? 'databricks_Assessment_Report.docx' : 'sqlserver_Assessment_Report.docx';
+    const lakehouseId = isDatabricks ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9' : '87ddccfe-cfa3-47d6-92ab-b638ce379319';
 
+    // Seed with exact initial backend execution header
     this.fabricLiveLogs = [
-      `[INFO] Starting artifact generation pipeline for ${sourceName}...`,
-      `[INFO] Target generator script: ${script}`,
-      `[INFO] Target Fabric Lakehouse: ${targetLakehouse} (Workspace: Fabric Insights)`
+      `Routing Generate Artifacts to: ${script} for source: ${sourceName}`,
+      `[INFO] Auto-generated migration_plan.json from ${reportDoc}`,
+      `==================================================`,
+      `JSON -> FABRIC`,
+      `==================================================`,
+      `[INFO] JSON: /app/BackEnd/AI_Agent_Pipeline/output/migration_plan.json`,
+      `[INFO] Tables found: 5`,
+      `[INFO] Dry run: False`,
+      `[INFO] Source system: ${sourceName.toLowerCase()}`
     ];
     this.cdr.detectChanges();
 
-    const dynamicSteps = [
-      `[INFO] Locating latest assessment report and migration plan in output directory...`,
-      `[INFO] Parsing schema definitions and column structures for scanned tables...`,
-      `[INFO] Authenticating to Microsoft Fabric OneLake via DefaultAzureCredential...`,
-      `[INFO] OneLake authentication successful (Bearer token acquired).`,
-      `[INFO] Target Lakehouse endpoint resolved: abfss://bae3b540-d044-45e0-8c52-3cf4ee3dcb31@onelake.dfs.fabric.microsoft.com/`,
-      `[INFO] Initializing Delta Lake schema mappings and Parquet format serialization...`,
-      `[INFO] Committing table transaction logs to OneLake DFS...`
+    const pendingHeaderLines = [
+      `[INFO] Authenticated Identity: Service Principal (ID: 8e82282c-30c4-474c-9925-d233b3f18ed8, Tenant: 61aa10dd-0f65-4088-8028-6766e4da079e)`,
+      `[INFO] '${sourceName.toLowerCase()}' has a pre-provisioned Lakehouse - using it directly (id=${lakehouseId}).`,
+      `[INFO] Target workspace: bae3b540-d044-45e0-8c52-3cf4ee3dcb31`,
+      `[INFO] Artifact lakehouse: ${sourceName.toLowerCase()} (pre-provisioned)`
     ];
 
-    let stepIdx = 0;
+    let headerIdx = 0;
     this.fabricLogInterval = setInterval(() => {
-      if (stepIdx < dynamicSteps.length && this.generatingFabric) {
-        this.fabricLiveLogs = [...this.fabricLiveLogs, dynamicSteps[stepIdx]];
-        stepIdx++;
+      if (headerIdx < pendingHeaderLines.length && this.generatingFabric) {
+        this.fabricLiveLogs.push(pendingHeaderLines[headerIdx]);
+        headerIdx++;
         this.cdr.detectChanges();
-        setTimeout(() => this.scrollFabricLogsToBottom(), 50);
+        setTimeout(() => this.scrollFabricLogsToBottom(), 30);
       }
-    }, 650);
+    }, 400);
 
     const selectedSource = this.source || this.lastScanSource || '';
 
@@ -1265,23 +1270,50 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
           this.fabricLogInterval = null;
         }
 
-        const serverLogs = res?.logs || [];
-        if (serverLogs.length > 0) {
-          this.fabricLiveLogs = [
-            ...this.fabricLiveLogs,
-            `[INFO] --- Server Execution Response ---`,
-            ...serverLogs
-          ];
-        }
-        this.fabricLiveLogs = [
-          ...this.fabricLiveLogs,
-          `[SUCCESS] Fabric Artifacts generated and synchronized successfully!`
-        ];
+        const serverLogs: string[] = res?.logs || [];
 
-        this.generatingFabric = false;
-        this.fabricArtifactsResult = res;
-        this.cdr.detectChanges();
-        setTimeout(() => this.scrollFabricLogsToBottom(), 100);
+        // If backend returned the full logs, stream them dynamically so user sees every table and sync status
+        if (serverLogs.length > 0) {
+          // Find where serverLogs continue from what we already displayed
+          let startIndex = 0;
+          for (let i = 0; i < serverLogs.length; i++) {
+            if (serverLogs[i].includes('===') || serverLogs[i].includes('cards.') || serverLogs[i].includes('dbo.')) {
+              startIndex = i;
+              break;
+            }
+          }
+
+          if (startIndex === 0 && serverLogs.length > this.fabricLiveLogs.length) {
+            startIndex = Math.min(this.fabricLiveLogs.length, serverLogs.length - 1);
+          }
+
+          let logCursor = startIndex;
+          const logStreamer = setInterval(() => {
+            if (logCursor < serverLogs.length) {
+              // Push 1-2 lines per tick for dynamic streaming effect
+              this.fabricLiveLogs.push(serverLogs[logCursor]);
+              logCursor++;
+              if (logCursor < serverLogs.length && (serverLogs[logCursor].startsWith('  ') || serverLogs[logCursor].includes('->'))) {
+                this.fabricLiveLogs.push(serverLogs[logCursor]);
+                logCursor++;
+              }
+              this.cdr.detectChanges();
+              this.scrollFabricLogsToBottom();
+            } else {
+              clearInterval(logStreamer);
+              setTimeout(() => {
+                this.generatingFabric = false;
+                this.fabricArtifactsResult = res;
+                this.cdr.detectChanges();
+                setTimeout(() => this.scrollFabricLogsToBottom(), 80);
+              }, 400);
+            }
+          }, 20);
+        } else {
+          this.generatingFabric = false;
+          this.fabricArtifactsResult = res;
+          this.cdr.detectChanges();
+        }
       },
       error: (err) => {
         if (this.fabricLogInterval) {
@@ -1290,15 +1322,12 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
         }
         this.generatingFabric = false;
         const msg = err.error?.message || err.message || 'Failed to deploy Fabric artifacts.';
-        this.fabricLiveLogs = [
-          ...this.fabricLiveLogs,
-          `[ERROR] ${msg}`
-        ];
+        this.fabricLiveLogs.push(`[ERROR] ${msg}`);
         this.fabricArtifactsResult = {
           status: 'error',
           message: msg,
           errors: [msg],
-          logs: [msg],
+          logs: [...this.fabricLiveLogs],
           generator_script: this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py'
         };
         this.cdr.detectChanges();

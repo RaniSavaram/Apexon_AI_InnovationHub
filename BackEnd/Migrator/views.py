@@ -1196,7 +1196,7 @@ def generate_fabric_artifacts(request):
         result["generator_script"] = script_name
         result["source_system"] = source_display
         if "logs" in result and isinstance(result.get("logs"), list):
-            result["logs"].insert(0, f"[INFO] Routing to generator script: {script_name} for source: {source_display}")
+            result["logs"].insert(0, f"Routing Generate Artifacts to: {script_name} for source: {source_display}")
 
         return Response(result, status=200)
     except Exception as exc:

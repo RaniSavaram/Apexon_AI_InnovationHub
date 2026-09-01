@@ -247,11 +247,10 @@ def build_table_uri(entry, default_workspace_id, default_lakehouse_id):
     return table_uri, schema_name, table_name
 
 
-def sync_table(table_uri, schema_name, table_name, target_pa_schema, storage_options):
+def sync_table(table_uri, schema_name, table_name, target_pa_schema, storage_options, log_fn=print):
     """
-    Creates the table if it doesn't exist. If it does, adds any columns
-    present in the JSON but missing from the table (safe schema evolution).
-    Columns that exist in the table but were dropped from the JSON, or
+    Ensure the Delta table at `table_uri` exists and conforms to
+    `target_pa_schema`. Missing columns are added via alter; columns
     whose type changed, are only reported — never auto-altered, since that
     could destroy existing data.
     """
@@ -265,7 +264,7 @@ def sync_table(table_uri, schema_name, table_name, target_pa_schema, storage_opt
     except Exception:
         empty_table = pa.Table.from_pylist([], schema=target_pa_schema)
         write_deltalake(table_uri, empty_table, storage_options=storage_options, mode="error")
-        print(f"  [CREATE] Created {schema_name}.{table_name}")
+        log_fn(f"  [CREATE] Created {schema_name}.{table_name}")
         return
 
     existing_fields = {f.name: f for f in dt.schema().fields}
@@ -279,16 +278,16 @@ def sync_table(table_uri, schema_name, table_name, target_pa_schema, storage_opt
 
     if new_names:
         dt.alter.add_columns([target_fields[n] for n in new_names])
-        print(f"  [UPDATE] {schema_name}.{table_name}: added columns {new_names}")
+        log_fn(f"  [UPDATE] {schema_name}.{table_name}: added columns {new_names}")
 
     if removed_names:
-        print(f"  [WARN] {schema_name}.{table_name}: columns no longer in report, NOT dropped: {removed_names}")
+        log_fn(f"  [WARN] {schema_name}.{table_name}: columns no longer in report, NOT dropped: {removed_names}")
 
     if changed_names:
-        print(f"  [WARN] {schema_name}.{table_name}: type changed in report, NOT altered: {changed_names}")
+        log_fn(f"  [WARN] {schema_name}.{table_name}: type changed in report, NOT altered: {changed_names}")
 
     if not new_names and not removed_names and not changed_names:
-        print(f"  [OK] {schema_name}.{table_name} already in sync")
+        log_fn(f"  [OK] {schema_name}.{table_name} already in sync")
 
 
 def Generator(json_path=None, dry_run=False, source_system=None, database_name=None, workspace_id=None):
@@ -306,6 +305,10 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     Returns:
         dict containing execution information.
     """
+    logs_list = []
+    def log(msg=""):
+        print(msg)
+        logs_list.append(str(msg))
 
     if json_path is None:
         json_path = JSON_PATH
@@ -366,9 +369,9 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
                 plan_json_str = json.dumps(plan_data, indent=2, ensure_ascii=False)
                 with open(json_path, "w", encoding="utf-8") as f:
                     f.write(plan_json_str)
-                print(f"[INFO] Auto-generated {json_path.name} from {assessment_doc.name}")
+                log(f"[INFO] Auto-generated {json_path.name} from {assessment_doc.name}")
             except Exception as e:
-                print(f"[WARN] Could not auto-build {json_path.name}: {e}")
+                log(f"[WARN] Could not auto-build {json_path.name}: {e}")
 
     if not json_path.exists():
         msg = f"Migration JSON not found at {json_path}. Please run scan first."
@@ -391,13 +394,13 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     target_workspace_id = workspace_id or WORKSPACE_ID
     target_workspace_id = workspace_id or WORKSPACE_ID
 
-    print("==================================================")
-    print("JSON -> FABRIC")
-    print("==================================================")
-    print(f"[INFO] JSON: {json_path}")
-    print(f"[INFO] Tables found: {len(tables)}")
-    print(f"[INFO] Dry run: {dry_run}")
-    print(f"[INFO] Source system: {source_system}")
+    log("==================================================")
+    log("JSON -> FABRIC")
+    log("==================================================")
+    log(f"[INFO] JSON: {json_path}")
+    log(f"[INFO] Tables found: {len(tables)}")
+    log(f"[INFO] Dry run: {dry_run}")
+    log(f"[INFO] Source system: {source_system}")
 
     storage_options = None
     fabric_token = None
@@ -413,7 +416,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
             caller_id = claims.get("upn") or claims.get("appid") or claims.get("azp") or claims.get("oid") or "Service Principal"
             caller_name = claims.get("name") or claims.get("app_displayname") or "Service Principal"
             tid = claims.get("tid", "")
-            print(f"[INFO] Authenticated Identity: {caller_name} (ID: {caller_id}, Tenant: {tid})")
+            log(f"[INFO] Authenticated Identity: {caller_name} (ID: {caller_id}, Tenant: {tid})")
         except Exception:
             pass
 
@@ -427,8 +430,8 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     target_workspace_id, default_lakehouse_id, artifact_lakehouse_name = resolve_artifact_lakehouse(
         source_system, database_name, target_workspace_id, fabric_token, dry_run
     )
-    print(f"[INFO] Target workspace: {target_workspace_id}")
-    print(f"[INFO] Artifact lakehouse: {artifact_lakehouse_name}")
+    log(f"[INFO] Target workspace: {target_workspace_id}")
+    log(f"[INFO] Artifact lakehouse: {artifact_lakehouse_name}")
 
     created_or_updated = []
     skipped = []
@@ -470,7 +473,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
                 or "(not specified)"
             )
 
-            print(
+            log(
                 f"=== {schema_name}.{clean_table_name} "
                 f"({len(cols)} columns) | "
                 f"Layer: {layer} | "
@@ -488,7 +491,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
                 data_type = col.get("data_type")
 
                 if not column_name:
-                    print(
+                    log(
                         "[WARN] Ignoring column with empty name."
                     )
                     continue
@@ -503,7 +506,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
                     )
                 )
 
-                print(
+                log(
                     f"  {column_name:30s} "
                     f"{str(data_type):20s} -> "
                     f"{arrow_type}"
@@ -517,7 +520,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
             if dry_run:
 
-                print(
+                log(
                     f"[DRY-RUN] Would synchronize: "
                     f"{table_uri}"
                 )
@@ -529,7 +532,8 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
                     schema_name=schema_name,
                     table_name=clean_table_name,
                     target_pa_schema=schema,
-                    storage_options=storage_options
+                    storage_options=storage_options,
+                    log_fn=log
                 )
 
             created_or_updated.append({
@@ -543,7 +547,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
         except Exception as exc:
 
-            print(
+            log(
                 f"[ERROR] Failed processing "
                 f"{table_name}: {exc}"
             )
@@ -553,37 +557,25 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
                 "error": str(exc)
             })
 
-    print("==================================================")
-    print("JSON -> FABRIC COMPLETED")
-    print("==================================================")
+    log("==================================================")
+    log("JSON -> FABRIC COMPLETED")
+    log("==================================================")
 
-    print(
+    log(
         f"[INFO] Processed: {len(created_or_updated)}"
     )
 
-    print(
+    log(
         f"[INFO] Skipped: {len(skipped)}"
     )
 
-    print(
+    log(
         f"[INFO] Errors: {len(errors)}"
     )
 
     synced_list = [f"{t['schema']}.{t['table']} ({t['columns']} columns) [{t.get('layer', 'Table')}]" for t in created_or_updated]
     tables_meta = [{"schema": t["schema"], "table": t["table"], "columns_count": t["columns"]} for t in created_or_updated]
     err_list = [f"{e.get('table', 'Error')}: {str(e.get('error', '')).replace('\u21b3', '->')}" for e in errors]
-
-    logs_list = [
-        "[INFO] Script: DB2_2_Fabric.py (Databricks Lakehouse pipeline)",
-        f"[INFO] Source system: {source_system}",
-        f"[INFO] Target workspace: {target_workspace_id}",
-        f"[INFO] Artifact lakehouse: {artifact_lakehouse_name} (id={default_lakehouse_id})",
-        f"[INFO] Total processed: {len(created_or_updated)}, Errors: {len(errors)}"
-    ]
-    for t in created_or_updated:
-        logs_list.append(f"[SUCCESS] {t['schema']}.{t['table']} ({t['columns']} cols) -> {t['uri']}")
-    for err in err_list:
-        logs_list.append(f"[ERROR] {err}")
 
     return {
         "status": "success" if not errors else ("partial" if created_or_updated else "error"),
