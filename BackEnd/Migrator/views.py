@@ -585,14 +585,15 @@ def generate_fabric_artifacts(request):
     based on the latest assessment report.
     """
     try:
-        from Artifacts_Generator.SQL_2_Fabric import Generator
         doc_filename = request.data.get("filename") if request.method == "POST" else request.GET.get("filename")
+        workspace_id = request.data.get("workspace_id") if request.method == "POST" else request.GET.get("workspace_id")
+        lakehouse_id = request.data.get("lakehouse_id") if request.method == "POST" else request.GET.get("lakehouse_id")
         doc_path = None
         if doc_filename:
             output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
             doc_path = output_dir / doc_filename
 
-        result = Generator(doc_path=doc_path)
+        result = Generator(doc_path=doc_path, workspace_id=workspace_id, lakehouse_id=lakehouse_id)
         return Response(result, status=200)
     except Exception as exc:
         traceback.print_exc()

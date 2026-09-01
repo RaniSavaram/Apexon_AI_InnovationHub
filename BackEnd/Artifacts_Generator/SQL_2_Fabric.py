@@ -26,11 +26,21 @@ from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake, DeltaTable
 from deltalake.schema import Schema as DeltaSchema
 
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 DEFAULT_DOC_PATH = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output" / "sqlserver_Assessment_Report.docx"
 DOC_PATH = Path(os.environ.get("ASSESSMENT_REPORT_PATH", DEFAULT_DOC_PATH))
 
-WORKSPACE_ID = "bae3b540-d044-45e0-8c52-3cf4ee3dcb31"   # Fabric Insights
-LAKEHOUSE_ID = "a65899d4-3f39-4af6-b696-ae1903f4500a"    # sai_fabric_artifcats
+DEFAULT_WORKSPACE_ID = "bae3b540-d044-45e0-8c52-3cf4ee3dcb31"   # Fabric Insights
+DEFAULT_LAKEHOUSE_ID = "a65899d4-3f39-4af6-b696-ae1903f4500a"    # sai_fabric_artifcats
+
+WORKSPACE_ID = os.environ.get("FABRIC_WORKSPACE_ID", DEFAULT_WORKSPACE_ID)
+LAKEHOUSE_ID = os.environ.get("FABRIC_LAKEHOUSE_ID", DEFAULT_LAKEHOUSE_ID)
 
 BULLET = "•"  # the actual column-list bullet character used by the report template
 
@@ -204,7 +214,10 @@ def sync_table(table_uri, schema_name, table_name, target_pa_schema, storage_opt
         print(f"  [OK] {schema_name}.{table_name} already in sync")
 
 
-def Generator(doc_path=None):
+def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
+    ws_id = workspace_id or os.environ.get("FABRIC_WORKSPACE_ID") or WORKSPACE_ID
+    lh_id = lakehouse_id or os.environ.get("FABRIC_LAKEHOUSE_ID") or LAKEHOUSE_ID
+
     if doc_path is None:
         if DOC_PATH.exists():
             target_doc = DOC_PATH
@@ -227,7 +240,11 @@ def Generator(doc_path=None):
         return {"status": "error", "message": msg}
 
     print(f"[INFO] Using assessment report: {target_doc}")
-    logs_list = [f"[INFO] Using assessment report: {target_doc.name}"]
+    logs_list = [
+        f"[INFO] Target Workspace: {ws_id}",
+        f"[INFO] Target Lakehouse: {lh_id}",
+        f"[INFO] Using assessment report: {target_doc.name}"
+    ]
 
     try:
         token = get_onelake_token()
@@ -293,8 +310,8 @@ def Generator(doc_path=None):
         schema = pa.schema(fields)
 
         table_uri = (
-            f"abfss://{WORKSPACE_ID}@onelake.dfs.fabric.microsoft.com/"
-            f"{LAKEHOUSE_ID}/Tables/{schema_name}/{table_name}"
+            f"abfss://{ws_id}@onelake.dfs.fabric.microsoft.com/"
+            f"{lh_id}/Tables/{schema_name}/{table_name}"
         )
 
         try:
@@ -302,8 +319,14 @@ def Generator(doc_path=None):
             synced_tables.append(f"{schema_name}.{table_name} ({len(cols)} columns)")
             logs_list.append(f"  [SUCCESS] Delta Table synced: {schema_name}.{table_name}")
         except Exception as exc:
-            err_msg = f"{schema_name}.{table_name}: {exc}"
-            print(f"  [ERROR] {err_msg}")
+            raw_err = str(exc).strip().replace("\u21b3", "->")
+            # Extract first line or clean summary
+            first_line = raw_err.split("\n")[0] if raw_err else "Sync error"
+            err_msg = f"{schema_name}.{table_name}: {first_line}"
+            try:
+                print(f"  [ERROR] {err_msg}")
+            except Exception:
+                pass
             logs_list.append(f"  [ERROR] {err_msg}")
             errors.append(err_msg)
         print()
@@ -320,8 +343,8 @@ def Generator(doc_path=None):
             "errors": errors,
             "logs": logs_list,
             "target": {
-                "workspace_id": WORKSPACE_ID,
-                "lakehouse_id": LAKEHOUSE_ID,
+                "workspace_id": ws_id,
+                "lakehouse_id": lh_id,
                 "report_name": target_doc.name
             }
         }
@@ -333,8 +356,8 @@ def Generator(doc_path=None):
         "tables_info": tables_info,
         "logs": logs_list,
         "target": {
-            "workspace_id": WORKSPACE_ID,
-            "lakehouse_id": LAKEHOUSE_ID,
+            "workspace_id": ws_id,
+            "lakehouse_id": lh_id,
             "report_name": target_doc.name
         }
     }
