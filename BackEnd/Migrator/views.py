@@ -453,6 +453,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
     try:
+        update_scan_job_state(scan_id, progress=15, current_message="Connecting to database...", log_entry="Connecting to database for metadata extraction")
         update_scan_job_state(scan_id, progress=25, current_message="Extracting schema and table metadata...", log_entry="Extracting Metadata from DataBase")
         print("Extracting Metadata from DataBase")
         metadata = obj.extract()
@@ -463,8 +464,9 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
+        update_scan_job_state(scan_id, progress=35, current_message=f"Analyzing {selected_table_count} tables...", log_entry="Analyzing extracted schemas and tables")
         update_scan_job_state(scan_id, progress=45, current_message=f"Metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
-        time.sleep(1.0)
+        time.sleep(0.8)
 
         update_scan_job_state(scan_id, progress=55, current_message="Running Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
         print("MetaData Extracted\nRunning Harnness Layer-1")
@@ -1011,9 +1013,9 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         )
     
     db_name = get_db_display_name(scan_source or source)
-    update_scan_job_state(scan_id, progress=10, current_message=f"Starting {db_name} scan", log_entry=f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
+    update_scan_job_state(scan_id, progress=5, current_message=f"Starting {db_name} scan...", log_entry=f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
     print(f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
-    time.sleep(1.0)
+    time.sleep(0.5)
 
     db_type = (scan_source or source or "").lower()
 
@@ -1046,7 +1048,8 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
     try:
-        update_scan_job_state(scan_id, progress=25, current_message=f"Extracting {db_name} schema and table metadata", log_entry=f"Extracting Metadata from {db_name}")
+        update_scan_job_state(scan_id, progress=15, current_message=f"Connecting to {db_name}...", log_entry=f"Connecting to {db_name} for metadata extraction")
+        update_scan_job_state(scan_id, progress=25, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=f"Extracting Metadata from {db_name}")
         print(f"Extracting Metadata from {db_name}")
         metadata = obj.extract()
         original_table_count = sum(
@@ -1056,8 +1059,9 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
+        update_scan_job_state(scan_id, progress=35, current_message=f"Analyzing {selected_table_count} tables from {db_name}...", log_entry="Analyzing extracted schemas and tables")
         update_scan_job_state(scan_id, progress=45, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
-        time.sleep(1.0)
+        time.sleep(0.8)
 
         update_scan_job_state(scan_id, progress=55, current_message=f"Running {db_name} Harness Layer 1 validation", log_entry=f"\n{'='*30}\n{'='*30}\n{db_name} MetaData Extracted\nRunning Harnnes Layer-1")
         print(f"{db_name} MetaData Extracted\nRunning Harnness Layer-1")

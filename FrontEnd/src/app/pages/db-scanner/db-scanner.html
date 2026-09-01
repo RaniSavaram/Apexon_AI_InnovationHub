@@ -354,7 +354,7 @@ SCAN STATUS + ACTION BUTTONS
 
                 <span>Progress</span>
 
-                <span>{{progress}}%</span>
+                <span>{{getDisplayProgress()}}%</span>
 
             </div>
 
@@ -862,13 +862,19 @@ SCAN STATUS + ACTION BUTTONS
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-folder2-open"></i> Target Lakehouse</span>
-                        <span class="meta-val">{{ fabricArtifactsResult?.lakehouse_name || (isDatabricksSource() ? 'Databricks_Lakehouse' : 'SQL_Lakehouse') }}</span>
-                        <span class="meta-sub">ID: {{ fabricArtifactsResult?.target?.lakehouse_id || (isDatabricksSource() ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9' : '87ddccfe-cfa3-47d6-92ab-b638ce379319') }}</span>
+                        <span class="meta-val">{{ isDatabricksSource() ? 'Databricks_Lakehouse' : 'SQL_Lakehouse' }}</span>
+                        <a [href]="getLakehouseUrl()" target="_blank" rel="noopener noreferrer" class="fabric-link" title="Open in Microsoft Fabric">
+                            <span>Open in Fabric</span>
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-diagram-3-fill"></i> Workspace</span>
                         <span class="meta-val">Fabric Insights</span>
-                        <span class="meta-sub">ID: {{ fabricArtifactsResult?.target?.workspace_id || 'bae3b540-d044-45e0-8c52-3cf4ee3dcb31' }}</span>
+                        <a [href]="getWorkspaceUrl()" target="_blank" rel="noopener noreferrer" class="fabric-link" title="Open in Microsoft Fabric">
+                            <span>Open in Fabric</span>
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-file-earmark-text-fill"></i> Assessment Report</span>

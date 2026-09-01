@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -15,7 +15,7 @@ import { Scanner, SavedConnectionProfile } from '../../services/scanner/scanner'
   styleUrl: './db-scanner.css'
 })
 
-export class DbScannerComponent implements AfterViewChecked {
+export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
   @ViewChild('terminalBody') private terminalBody!: ElementRef;
 
@@ -122,6 +122,8 @@ export class DbScannerComponent implements AfterViewChecked {
   //=========================================================
 
   progress = 0;
+  targetProgress = 0;
+  private progressInterval: any = null;
 
   scanStatus = 'Select a database to begin';
 
@@ -744,6 +746,10 @@ export class DbScannerComponent implements AfterViewChecked {
     this.backendResponse = null;
     this.pollErrorCount = 0;
 
+    this.progress = 1;
+    this.targetProgress = 6;
+    this.startProgressAnimation();
+
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
     }
@@ -759,8 +765,10 @@ export class DbScannerComponent implements AfterViewChecked {
         }
       },
       error: (err) => {
+        this.stopProgressAnimation();
         this.loading = false;
         this.progress = 0;
+        this.targetProgress = 0;
         this.scanFailed = true;
         this.scanStatus = 'Scan Failed';
         this.statusMessages.push('Database Scan Failed.');
@@ -778,9 +786,9 @@ export class DbScannerComponent implements AfterViewChecked {
         this.pollErrorCount = 0;
         this.applyScanLogs(status.Logs);
         
-        // Dynamically update progress and status message from backend
-        if (status.progressbar && status.progressbar > this.progress) {
-          this.progress = status.progressbar;
+        // Dynamically update target progress from backend milestone
+        if (status.progressbar && status.progressbar > this.targetProgress) {
+          this.targetProgress = Math.min(98, status.progressbar);
         }
         this.scanStatus = status.scan_status_message || this.scanStatus;
 
@@ -791,7 +799,10 @@ export class DbScannerComponent implements AfterViewChecked {
         }
 
         if (status.status === 'Failed') {
+          this.stopProgressAnimation();
           this.loading = false;
+          this.progress = 0;
+          this.targetProgress = 0;
           this.scanFailed = true;
           this.scanStatus = 'Scan Failed';
           this.scanFailedMessage = status.error ?? 'Database Scan Failed.';
@@ -808,14 +819,28 @@ export class DbScannerComponent implements AfterViewChecked {
           ...(status.result ?? {}),
           Logs: status.Logs,
         };
-        this.progress = 100;
-        this.completeScanProgress();
-        this.cdr.detectChanges();
+        this.targetProgress = 100;
+        
+        // Smoothly accelerate to 100% then finish
+        const finishTimer = setInterval(() => {
+          if (this.progress < 100) {
+            this.progress = Math.min(100, Math.round((this.progress + 2) * 10) / 10);
+            this.cdr.detectChanges();
+          } else {
+            clearInterval(finishTimer);
+            this.stopProgressAnimation();
+            this.completeScanProgress();
+            this.cdr.detectChanges();
+          }
+        }, 30);
       },
       error: () => {
         this.pollErrorCount++;
         if (this.pollErrorCount >= 4) {
+          this.stopProgressAnimation();
           this.loading = false;
+          this.progress = 0;
+          this.targetProgress = 0;
           this.scanFailed = true;
           this.scanStatus = 'Scan session interrupted (server reloaded). Please click Scan to restart.';
           this.statusMessages.push('Scan session interrupted (server reloaded). Please click Scan to restart.');
@@ -852,11 +877,14 @@ export class DbScannerComponent implements AfterViewChecked {
 
   completeScanProgress() {
 
+    this.stopProgressAnimation();
+
     this.loading = false;
 
     this.scanCompleted = true;
 
     this.progress = 0;
+    this.targetProgress = 0;
 
     this.source = this.lastScanSource || this.source;
 
@@ -1214,6 +1242,58 @@ export class DbScannerComponent implements AfterViewChecked {
     if (status === 'warning') return 'Assessment Report Notice';
     if (status === 'partial') return 'Partial Artifacts Deployment';
     return 'Artifacts Deployment Details';
+  }
+
+  getLakehouseUrl(): string {
+    if (this.isDatabricksSource()) {
+      return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/bc94c085-a651-46a6-96a1-0c1183ef78f9?experience=fabric-developer';
+    }
+    return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/87ddccfe-cfa3-47d6-92ab-b638ce379319?experience=fabric-developer&selectedPath=dbo%2Fauth_group';
+  }
+
+  getWorkspaceUrl(): string {
+    return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/list?experience=fabric-developer';
+  }
+
+  startProgressAnimation() {
+    this.stopProgressAnimation();
+    this.progressInterval = setInterval(() => {
+      if (!this.loading) {
+        this.stopProgressAnimation();
+        return;
+      }
+
+      if (this.progress < this.targetProgress) {
+        const diff = this.targetProgress - this.progress;
+        // Dynamically scale step: faster when far behind, smooth when close
+        const step = Math.max(0.12, Math.min(1.2, diff * 0.15));
+        this.progress = Math.min(this.targetProgress, Math.round((this.progress + step) * 100) / 100);
+      } else if (this.loading && this.progress < 96) {
+        // Continuous live crawling while backend performs heavier processing
+        // so the bar is always visually dynamic and increasing gradually
+        this.progress = Math.min(96, Math.round((this.progress + 0.05) * 100) / 100);
+      }
+
+      this.cdr.detectChanges();
+    }, 60);
+  }
+
+  stopProgressAnimation() {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+  }
+
+  getDisplayProgress(): number {
+    return Math.min(100, Math.floor(this.progress));
+  }
+
+  ngOnDestroy() {
+    this.stopProgressAnimation();
+    if (this.scanStatusTimeout) {
+      clearTimeout(this.scanStatusTimeout);
+    }
   }
 
   isTableSynced(t: any): boolean {
