@@ -53,6 +53,10 @@ export class DbScannerComponent implements AfterViewChecked {
   connecting = false;
 
   showLogsDialog = false;
+  showArtifactsDialog = false;
+  generatingFabric = false;
+  artifactsTab: 'overview' | 'tables' | 'logs' = 'overview';
+  fabricArtifactsResult: any = null;
 
   activeTab: 'logs' | 'harness1' | 'harness2' | 'output' = 'logs';
 
@@ -74,6 +78,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
   scanInterval: any;
   scanStatusTimeout: any;
+  private pollErrorCount = 0;
 
   metadataFile = '/output/Assesment%20Report.docx';
 
@@ -118,7 +123,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
   progress = 0;
 
-  scanStatus = 'Waiting for Scan...';
+  scanStatus = 'Select a database to begin';
 
   //=========================================================
   // STATUS MESSAGES
@@ -126,7 +131,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
   statusMessages: string[] = [
 
-    'Waiting for Scan...'
+    'Select a database to begin'
 
   ];
 
@@ -384,11 +389,12 @@ export class DbScannerComponent implements AfterViewChecked {
 
     this.showScanCompletedDialog = false;
 
-    this.scanStatus = 'Waiting for Scan...';
+    const selectedDb = this.getFormatSourceForFilename(this.source);
+    this.scanStatus = this.source ? `Waiting to connect to ${selectedDb}` : 'Select a database to begin';
 
     this.statusMessages = [
 
-      'Waiting for Scan...'
+      this.scanStatus
 
     ];
 
@@ -622,6 +628,10 @@ export class DbScannerComponent implements AfterViewChecked {
 
         this.connected = true;
 
+        const connectedDb = this.getFormatSourceForFilename(this.source);
+        this.scanStatus = `Connected to ${connectedDb}. Ready to scan`;
+        this.statusMessages = [this.scanStatus];
+
         this.saveRememberedConnection();
 
         this.showConnection = false;
@@ -724,12 +734,13 @@ export class DbScannerComponent implements AfterViewChecked {
     this.scanFailed = false;
 
     this.showScanCompletedDialog = false;
-    this.progress = 1;
-    this.scanStatus = 'Scanning started';
+    const activeDb = this.getFormatSourceForFilename(this.source);
+    this.scanStatus = `Starting ${activeDb} scan`;
     this.statusMessages = [];
-    this.statusMessages.push('Scanning started');
+    this.statusMessages.push(`Starting ${activeDb} scan`);
     this.backendCompleted = false;
     this.backendResponse = null;
+    this.pollErrorCount = 0;
 
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
@@ -762,10 +773,13 @@ export class DbScannerComponent implements AfterViewChecked {
   private pollScanStatus(scanId: string) {
     this.scanner.getScanStatus(scanId).subscribe({
       next: (status) => {
+        this.pollErrorCount = 0;
         this.applyScanLogs(status.Logs);
         
         // Dynamically update progress and status message from backend
-        this.progress = status.progressbar || this.progress;
+        if (status.progressbar && status.progressbar > this.progress) {
+          this.progress = status.progressbar;
+        }
         this.scanStatus = status.scan_status_message || this.scanStatus;
 
         if (status.status === 'Running') {
@@ -797,6 +811,15 @@ export class DbScannerComponent implements AfterViewChecked {
         this.cdr.detectChanges();
       },
       error: () => {
+        this.pollErrorCount++;
+        if (this.pollErrorCount >= 4) {
+          this.loading = false;
+          this.scanFailed = true;
+          this.scanStatus = 'Scan session interrupted (server reloaded). Please click Scan to restart.';
+          this.statusMessages.push('Scan session interrupted (server reloaded). Please click Scan to restart.');
+          this.cdr.detectChanges();
+          return;
+        }
         this.scanStatusTimeout = setTimeout(() => this.pollScanStatus(scanId), 3000);
       },
     });
@@ -837,9 +860,16 @@ export class DbScannerComponent implements AfterViewChecked {
 
     this.connected = false;
 
-    this.scanStatus = 'Scan Completed Successfully';
+    const completedSource = this.lastScanSource || this.source;
+    const formattedSource = this.getFormatSourceForFilename(completedSource);
+    const completedMsg = this.backendResponse?.scan_status_message 
+      || `${formattedSource} scan completed successfully.`;
 
-    this.statusMessages.push('Scan Completed Successfully');
+    this.scanStatus = completedMsg;
+
+    if (!this.statusMessages.includes(completedMsg)) {
+      this.statusMessages.push(completedMsg);
+    }
 
     if (this.backendResponse) {
 
@@ -1136,6 +1166,69 @@ export class DbScannerComponent implements AfterViewChecked {
 
     this.showLogsDialog = false;
 
+  }
+
+  //=========================================================
+  // GENERATE ARTIFACTS DIALOG & EXECUTION (SQL_2_FABRIC)
+  //=========================================================
+
+  openArtifactsDialog() {
+    if (!this.scanCompleted) {
+      alert('Please complete a database scan first.');
+      return;
+    }
+    this.showArtifactsDialog = true;
+    if (!this.fabricArtifactsResult && !this.generatingFabric) {
+      this.generateFabricArtifacts();
+    }
+    this.cdr.detectChanges();
+  }
+
+  closeArtifactsDialog() {
+    this.showArtifactsDialog = false;
+  }
+
+  generateFabricArtifacts() {
+    if (!this.scanCompleted) {
+      alert('Please complete a database scan first.');
+      return;
+    }
+
+    this.generatingFabric = true;
+    this.cdr.detectChanges();
+
+    this.scanner.generateFabricArtifacts().subscribe({
+      next: (res) => {
+        this.generatingFabric = false;
+        this.fabricArtifactsResult = res;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.generatingFabric = false;
+        const msg = err.error?.message || err.message || 'Failed to deploy Fabric artifacts.';
+        this.fabricArtifactsResult = {
+          status: 'error',
+          message: msg,
+          errors: [msg],
+          logs: [msg]
+        };
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  getArtifactsStatusTitle(): string {
+    const status = this.fabricArtifactsResult?.status;
+    if (status === 'success') return 'Fabric Artifacts Generated & Synced Successfully';
+    if (status === 'warning') return 'Assessment Report Notice';
+    if (status === 'partial') return 'Partial Artifacts Deployment';
+    return 'Artifacts Deployment Details';
+  }
+
+  isTableSynced(t: any): boolean {
+    if (!this.fabricArtifactsResult?.tables) return false;
+    const key = `${t.schema}.${t.table}`;
+    return this.fabricArtifactsResult.tables.some((s: string) => s.startsWith(key));
   }
 
   //=========================================================

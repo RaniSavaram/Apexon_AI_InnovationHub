@@ -26,11 +26,21 @@ from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake, DeltaTable
 from deltalake.schema import Schema as DeltaSchema
 
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 DEFAULT_DOC_PATH = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output" / "sqlserver_Assessment_Report.docx"
 DOC_PATH = Path(os.environ.get("ASSESSMENT_REPORT_PATH", DEFAULT_DOC_PATH))
 
-WORKSPACE_ID = "bae3b540-d044-45e0-8c52-3cf4ee3dcb31"   # Fabric Insights
-LAKEHOUSE_ID = "a65899d4-3f39-4af6-b696-ae1903f4500a"    # sai_fabric_artifcats
+DEFAULT_WORKSPACE_ID = "bae3b540-d044-45e0-8c52-3cf4ee3dcb31"   # Fabric Insights
+DEFAULT_LAKEHOUSE_ID = "a65899d4-3f39-4af6-b696-ae1903f4500a"    # sai_fabric_artifcats
+
+WORKSPACE_ID = os.environ.get("FABRIC_WORKSPACE_ID", DEFAULT_WORKSPACE_ID)
+LAKEHOUSE_ID = os.environ.get("FABRIC_LAKEHOUSE_ID", DEFAULT_LAKEHOUSE_ID)
 
 BULLET = "•"  # the actual column-list bullet character used by the report template
 
@@ -204,41 +214,154 @@ def sync_table(table_uri, schema_name, table_name, target_pa_schema, storage_opt
         print(f"  [OK] {schema_name}.{table_name} already in sync")
 
 
-def Generator():
-    if not DOC_PATH.exists():
-        print(f"ERROR: report not found at {DOC_PATH}", file=sys.stderr)
-        sys.exit(1)
+def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
+    ws_id = workspace_id or os.environ.get("FABRIC_WORKSPACE_ID") or WORKSPACE_ID
+    lh_id = lakehouse_id or os.environ.get("FABRIC_LAKEHOUSE_ID") or LAKEHOUSE_ID
 
-    token = get_onelake_token()
+    if doc_path is None:
+        if DOC_PATH.exists():
+            target_doc = DOC_PATH
+        else:
+            output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+            reports = list(output_dir.glob("*Assessment_Report.docx")) if output_dir.exists() else []
+            if not reports and output_dir.exists():
+                reports = list(output_dir.glob("*.docx"))
+            if reports:
+                reports.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                target_doc = reports[0]
+            else:
+                target_doc = DOC_PATH
+    else:
+        target_doc = Path(doc_path)
+
+    if not target_doc.exists():
+        msg = f"Assessment Report not found at {target_doc}. Please run a scan first."
+        print(f"ERROR: {msg}", file=sys.stderr)
+        return {"status": "error", "message": msg}
+
+    print(f"[INFO] Using assessment report: {target_doc}")
+    logs_list = [
+        f"[INFO] Target Workspace: {ws_id}",
+        f"[INFO] Target Lakehouse: {lh_id}",
+        f"[INFO] Using assessment report: {target_doc.name}"
+    ]
+
+    try:
+        token = get_onelake_token()
+        logs_list.append("[INFO] OneLake token acquired via DefaultAzureCredential.")
+    except Exception as e:
+        msg = f"Azure OneLake Authentication failed: {e}. Please ensure Azure credentials (e.g. AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID) are configured."
+        print(f"ERROR: {msg}", file=sys.stderr)
+        logs_list.append(f"[ERROR] {msg}")
+        return {"status": "error", "message": msg, "logs": logs_list}
+
     storage_options = {
         "bearer_token": token,
         "use_fabric_endpoint": "true",
         "allow_unsafe_rename": "true",
     }
 
-    parsed = parse_report(DOC_PATH)
+    try:
+        parsed = parse_report(target_doc)
+    except Exception as e:
+        msg = f"Failed to parse report {target_doc.name}: {e}"
+        print(f"ERROR: {msg}", file=sys.stderr)
+        logs_list.append(f"[ERROR] {msg}")
+        return {"status": "error", "message": msg, "logs": logs_list}
+
     print(f"Parsed {len(parsed)} table(s) from report:\n")
+    logs_list.append(f"[INFO] Parsed {len(parsed)} table(s) from {target_doc.name}.")
+
+    if not parsed:
+        msg = f"No tables found in assessment report {target_doc.name}."
+        print(f"WARN: {msg}")
+        logs_list.append(f"[WARN] {msg}")
+        return {"status": "warning", "message": msg, "tables": [], "logs": logs_list}
+
+    synced_tables = []
+    tables_info = []
+    errors = []
 
     for t in parsed:
         schema_name = clean_identifier(t["schema"] or "dbo")
         table_name = clean_identifier(t["table"])
         cols = t["columns"]
 
-        print(f"=== {schema_name}.{table_name} ({len(cols)} columns) ===")
+        table_meta = {
+            "schema": schema_name,
+            "table": table_name,
+            "columns_count": len(cols),
+            "columns": [{"name": c[0], "type": c[1]} for c in cols]
+        }
+        tables_info.append(table_meta)
+
+        log_hdr = f"=== {schema_name}.{table_name} ({len(cols)} columns) ==="
+        print(log_hdr)
+        logs_list.append(log_hdr)
+
         fields = []
         for col_name, dt_raw in cols:
             arrow_type = map_arrow_type(dt_raw)
             fields.append(pa.field(clean_identifier(col_name), arrow_type, nullable=True))
-            print(f"  {col_name:30s} {dt_raw:20s} -> {arrow_type}")
+            col_log = f"  {col_name:30s} {dt_raw:20s} -> {arrow_type}"
+            print(col_log)
+            logs_list.append(col_log)
 
         schema = pa.schema(fields)
 
         table_uri = (
-            f"abfss://{WORKSPACE_ID}@onelake.dfs.fabric.microsoft.com/"
-            f"{LAKEHOUSE_ID}/Tables/{schema_name}/{table_name}"
+            f"abfss://{ws_id}@onelake.dfs.fabric.microsoft.com/"
+            f"{lh_id}/Tables/{schema_name}/{table_name}"
         )
 
-        sync_table(table_uri, schema_name, table_name, schema, storage_options)
+        try:
+            sync_table(table_uri, schema_name, table_name, schema, storage_options)
+            synced_tables.append(f"{schema_name}.{table_name} ({len(cols)} columns)")
+            logs_list.append(f"  [SUCCESS] Delta Table synced: {schema_name}.{table_name}")
+        except Exception as exc:
+            raw_err = str(exc).strip().replace("\u21b3", "->")
+            # Extract first line or clean summary
+            first_line = raw_err.split("\n")[0] if raw_err else "Sync error"
+            err_msg = f"{schema_name}.{table_name}: {first_line}"
+            try:
+                print(f"  [ERROR] {err_msg}")
+            except Exception:
+                pass
+            logs_list.append(f"  [ERROR] {err_msg}")
+            errors.append(err_msg)
         print()
 
     print("Done.")
+    logs_list.append(f"[INFO] Execution completed. Synced: {len(synced_tables)}, Errors: {len(errors)}")
+
+    if errors:
+        return {
+            "status": "partial" if synced_tables else "error",
+            "message": f"Synced {len(synced_tables)} table(s) to Fabric Lakehouse, {len(errors)} error(s).",
+            "tables": synced_tables,
+            "tables_info": tables_info,
+            "errors": errors,
+            "logs": logs_list,
+            "target": {
+                "workspace_id": ws_id,
+                "lakehouse_id": lh_id,
+                "report_name": target_doc.name
+            }
+        }
+
+    return {
+        "status": "success",
+        "message": f"Successfully created {len(synced_tables)} Delta table(s) directly in Microsoft Fabric OneLake Lakehouse.",
+        "tables": synced_tables,
+        "tables_info": tables_info,
+        "logs": logs_list,
+        "target": {
+            "workspace_id": ws_id,
+            "lakehouse_id": lh_id,
+            "report_name": target_doc.name
+        }
+    }
+
+
+if __name__ == "__main__":
+    Generator()
