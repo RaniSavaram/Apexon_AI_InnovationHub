@@ -830,11 +830,28 @@ SCAN STATUS + ACTION BUTTONS
 
             </div>
 
-            <!-- Loading State -->
-            <div class="artifacts-loading-body" *ngIf="generatingFabric">
-                <div class="spinner-large"></div>
-                <h3>Executing {{ getActiveGeneratorScript() }}...</h3>
-                <p>Deploying Delta Tables to Microsoft Fabric OneLake for {{ isDatabricksSource() ? 'Databricks' : 'SQL Server' }}.</p>
+            <!-- Live Dynamic Execution Terminal (while generating) -->
+            <div class="artifacts-live-console" *ngIf="generatingFabric">
+                <div class="live-console-header">
+                    <div class="live-console-title">
+                        <span class="live-pulse"></span>
+                        <i class="bi bi-terminal-fill"></i>
+                        <span>Live Execution: <strong>{{ getActiveGeneratorScript() }}</strong></span>
+                    </div>
+                    <div class="live-console-status">
+                        <i class="bi bi-arrow-repeat spin"></i>
+                        <span>Deploying Delta Tables to Microsoft Fabric OneLake...</span>
+                    </div>
+                </div>
+
+                <div class="live-terminal-window" #fabricTerminalBody>
+                    <div class="terminal-line" *ngFor="let log of fabricLiveLogs">
+                        <span [ngClass]="getLogLineClass(log)">{{ log }}</span>
+                    </div>
+                    <div class="terminal-cursor">
+                        <span class="cursor-block"></span>
+                    </div>
+                </div>
             </div>
 
             <!-- Tab 1: Overview -->
@@ -936,11 +953,11 @@ SCAN STATUS + ACTION BUTTONS
 
             <!-- Tab 3: Deployment Logs -->
             <div class="artifacts-body artifacts-logs-tab" *ngIf="!generatingFabric && artifactsTab === 'logs'">
-                <textarea
-                    readonly
-                    class="logs-window artifacts-logs-window">
-{{ (fabricArtifactsResult?.logs || []).join('\n') }}
-                </textarea>
+                <div class="live-terminal-window" style="min-height: 420px; max-height: 520px;">
+                    <div class="terminal-line" *ngFor="let log of (fabricArtifactsResult?.logs?.length ? fabricArtifactsResult?.logs : fabricLiveLogs)">
+                        <span [ngClass]="getLogLineClass(log)">{{ log }}</span>
+                    </div>
+                </div>
             </div>
 
         </div>

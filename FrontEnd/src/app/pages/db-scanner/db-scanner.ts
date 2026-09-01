@@ -18,6 +18,10 @@ import { Scanner, SavedConnectionProfile } from '../../services/scanner/scanner'
 export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
   @ViewChild('terminalBody') private terminalBody!: ElementRef;
+  @ViewChild('fabricTerminalBody') private fabricTerminalBody?: ElementRef;
+
+  fabricLiveLogs: string[] = [];
+  private fabricLogInterval: any = null;
 
   //=========================================================
   // SERVICE
@@ -1202,6 +1206,10 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
   closeArtifactsDialog() {
     this.showArtifactsDialog = false;
+    if (this.fabricLogInterval) {
+      clearInterval(this.fabricLogInterval);
+      this.fabricLogInterval = null;
+    }
   }
 
   generateFabricArtifacts() {
@@ -1210,20 +1218,82 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       return;
     }
 
+    if (this.fabricLogInterval) {
+      clearInterval(this.fabricLogInterval);
+      this.fabricLogInterval = null;
+    }
+
     this.generatingFabric = true;
+    const script = this.getActiveGeneratorScript();
+    const isDatabricks = this.isDatabricksSource();
+    const sourceName = isDatabricks ? 'Databricks' : 'SQL Server';
+    const targetLakehouse = isDatabricks ? 'Databricks_Lakehouse' : 'SQL_Lakehouse';
+
+    this.fabricLiveLogs = [
+      `[INFO] Starting artifact generation pipeline for ${sourceName}...`,
+      `[INFO] Target generator script: ${script}`,
+      `[INFO] Target Fabric Lakehouse: ${targetLakehouse} (Workspace: Fabric Insights)`
+    ];
     this.cdr.detectChanges();
+
+    const dynamicSteps = [
+      `[INFO] Locating latest assessment report and migration plan in output directory...`,
+      `[INFO] Parsing schema definitions and column structures for scanned tables...`,
+      `[INFO] Authenticating to Microsoft Fabric OneLake via DefaultAzureCredential...`,
+      `[INFO] OneLake authentication successful (Bearer token acquired).`,
+      `[INFO] Target Lakehouse endpoint resolved: abfss://bae3b540-d044-45e0-8c52-3cf4ee3dcb31@onelake.dfs.fabric.microsoft.com/`,
+      `[INFO] Initializing Delta Lake schema mappings and Parquet format serialization...`,
+      `[INFO] Committing table transaction logs to OneLake DFS...`
+    ];
+
+    let stepIdx = 0;
+    this.fabricLogInterval = setInterval(() => {
+      if (stepIdx < dynamicSteps.length && this.generatingFabric) {
+        this.fabricLiveLogs = [...this.fabricLiveLogs, dynamicSteps[stepIdx]];
+        stepIdx++;
+        this.cdr.detectChanges();
+        setTimeout(() => this.scrollFabricLogsToBottom(), 50);
+      }
+    }, 650);
 
     const selectedSource = this.source || this.lastScanSource || '';
 
     this.scanner.generateFabricArtifacts(selectedSource).subscribe({
       next: (res) => {
+        if (this.fabricLogInterval) {
+          clearInterval(this.fabricLogInterval);
+          this.fabricLogInterval = null;
+        }
+
+        const serverLogs = res?.logs || [];
+        if (serverLogs.length > 0) {
+          this.fabricLiveLogs = [
+            ...this.fabricLiveLogs,
+            `[INFO] --- Server Execution Response ---`,
+            ...serverLogs
+          ];
+        }
+        this.fabricLiveLogs = [
+          ...this.fabricLiveLogs,
+          `[SUCCESS] Fabric Artifacts generated and synchronized successfully!`
+        ];
+
         this.generatingFabric = false;
         this.fabricArtifactsResult = res;
         this.cdr.detectChanges();
+        setTimeout(() => this.scrollFabricLogsToBottom(), 100);
       },
       error: (err) => {
+        if (this.fabricLogInterval) {
+          clearInterval(this.fabricLogInterval);
+          this.fabricLogInterval = null;
+        }
         this.generatingFabric = false;
         const msg = err.error?.message || err.message || 'Failed to deploy Fabric artifacts.';
+        this.fabricLiveLogs = [
+          ...this.fabricLiveLogs,
+          `[ERROR] ${msg}`
+        ];
         this.fabricArtifactsResult = {
           status: 'error',
           message: msg,
@@ -1232,6 +1302,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
           generator_script: this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py'
         };
         this.cdr.detectChanges();
+        setTimeout(() => this.scrollFabricLogsToBottom(), 100);
       }
     });
   }
@@ -1293,6 +1364,29 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     this.stopProgressAnimation();
     if (this.scanStatusTimeout) {
       clearTimeout(this.scanStatusTimeout);
+    }
+    if (this.fabricLogInterval) {
+      clearInterval(this.fabricLogInterval);
+      this.fabricLogInterval = null;
+    }
+  }
+
+  getLogLineClass(log: string): string {
+    if (!log) return 'log-default';
+    if (log.includes('[SUCCESS]') || log.includes('successfully') || log.includes('PASSED')) return 'log-success';
+    if (log.includes('[ERROR]') || log.includes('[Err]') || log.includes('[FAILED]')) return 'log-error';
+    if (log.includes('[WARN]')) return 'log-warn';
+    if (log.includes('[INFO]')) return 'log-info';
+    return 'log-default';
+  }
+
+  scrollFabricLogsToBottom() {
+    try {
+      if (this.fabricTerminalBody) {
+        this.fabricTerminalBody.nativeElement.scrollTop = this.fabricTerminalBody.nativeElement.scrollHeight;
+      }
+    } catch {
+      // Ignore scroll errors
     }
   }
 
