@@ -312,8 +312,25 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
     json_path = Path(json_path).resolve()
 
+    output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+    assessment_candidates = [
+        output_dir / "databricks_Assessment_Report.docx",
+        output_dir / "Assesment Report.docx",
+        output_dir / "Metadata_Report.docx"
+    ]
+    assessment_doc = next((p for p in assessment_candidates if p.exists()), None)
+
+    # Rebuild migration_plan.json from the scan assessment report whenever:
+    # 1. json_path is the default output path and a report is present (ensures 1:1 match with scan)
+    # 2. json_path is missing or empty
+    # 3. assessment_doc has been modified since migration_plan.json was created
+    # 4. the existing JSON belongs to a different source system
     should_rebuild = not json_path.exists() or (json_path.exists() and json_path.stat().st_size == 0)
-    if json_path.exists() and not should_rebuild:
+    if json_path == JSON_PATH.resolve() and assessment_doc:
+        should_rebuild = True
+    elif json_path.exists() and assessment_doc and (assessment_doc.stat().st_mtime >= json_path.stat().st_mtime):
+        should_rebuild = True
+    elif json_path.exists() and not should_rebuild:
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
@@ -326,14 +343,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
         except Exception:
             should_rebuild = True
 
-    if should_rebuild:
-        output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
-        assessment_candidates = [
-            output_dir / "databricks_Assessment_Report.docx",
-            output_dir / "Assesment Report.docx",
-            output_dir / "Metadata_Report.docx"
-        ]
-        assessment_doc = next((p for p in assessment_candidates if p.exists()), None)
+    if should_rebuild and assessment_doc:
         if assessment_doc:
             plan_candidates = [
                 output_dir / "databricks_Migration_Plan.docx",
