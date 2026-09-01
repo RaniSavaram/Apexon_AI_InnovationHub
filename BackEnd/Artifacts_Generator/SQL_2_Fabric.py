@@ -23,8 +23,9 @@ from pathlib import Path
 import docx
 import pyarrow as pa
 from azure.identity import DefaultAzureCredential
-from deltalake import write_deltalake, DeltaTable
-from deltalake.schema import Schema as DeltaSchema
+# pyrefly: ignore [missing-import]
+# type: ignore
+from deltalake import write_deltalake, DeltaTable, Schema as DeltaSchema
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
