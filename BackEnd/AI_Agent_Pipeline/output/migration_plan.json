@@ -1,0 +1,2000 @@
+{
+  "meta": {
+    "source_system": "databricks",
+    "database_name": "bfsi_dev"
+  },
+  "tables": [
+    {
+      "schema": "cards",
+      "table_name": "dim_card",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "card_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "card_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "card_number_masked",
+          "data_type": "STRING"
+        },
+        {
+          "name": "card_network",
+          "data_type": "STRING"
+        },
+        {
+          "name": "card_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "product_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "cardholder_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "issue_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "expiry_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "cvv_stored",
+          "data_type": "STRING"
+        },
+        {
+          "name": "credit_limit",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "available_limit",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "cash_limit",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "current_outstanding",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "min_amount_due",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "total_amount_due",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "statement_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "payment_due_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "reward_points",
+          "data_type": "INT"
+        },
+        {
+          "name": "card_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "is_contactless",
+          "data_type": "STRING"
+        },
+        {
+          "name": "is_international_enabled",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "cards",
+      "table_name": "fact_card_transaction",
+      "medallion_layer": "Silver",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "card_txn_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "card_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "txn_timestamp",
+          "data_type": "TIMESTAMP"
+        },
+        {
+          "name": "posting_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "currency_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "billing_amount_inr",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "fx_rate",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "merchant_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "merchant_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "merchant_category_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "merchant_city",
+          "data_type": "STRING"
+        },
+        {
+          "name": "merchant_country",
+          "data_type": "STRING"
+        },
+        {
+          "name": "entry_mode",
+          "data_type": "STRING"
+        },
+        {
+          "name": "auth_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "approval_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "decline_reason",
+          "data_type": "STRING"
+        },
+        {
+          "name": "is_international",
+          "data_type": "STRING"
+        },
+        {
+          "name": "is_emi_converted",
+          "data_type": "STRING"
+        },
+        {
+          "name": "fraud_score",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "is_fraud_flagged",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "cards",
+      "table_name": "fact_dispute",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "dispute_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "card_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "card_txn_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "raised_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "dispute_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "reason_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "reason_description",
+          "data_type": "STRING"
+        },
+        {
+          "name": "dispute_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "chargeback_stage",
+          "data_type": "STRING"
+        },
+        {
+          "name": "resolution_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "resolved_in_favour_of",
+          "data_type": "STRING"
+        },
+        {
+          "name": "provisional_credit_given",
+          "data_type": "STRING"
+        },
+        {
+          "name": "recovery_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "analyst_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "sla_breached",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "core_banking",
+      "table_name": "dim_account",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "account_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "account_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "iban",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "branch_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "ifsc_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "account_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "product_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "currency_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "open_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "close_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "current_balance",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "available_balance",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "avg_monthly_balance",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "overdraft_limit",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "interest_rate_pct",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "account_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "last_txn_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "is_dormant",
+          "data_type": "STRING"
+        },
+        {
+          "name": "nominee_name",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "core_banking",
+      "table_name": "dim_branch",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "branch_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "branch_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "branch_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "ifsc_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "city",
+          "data_type": "STRING"
+        },
+        {
+          "name": "state",
+          "data_type": "STRING"
+        },
+        {
+          "name": "pincode",
+          "data_type": "STRING"
+        },
+        {
+          "name": "region",
+          "data_type": "STRING"
+        },
+        {
+          "name": "branch_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "opened_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "is_active",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "core_banking",
+      "table_name": "dim_customer",
+      "medallion_layer": "Silver",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "cif_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "first_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "last_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "gender",
+          "data_type": "STRING"
+        },
+        {
+          "name": "date_of_birth",
+          "data_type": "DATE"
+        },
+        {
+          "name": "email",
+          "data_type": "STRING"
+        },
+        {
+          "name": "mobile_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "pan_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "national_id_masked",
+          "data_type": "STRING"
+        },
+        {
+          "name": "address_line1",
+          "data_type": "STRING"
+        },
+        {
+          "name": "city",
+          "data_type": "STRING"
+        },
+        {
+          "name": "state",
+          "data_type": "STRING"
+        },
+        {
+          "name": "pincode",
+          "data_type": "STRING"
+        },
+        {
+          "name": "country",
+          "data_type": "STRING"
+        },
+        {
+          "name": "occupation",
+          "data_type": "STRING"
+        },
+        {
+          "name": "annual_income_inr",
+          "data_type": "LONG"
+        },
+        {
+          "name": "customer_segment",
+          "data_type": "STRING"
+        },
+        {
+          "name": "risk_rating",
+          "data_type": "STRING"
+        },
+        {
+          "name": "kyc_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "relationship_start_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "home_branch_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "is_pep",
+          "data_type": "STRING"
+        },
+        {
+          "name": "consent_marketing",
+          "data_type": "STRING"
+        },
+        {
+          "name": "created_ts",
+          "data_type": "TIMESTAMP"
+        },
+        {
+          "name": "updated_ts",
+          "data_type": "TIMESTAMP"
+        }
+      ]
+    },
+    {
+      "schema": "core_banking",
+      "table_name": "fact_transaction",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "transaction_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "account_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "txn_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "txn_timestamp",
+          "data_type": "TIMESTAMP"
+        },
+        {
+          "name": "value_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "txn_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "txn_channel",
+          "data_type": "STRING"
+        },
+        {
+          "name": "txn_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "currency_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "running_balance",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "counterparty_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "counterparty_account",
+          "data_type": "STRING"
+        },
+        {
+          "name": "counterparty_ifsc",
+          "data_type": "STRING"
+        },
+        {
+          "name": "merchant_category",
+          "data_type": "STRING"
+        },
+        {
+          "name": "narration",
+          "data_type": "STRING"
+        },
+        {
+          "name": "branch_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "is_reversed",
+          "data_type": "STRING"
+        },
+        {
+          "name": "is_flagged_suspicious",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "insurance",
+      "table_name": "dim_policy",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "policy_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "policy_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "proposer_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "insured_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "insured_dob",
+          "data_type": "DATE"
+        },
+        {
+          "name": "relationship_to_proposer",
+          "data_type": "STRING"
+        },
+        {
+          "name": "policy_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "product_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "sum_assured",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "premium_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "premium_frequency",
+          "data_type": "STRING"
+        },
+        {
+          "name": "policy_start_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "policy_end_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "next_due_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "term_years",
+          "data_type": "INT"
+        },
+        {
+          "name": "policy_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "lapse_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "nominee_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "nominee_relationship",
+          "data_type": "STRING"
+        },
+        {
+          "name": "agent_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "agent_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "channel",
+          "data_type": "STRING"
+        },
+        {
+          "name": "medical_underwriting_flag",
+          "data_type": "STRING"
+        },
+        {
+          "name": "pre_existing_conditions",
+          "data_type": "STRING"
+        },
+        {
+          "name": "vehicle_registration_no",
+          "data_type": "STRING"
+        },
+        {
+          "name": "idv_value",
+          "data_type": "DOUBLE"
+        }
+      ]
+    },
+    {
+      "schema": "insurance",
+      "table_name": "fact_claim",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "claim_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "policy_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "claim_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "intimation_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "incident_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "registration_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "claimed_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "assessed_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "approved_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "deductible",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "claim_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "rejection_reason",
+          "data_type": "STRING"
+        },
+        {
+          "name": "settlement_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "settlement_mode",
+          "data_type": "STRING"
+        },
+        {
+          "name": "hospital_or_garage_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "surveyor_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "tpa_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "fraud_indicator_score",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "is_investigated",
+          "data_type": "STRING"
+        },
+        {
+          "name": "turnaround_days",
+          "data_type": "INT"
+        }
+      ]
+    },
+    {
+      "schema": "insurance",
+      "table_name": "fact_premium",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "premium_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "policy_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "due_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "paid_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "installment_number",
+          "data_type": "INT"
+        },
+        {
+          "name": "base_premium",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "gst_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "total_premium",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "late_fee",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "payment_mode",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payment_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "receipt_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "grace_period_end",
+          "data_type": "DATE"
+        },
+        {
+          "name": "commission_amount",
+          "data_type": "DOUBLE"
+        }
+      ]
+    },
+    {
+      "schema": "lending",
+      "table_name": "dim_loan",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "loan_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "application_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "loan_account_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "product_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "disbursed_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "disbursement_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "tenure_months",
+          "data_type": "INT"
+        },
+        {
+          "name": "interest_rate_pct",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "rate_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "emi_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "first_emi_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "maturity_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "outstanding_principal",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "outstanding_interest",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "total_paid_to_date",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "emis_paid",
+          "data_type": "INT"
+        },
+        {
+          "name": "emis_remaining",
+          "data_type": "INT"
+        },
+        {
+          "name": "dpd_days",
+          "data_type": "INT"
+        },
+        {
+          "name": "dpd_bucket",
+          "data_type": "STRING"
+        },
+        {
+          "name": "asset_classification",
+          "data_type": "STRING"
+        },
+        {
+          "name": "loan_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "collateral_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "collateral_value",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "insurance_linked",
+          "data_type": "STRING"
+        },
+        {
+          "name": "branch_id",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "lending",
+      "table_name": "fact_collection_activity",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "activity_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "loan_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "activity_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "dpd_at_activity",
+          "data_type": "INT"
+        },
+        {
+          "name": "bucket",
+          "data_type": "STRING"
+        },
+        {
+          "name": "channel",
+          "data_type": "STRING"
+        },
+        {
+          "name": "agent_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "agency_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "outcome",
+          "data_type": "STRING"
+        },
+        {
+          "name": "promise_to_pay_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "promise_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "amount_collected",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "next_action_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "remarks",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "lending",
+      "table_name": "fact_loan_application",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "application_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "application_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "product_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "requested_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "tenure_months",
+          "data_type": "INT"
+        },
+        {
+          "name": "purpose",
+          "data_type": "STRING"
+        },
+        {
+          "name": "employment_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "declared_income_monthly",
+          "data_type": "LONG"
+        },
+        {
+          "name": "existing_emi_total",
+          "data_type": "LONG"
+        },
+        {
+          "name": "bureau_score",
+          "data_type": "INT"
+        },
+        {
+          "name": "bureau_agency",
+          "data_type": "STRING"
+        },
+        {
+          "name": "foir_pct",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "ltv_pct",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "application_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "decision_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "decision_reason",
+          "data_type": "STRING"
+        },
+        {
+          "name": "sanctioned_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "approved_roi_pct",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "sourcing_channel",
+          "data_type": "STRING"
+        },
+        {
+          "name": "branch_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "dsa_code",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "lending",
+      "table_name": "fact_loan_repayment",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "repayment_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "loan_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "due_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "paid_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "emi_number",
+          "data_type": "INT"
+        },
+        {
+          "name": "emi_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "principal_component",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "interest_component",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "penal_charges",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "amount_paid",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "payment_mode",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payment_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "bounce_reason",
+          "data_type": "STRING"
+        },
+        {
+          "name": "days_late",
+          "data_type": "INT"
+        }
+      ]
+    },
+    {
+      "schema": "payments",
+      "table_name": "fact_neft_rtgs",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "payment_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "utr_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payment_rail",
+          "data_type": "STRING"
+        },
+        {
+          "name": "initiation_timestamp",
+          "data_type": "TIMESTAMP"
+        },
+        {
+          "name": "settlement_timestamp",
+          "data_type": "TIMESTAMP"
+        },
+        {
+          "name": "remitter_customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "remitter_account_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "remitter_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "remitter_ifsc",
+          "data_type": "STRING"
+        },
+        {
+          "name": "beneficiary_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "beneficiary_account",
+          "data_type": "STRING"
+        },
+        {
+          "name": "beneficiary_ifsc",
+          "data_type": "STRING"
+        },
+        {
+          "name": "beneficiary_bank",
+          "data_type": "STRING"
+        },
+        {
+          "name": "amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "currency_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "purpose_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "remarks",
+          "data_type": "STRING"
+        },
+        {
+          "name": "batch_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "return_reason",
+          "data_type": "STRING"
+        },
+        {
+          "name": "charges",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "is_cross_border",
+          "data_type": "STRING"
+        },
+        {
+          "name": "swift_bic",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "payments",
+      "table_name": "fact_upi_payment",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "upi_txn_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "rrn",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payer_vpa",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payee_vpa",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payer_account_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payer_customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payee_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payee_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "txn_timestamp",
+          "data_type": "TIMESTAMP"
+        },
+        {
+          "name": "txn_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "currency_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "txn_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "psp_app",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payer_bank",
+          "data_type": "STRING"
+        },
+        {
+          "name": "payee_bank",
+          "data_type": "STRING"
+        },
+        {
+          "name": "txn_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "failure_reason",
+          "data_type": "STRING"
+        },
+        {
+          "name": "response_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "device_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "ip_address",
+          "data_type": "STRING"
+        },
+        {
+          "name": "latitude",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "longitude",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "is_p2m",
+          "data_type": "STRING"
+        },
+        {
+          "name": "mandate_id",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "risk_compliance",
+      "table_name": "dim_kyc",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "kyc_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "kyc_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "id_proof_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "id_proof_number_masked",
+          "data_type": "STRING"
+        },
+        {
+          "name": "address_proof_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "pan_verified",
+          "data_type": "STRING"
+        },
+        {
+          "name": "ckyc_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "kyc_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "next_review_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "verification_method",
+          "data_type": "STRING"
+        },
+        {
+          "name": "verified_by",
+          "data_type": "STRING"
+        },
+        {
+          "name": "kyc_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "risk_category",
+          "data_type": "STRING"
+        },
+        {
+          "name": "pep_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "fatca_declaration",
+          "data_type": "STRING"
+        },
+        {
+          "name": "crs_tax_residency",
+          "data_type": "STRING"
+        },
+        {
+          "name": "source_of_funds",
+          "data_type": "STRING"
+        },
+        {
+          "name": "expected_annual_turnover",
+          "data_type": "LONG"
+        },
+        {
+          "name": "adverse_media_hit",
+          "data_type": "STRING"
+        },
+        {
+          "name": "ubo_declared",
+          "data_type": "STRING"
+        },
+        {
+          "name": "remarks",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "risk_compliance",
+      "table_name": "dim_sanctions_watchlist",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "watchlist_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "list_source",
+          "data_type": "STRING"
+        },
+        {
+          "name": "entity_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "entity_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "aliases",
+          "data_type": "STRING"
+        },
+        {
+          "name": "date_of_birth",
+          "data_type": "DATE"
+        },
+        {
+          "name": "nationality",
+          "data_type": "STRING"
+        },
+        {
+          "name": "country_of_residence",
+          "data_type": "STRING"
+        },
+        {
+          "name": "passport_number_masked",
+          "data_type": "STRING"
+        },
+        {
+          "name": "listing_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "delisting_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "programme",
+          "data_type": "STRING"
+        },
+        {
+          "name": "match_threshold_pct",
+          "data_type": "INT"
+        },
+        {
+          "name": "is_active",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "risk_compliance",
+      "table_name": "fact_aml_alert",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "alert_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "account_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "alert_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "scenario_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "alert_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "alert_description",
+          "data_type": "STRING"
+        },
+        {
+          "name": "risk_score",
+          "data_type": "INT"
+        },
+        {
+          "name": "priority",
+          "data_type": "STRING"
+        },
+        {
+          "name": "aggregate_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "txn_count",
+          "data_type": "INT"
+        },
+        {
+          "name": "lookback_days",
+          "data_type": "INT"
+        },
+        {
+          "name": "detection_engine",
+          "data_type": "STRING"
+        },
+        {
+          "name": "assigned_analyst",
+          "data_type": "STRING"
+        },
+        {
+          "name": "alert_status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "disposition_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "disposition_reason",
+          "data_type": "STRING"
+        },
+        {
+          "name": "sar_filed",
+          "data_type": "STRING"
+        },
+        {
+          "name": "sar_reference",
+          "data_type": "STRING"
+        },
+        {
+          "name": "escalated_to",
+          "data_type": "STRING"
+        },
+        {
+          "name": "regulator_reported",
+          "data_type": "STRING"
+        },
+        {
+          "name": "closure_narrative",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "sp_demo",
+      "table_name": "archived_orders",
+      "medallion_layer": "Silver",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "order_id",
+          "data_type": "LONG"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "LONG"
+        },
+        {
+          "name": "order_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "amount",
+          "data_type": "DECIMAL"
+        },
+        {
+          "name": "status",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "sp_demo",
+      "table_name": "customer_summary",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "customer_id",
+          "data_type": "LONG"
+        },
+        {
+          "name": "order_count",
+          "data_type": "INT"
+        },
+        {
+          "name": "total_amount",
+          "data_type": "DECIMAL"
+        },
+        {
+          "name": "last_order",
+          "data_type": "DATE"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "TIMESTAMP"
+        }
+      ]
+    },
+    {
+      "schema": "sp_demo",
+      "table_name": "etl_audit_log",
+      "medallion_layer": "Bronze",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "run_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "proc_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "status",
+          "data_type": "STRING"
+        },
+        {
+          "name": "rows_affected",
+          "data_type": "LONG"
+        },
+        {
+          "name": "message",
+          "data_type": "STRING"
+        },
+        {
+          "name": "logged_at",
+          "data_type": "TIMESTAMP"
+        }
+      ]
+    },
+    {
+      "schema": "sp_demo",
+      "table_name": "orders",
+      "medallion_layer": "Bronze",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "order_id",
+          "data_type": "LONG"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "LONG"
+        },
+        {
+          "name": "order_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "amount",
+          "data_type": "DECIMAL"
+        },
+        {
+          "name": "status",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "wealth",
+      "table_name": "dim_portfolio",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "portfolio_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "demat_account_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "dp_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "client_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "portfolio_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "risk_profile",
+          "data_type": "STRING"
+        },
+        {
+          "name": "investment_objective",
+          "data_type": "STRING"
+        },
+        {
+          "name": "inception_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "aum_value",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "invested_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "unrealised_gain_loss",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "xirr_pct",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "advisor_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "advisory_model",
+          "data_type": "STRING"
+        },
+        {
+          "name": "fee_structure",
+          "data_type": "STRING"
+        },
+        {
+          "name": "fee_bps",
+          "data_type": "INT"
+        },
+        {
+          "name": "review_frequency",
+          "data_type": "STRING"
+        },
+        {
+          "name": "last_review_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "is_discretionary",
+          "data_type": "STRING"
+        },
+        {
+          "name": "tax_residency",
+          "data_type": "STRING"
+        }
+      ]
+    },
+    {
+      "schema": "wealth",
+      "table_name": "fact_trade",
+      "medallion_layer": "Gold",
+      "load_strategy": "Full Load",
+      "columns": [
+        {
+          "name": "trade_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "portfolio_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "trade_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "settlement_date",
+          "data_type": "DATE"
+        },
+        {
+          "name": "instrument_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "isin",
+          "data_type": "STRING"
+        },
+        {
+          "name": "ticker",
+          "data_type": "STRING"
+        },
+        {
+          "name": "security_name",
+          "data_type": "STRING"
+        },
+        {
+          "name": "exchange",
+          "data_type": "STRING"
+        },
+        {
+          "name": "buy_sell",
+          "data_type": "STRING"
+        },
+        {
+          "name": "quantity",
+          "data_type": "INT"
+        },
+        {
+          "name": "price",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "trade_value",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "brokerage",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "stt",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "gst",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "stamp_duty",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "net_amount",
+          "data_type": "DOUBLE"
+        },
+        {
+          "name": "order_type",
+          "data_type": "STRING"
+        },
+        {
+          "name": "order_id",
+          "data_type": "STRING"
+        },
+        {
+          "name": "broker_code",
+          "data_type": "STRING"
+        },
+        {
+          "name": "folio_number",
+          "data_type": "STRING"
+        },
+        {
+          "name": "sip_flag",
+          "data_type": "STRING"
+        },
+        {
+          "name": "holding_period_days",
+          "data_type": "INT"
+        }
+      ]
+    }
+  ]
+}

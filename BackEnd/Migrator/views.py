@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import traceback
@@ -55,6 +56,44 @@ def _limit_metadata_tables(metadata):
     limited_metadata = dict(metadata)
     limited_metadata["schemas"] = limited_schemas
     return limited_metadata
+
+
+def _push_databricks_to_fabric(output_files, database_name):
+    """
+    Converts the just-generated Assessment Report + Migration Plan docx
+    into migration_plan.json and pushes it straight into the pre-provisioned
+    "Databricks_Lakehouse" in Fabric via DB2_2_Fabric.py - no manual CLI
+    step needed for databricks scans. Only called for db_type == "databricks";
+    other sources aren't wired up to a real Fabric Lakehouse yet.
+
+    Returns the dict DB2_2_Fabric.Generator() returns (status/processed/errors).
+    Raises on failure - callers should catch and log rather than fail the scan,
+    since the docx reports themselves already succeeded by the time this runs.
+    """
+    from Artifacts_Generator.plan_to_json import build_plan
+    from Artifacts_Generator import DB2_2_Fabric
+
+    output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+    assessment_path = output_dir / output_files["assessment_report"]
+    migration_plan_path = output_dir / output_files["migration_plan"]
+
+    plan = build_plan(
+        assessment_path=assessment_path,
+        migration_plan_path=migration_plan_path,
+        source_system="databricks",
+        database_name=database_name,
+    )
+
+    json_path = output_dir / "migration_plan.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(plan, f, indent=2, ensure_ascii=False)
+
+    return DB2_2_Fabric.Generator(
+        json_path=json_path,
+        dry_run=False,
+        source_system="databricks",
+        database_name=database_name,
+    )
 
 
 def _scan_status(scan_id):
@@ -438,6 +477,21 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         print(temp)
         time.sleep(1.2)
 
+        if layer_result.get("decision") != "PASS":
+            update_scan_job_state(scan_id, log_entry="[Err]: DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.")
+            print("[Err]: DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.")
+            return Response(
+                {
+                    "status": "error",
+                    "message": "DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.",
+                    "source": source,
+                    "destination": destination,
+                    "Logs": Logs,
+                    "harness_result": layer_result,
+                },
+                status=400
+            )
+
         update_scan_job_state(scan_id, progress=70, current_message="Generating Assessment Report and Migration Plan...", log_entry="Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
         print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
         
@@ -446,6 +500,29 @@ def _run_scan(destination, scan_source=None, scan_id=None):
 
         update_scan_job_state(scan_id, progress=95, current_message="Finalizing reports and logs...", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
         print(f"Output is avaliable at Show Logs embedded in the UI Screen")
+
+        fabric_push = None
+        if db_type == "databricks":
+            update_scan_job_state(scan_id, log_entry="[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
+            print("[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
+            try:
+                fabric_push = _push_databricks_to_fabric(output_files, Creds.get_database_name())
+                update_scan_job_state(
+                    scan_id,
+                    log_entry=(
+                        f"[INFO] Fabric push completed: {fabric_push.get('processed_count')} table(s) "
+                        f"created/updated in '{fabric_push.get('lakehouse_name')}', "
+                        f"{fabric_push.get('error_count')} error(s)."
+                    ),
+                )
+                print(f"[INFO] Fabric push completed: {fabric_push}")
+            except Exception as fabric_exc:
+                fabric_push = {"status": "error", "error": str(fabric_exc)}
+                update_scan_job_state(
+                    scan_id,
+                    log_entry=f"[WARN] Fabric artifact push failed (reports above are still available): {fabric_exc}",
+                )
+                print(f"[WARN] Fabric artifact push failed: {fabric_exc}")
 
         update_scan_job_state(scan_id, progress=100, current_message="Database scan completed successfully.", log_entry="Database scan completed successfully.")
         print(f"Database scan completed successfully.")
@@ -469,6 +546,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 },
                 "output_files": output_files,
                 "tables_found": selected_table_count,
+                "fabric_push": fabric_push,
             })
     except Exception as e:
         update_scan_job_state(scan_id, log_entry=str(e))

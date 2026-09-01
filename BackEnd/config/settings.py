@@ -20,6 +20,8 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-local-only")
 DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
 ALLOWED_HOSTS = [
     "apexon-ai-innovationhub-new.onrender.com",
+    "localhost",
+    "127.0.0.1",
 ]
 
 # --- Applications -------------------------------------------------------

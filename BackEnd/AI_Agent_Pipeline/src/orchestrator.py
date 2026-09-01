@@ -2,6 +2,7 @@ import os
 import json
 import time
 import sys
+import uuid
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -57,10 +58,15 @@ class AzureAIOrchestrator:
         )
         print(f"[INFO] RAG source type resolved to '{self.source_type}'.")
         
-        # Names for the agents (Azure requires alphanumeric and hyphens only)
+        # Names for the agents (Azure requires alphanumeric and hyphens only).
+        # A per-run suffix keeps concurrent scans from colliding on the same
+        # agent name - without it, _delete_if_exists() in one scan's
+        # create_agents() would delete another concurrently-running scan's
+        # live agent, surfacing as "Agent not found" mid-run.
         sanitized_base = self.base_agent_name.replace("_", "-").replace(" ", "-").lower()
-        self.table_summarizer_name = f"{sanitized_base}-table-summarizer"
-        self.migration_plan_name = f"{sanitized_base}-migration-plan-generator"
+        run_suffix = uuid.uuid4().hex[:8]
+        self.table_summarizer_name = f"{sanitized_base}-table-summarizer-{run_suffix}"
+        self.migration_plan_name = f"{sanitized_base}-migration-plan-generator-{run_suffix}"
         
         # Agent Helpers
         self.table_summarizer_builder = TableSummarizerAgent(self.table_summarizer_name, self.model_name)
