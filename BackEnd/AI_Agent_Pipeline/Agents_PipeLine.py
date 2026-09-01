@@ -63,7 +63,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
     # otherwise fall back to scanning data/ for CSV/JSON uploads.
     if metadata is not None:
         print("[INFO] Using metadata from the live scan just performed...")
-        tables_df, columns_df, stats_df, views_df, procedures_df, dep_df = metadata_to_dataframes(
+        dfs = metadata_to_dataframes(
             metadata, label=metadata.get("database", "live_scan")
         )
     else:
@@ -72,7 +72,24 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
             print("[ERROR] Please upload source files to the 'data/' directory.")
             sys.exit(1)
         print("[INFO] Collecting metadata from files in data/ directory...")
-        tables_df, columns_df, stats_df, views_df, procedures_df, dep_df = collect_metadata(data_dir)
+        dfs = collect_metadata(data_dir)
+
+    # Dynamically unpack 8 dataframes (with functions_df, volumes_df) or 6 dataframes (legacy)
+    if len(dfs) == 8:
+        tables_df, columns_df, stats_df, views_df, procedures_df, functions_df, volumes_df, dep_df = dfs
+    elif len(dfs) == 6:
+        tables_df, columns_df, stats_df, views_df, procedures_df, dep_df = dfs
+        functions_df = pd.DataFrame()
+        volumes_df = pd.DataFrame()
+    else:
+        tables_df = dfs[0]
+        columns_df = dfs[1]
+        stats_df = dfs[2]
+        views_df = dfs[3]
+        procedures_df = dfs[4]
+        dep_df = dfs[-1]
+        functions_df = dfs[5] if len(dfs) > 6 else pd.DataFrame()
+        volumes_df = dfs[6] if len(dfs) > 7 else pd.DataFrame()
 
     if tables_df.empty:
         print("[ERROR] No tables found in the scanned metadata.")
@@ -83,12 +100,18 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
     # 3. Initialize Orchestrator
     orchestrator = AzureAIOrchestrator(
         tables_df, columns_df, stats_df, views_df, procedures_df, dep_df,
-        source_hint=source_hint
+        source_hint=source_hint,
+        functions_df=functions_df,
+        volumes_df=volumes_df
     )
 
     source_name = (source_hint or "database").replace(" ", "_").lower()
     try:
-        return _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint, scan_id)
+        return _run_pipeline(
+            orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df,
+            output_dir, source_hint, scan_id,
+            functions_df=functions_df, volumes_df=volumes_df
+        )
     except Exception as exc:
         _update_progress(scan_id, log_entry=f"[FAILED] Layer 2 stopped: {exc}", log_type="Harness Layer2")
         _update_progress(scan_id, log_entry=f"[ERROR] Assessment pipeline failed: {exc}", log_type="Scan Info")
@@ -112,7 +135,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
         orchestrator.cleanup_agents()
 
 
-def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None, scan_id=None):
+def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None, scan_id=None, functions_df=None, volumes_df=None):
     # Create agents using Microsoft AI Foundry SDK
     _update_progress(scan_id, progress=65, current_message="Initializing Harness Layer 2 AI agents...", log_entry="HARNESS LAYER 2:\nStarting evaluator-generator agents.", log_type="Harness Layer2")
     orchestrator.create_agents()
@@ -189,7 +212,11 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         source_hint=source_hint,
         tables_df=tables_df,
         columns_df=columns_df,
-        stats_df=stats_df
+        stats_df=stats_df,
+        views_df=views_df,
+        procedures_df=procedures_df,
+        functions_df=functions_df,
+        volumes_df=volumes_df
     )
     
     _update_progress(scan_id, log_entry=f"[INFO] Successfully saved Assessment Report: {table_summary_filename}", log_type="Scan Info")
@@ -265,7 +292,9 @@ Columns Sample:
         agent_writeups=agent_writeups,
         output_path=migration_plan_docx_path,
         tokens_used=orchestrator.tokens_used if orchestrator.client_type else None,
-        source_hint=source_hint
+        source_hint=source_hint,
+        functions_df=functions_df,
+        volumes_df=volumes_df
     )
     _update_progress(scan_id, log_entry=f"[INFO] Successfully saved Migration Plan: {migration_plan_filename}", log_type="Scan Info")
     

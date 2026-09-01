@@ -28,7 +28,7 @@ class AzureAIOrchestrator:
     Orchestrates agent creation, prompt execution, and function tool invocations
     using the Microsoft Azure AI Projects SDK.
     """
-    def __init__(self, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, source_hint=None):
+    def __init__(self, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, source_hint=None, functions_df=None, volumes_df=None):
         load_dotenv()
         self.endpoint = os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT")
         self.base_agent_name = os.getenv("AZURE_AI_FOUNDRY_AGENT_NAME", "MyAgent")
@@ -41,6 +41,8 @@ class AzureAIOrchestrator:
         self.views_df = views_df
         self.procedures_df = procedures_df
         self.dep_df = dep_df
+        self.functions_df = functions_df
+        self.volumes_df = volumes_df
         
         self.client_type = None
         self.client = None
