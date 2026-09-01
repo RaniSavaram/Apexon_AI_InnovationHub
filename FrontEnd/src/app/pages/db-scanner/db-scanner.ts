@@ -386,6 +386,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
     this.scanCompleted = false;
     this.scanFailed = false;
+    this.fabricArtifactsResult = null;
 
     this.showScanCompletedDialog = false;
 
@@ -732,6 +733,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
     this.scanCompleted = false;
     this.scanFailed = false;
+    this.fabricArtifactsResult = null;
 
     this.showScanCompletedDialog = false;
     const activeDb = this.getFormatSourceForFilename(this.source);
@@ -856,7 +858,7 @@ export class DbScannerComponent implements AfterViewChecked {
 
     this.progress = 0;
 
-    this.source = '';
+    this.source = this.lastScanSource || this.source;
 
     this.connected = false;
 
@@ -1172,13 +1174,28 @@ export class DbScannerComponent implements AfterViewChecked {
   // GENERATE ARTIFACTS DIALOG & EXECUTION (SQL_2_FABRIC)
   //=========================================================
 
+  isDatabricksSource(): boolean {
+    const src = (this.source || this.lastScanSource || '').toLowerCase();
+    return src.includes('databricks');
+  }
+
+  getActiveGeneratorScript(): string {
+    if (this.fabricArtifactsResult?.generator_script) {
+      return this.fabricArtifactsResult.generator_script;
+    }
+    return this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py';
+  }
+
   openArtifactsDialog() {
     if (!this.scanCompleted) {
       alert('Please complete a database scan first.');
       return;
     }
     this.showArtifactsDialog = true;
-    if (!this.fabricArtifactsResult && !this.generatingFabric) {
+    const expectedScript = this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py';
+    const currentScript = this.fabricArtifactsResult?.generator_script;
+
+    if ((!this.fabricArtifactsResult || currentScript !== expectedScript) && !this.generatingFabric) {
       this.generateFabricArtifacts();
     }
     this.cdr.detectChanges();
@@ -1197,7 +1214,7 @@ export class DbScannerComponent implements AfterViewChecked {
     this.generatingFabric = true;
     this.cdr.detectChanges();
 
-    const selectedSource = this.lastScanSource || this.source || '';
+    const selectedSource = this.source || this.lastScanSource || '';
 
     this.scanner.generateFabricArtifacts(selectedSource).subscribe({
       next: (res) => {
@@ -1212,7 +1229,8 @@ export class DbScannerComponent implements AfterViewChecked {
           status: 'error',
           message: msg,
           errors: [msg],
-          logs: [msg]
+          logs: [msg],
+          generator_script: this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py'
         };
         this.cdr.detectChanges();
       }

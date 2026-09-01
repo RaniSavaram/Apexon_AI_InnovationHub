@@ -356,6 +356,7 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
         print()
 
     print("Done.")
+    logs_list.insert(0, "[INFO] Script: SQL_2_Fabric.py (SQL Server Lakehouse pipeline)")
     logs_list.append(f"[INFO] Execution completed. Synced: {len(synced_tables)}, Errors: {len(errors)}")
 
     if errors:
@@ -366,6 +367,8 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
             "tables_info": tables_info,
             "errors": errors,
             "logs": logs_list,
+            "generator_script": "SQL_2_Fabric.py",
+            "source_system": "SQL Server",
             "target": {
                 "workspace_id": ws_id,
                 "lakehouse_id": lh_id,
@@ -379,6 +382,8 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
         "tables": synced_tables,
         "tables_info": tables_info,
         "logs": logs_list,
+        "generator_script": "SQL_2_Fabric.py",
+        "source_system": "SQL Server",
         "target": {
             "workspace_id": ws_id,
             "lakehouse_id": lh_id,

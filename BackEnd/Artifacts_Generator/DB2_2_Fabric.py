@@ -303,7 +303,17 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
     json_path = Path(json_path).resolve()
 
-    if not json_path.exists():
+    should_rebuild = not json_path.exists()
+    if json_path.exists():
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                existing_meta = json.load(f).get("meta", {})
+                if source_system and existing_meta.get("source_system", "").lower() != source_system.lower():
+                    should_rebuild = True
+        except Exception:
+            should_rebuild = True
+
+    if should_rebuild:
         output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
         assessment_candidates = [
             output_dir / "databricks_Assessment_Report.docx",
@@ -542,6 +552,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     err_list = [f"{e.get('table', 'Error')}: {str(e.get('error', '')).replace('\u21b3', '->')}" for e in errors]
 
     logs_list = [
+        "[INFO] Script: DB2_2_Fabric.py (Databricks Lakehouse pipeline)",
         f"[INFO] Source system: {source_system}",
         f"[INFO] Target workspace: {target_workspace_id}",
         f"[INFO] Artifact lakehouse: {artifact_lakehouse_name} (id={default_lakehouse_id})",
@@ -559,6 +570,8 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
         "tables_info": tables_meta,
         "errors": err_list,
         "logs": logs_list,
+        "generator_script": "DB2_2_Fabric.py",
+        "source_system": "Databricks",
         "target": {
             "workspace_id": target_workspace_id,
             "lakehouse_id": default_lakehouse_id,

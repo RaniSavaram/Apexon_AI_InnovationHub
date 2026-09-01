@@ -156,7 +156,7 @@ START PART 1
                         class="fabric-btn"
                         (click)="openArtifactsDialog()"
                         [disabled]="!scanCompleted || generatingFabric"
-                        [title]="!scanCompleted ? 'Complete scan first to generate artifacts' : 'Generate and view Microsoft Fabric artifacts'">
+                        [title]="!scanCompleted ? 'Complete scan first to generate artifacts' : 'Generate artifacts using ' + getActiveGeneratorScript()">
 
                         <i class="bi bi-cloud-arrow-up-fill" *ngIf="!generatingFabric"></i>
                         <i class="bi bi-arrow-repeat spin" *ngIf="generatingFabric"></i>
@@ -788,7 +788,9 @@ SCAN STATUS + ACTION BUTTONS
 
                 <div class="dialog-title-group">
                     <h2>Generated Artifacts</h2>
-                    <span class="dialog-subtitle">Microsoft Fabric OneLake Delta Tables</span>
+                    <span class="dialog-subtitle">
+                        Script: <strong style="color: #6366f1;">{{ getActiveGeneratorScript() }}</strong> &bull; Target: Microsoft Fabric OneLake
+                    </span>
                 </div>
 
                 <button
@@ -828,7 +830,7 @@ SCAN STATUS + ACTION BUTTONS
                     (click)="generateFabricArtifacts()"
                     style="margin-left: auto;">
                     <i class="bi bi-arrow-repeat" [class.spin]="generatingFabric"></i>
-                    {{ generatingFabric ? 'Generating...' : 'Re-run Generation' }}
+                    {{ generatingFabric ? 'Generating...' : 'Re-run ' + getActiveGeneratorScript() }}
                 </button>
 
             </div>
@@ -836,8 +838,8 @@ SCAN STATUS + ACTION BUTTONS
             <!-- Loading State -->
             <div class="artifacts-loading-body" *ngIf="generatingFabric">
                 <div class="spinner-large"></div>
-                <h3>Deploying Delta Tables to Microsoft Fabric OneLake...</h3>
-                <p>Parsing table schema, mapping PyArrow data types, and syncing Delta Lake tables.</p>
+                <h3>Executing {{ getActiveGeneratorScript() }}...</h3>
+                <p>Deploying Delta Tables to Microsoft Fabric OneLake for {{ isDatabricksSource() ? 'Databricks' : 'SQL Server' }}.</p>
             </div>
 
             <!-- Tab 1: Overview -->
@@ -859,9 +861,14 @@ SCAN STATUS + ACTION BUTTONS
                 <!-- Target Lakehouse Cards -->
                 <div class="artifacts-meta-grid">
                     <div class="meta-card">
+                        <span class="meta-label"><i class="bi bi-file-earmark-code-fill"></i> Artifact Script</span>
+                        <span class="meta-val" style="color: #6366f1; font-weight: 700;">{{ getActiveGeneratorScript() }}</span>
+                        <span class="meta-sub">{{ isDatabricksSource() ? 'Databricks -> Fabric Pipeline' : 'SQL Server -> Fabric Pipeline' }}</span>
+                    </div>
+                    <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-folder2-open"></i> Target Lakehouse</span>
-                        <span class="meta-val">{{ fabricArtifactsResult?.lakehouse_name || (lastScanSource?.toLowerCase()?.includes('databricks') ? 'Databricks_Lakehouse' : 'SQL_Lakehouse') }}</span>
-                        <span class="meta-sub">ID: {{ fabricArtifactsResult?.target?.lakehouse_id || (lastScanSource?.toLowerCase()?.includes('databricks') ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9' : '87ddccfe-cfa3-47d6-92ab-b638ce379319') }}</span>
+                        <span class="meta-val">{{ fabricArtifactsResult?.lakehouse_name || (isDatabricksSource() ? 'Databricks_Lakehouse' : 'SQL_Lakehouse') }}</span>
+                        <span class="meta-sub">ID: {{ fabricArtifactsResult?.target?.lakehouse_id || (isDatabricksSource() ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9' : '87ddccfe-cfa3-47d6-92ab-b638ce379319') }}</span>
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-diagram-3-fill"></i> Workspace</span>
@@ -870,7 +877,7 @@ SCAN STATUS + ACTION BUTTONS
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-file-earmark-text-fill"></i> Assessment Report</span>
-                        <span class="meta-val">{{ fabricArtifactsResult?.target?.report_name || (lastScanSource?.toLowerCase()?.includes('databricks') ? 'databricks_Assessment_Report.docx' : 'sqlserver_Assessment_Report.docx') }}</span>
+                        <span class="meta-val">{{ fabricArtifactsResult?.target?.report_name || (isDatabricksSource() ? 'databricks_Assessment_Report.docx' : 'sqlserver_Assessment_Report.docx') }}</span>
                         <span class="meta-sub">Source Schema Extraction</span>
                     </div>
                     <div class="meta-card">

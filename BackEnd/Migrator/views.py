@@ -1152,17 +1152,36 @@ def generate_fabric_artifacts(request):
         if not source_param and source:
             source_param = str(source)
 
+        # Fallback to latest scan job source if available
+        if not source_param:
+            with scan_jobs_lock:
+                if scan_jobs:
+                    latest_job = list(scan_jobs.values())[-1]
+                    source_param = latest_job.get("source") or ""
+
+        # Fallback to Creds if databricks connection is configured
+        if not source_param and Creds.get_databricks_http_path():
+            source_param = "databricks"
+
         doc_filename = request.data.get("filename") if request.method == "POST" else request.GET.get("filename")
         workspace_id = request.data.get("workspace_id") if request.method == "POST" else request.GET.get("workspace_id")
         lakehouse_id = request.data.get("lakehouse_id") if request.method == "POST" else request.GET.get("lakehouse_id")
 
-        source_clean = source_param.strip().lower().replace(" ", "").replace("_", "")
+        source_clean = (source_param or "").strip().lower().replace(" ", "").replace("_", "")
 
-        # Route based on source system
+        # Route based on source system:
+        # If source is Databricks -> execute DB2_2_Fabric.py
+        # If source is SQL Server -> execute SQL_2_Fabric.py
         if "databricks" in source_clean:
+            script_name = "DB2_2_Fabric.py"
+            source_display = "Databricks"
+            print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
             from Artifacts_Generator.DB2_2_Fabric import Generator as DatabricksGenerator
             result = DatabricksGenerator(source_system="databricks", workspace_id=workspace_id)
         else:
+            script_name = "SQL_2_Fabric.py"
+            source_display = "SQL Server"
+            print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
             from Artifacts_Generator.SQL_2_Fabric import Generator as SqlServerGenerator
             doc_path = None
             if doc_filename:
@@ -1170,7 +1189,18 @@ def generate_fabric_artifacts(request):
                 doc_path = output_dir / doc_filename
             result = SqlServerGenerator(doc_path=doc_path, workspace_id=workspace_id, lakehouse_id=lakehouse_id)
 
+        result["generator_script"] = script_name
+        result["source_system"] = source_display
+        if "logs" in result and isinstance(result.get("logs"), list):
+            result["logs"].insert(0, f"[INFO] Routing to generator script: {script_name} for source: {source_display}")
+
         return Response(result, status=200)
     except Exception as exc:
         traceback.print_exc()
-        return Response({"status": "error", "message": str(exc), "logs": [str(exc)]}, status=200)
+        fallback_script = "DB2_2_Fabric.py" if "databricks" in (source_param if "source_param" in locals() else "").lower() else "SQL_2_Fabric.py"
+        return Response({
+            "status": "error",
+            "message": str(exc),
+            "logs": [str(exc)],
+            "generator_script": fallback_script
+        }, status=200)
