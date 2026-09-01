@@ -368,8 +368,23 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     storage_options = None
     fabric_token = None
 
+    caller_id = "unknown"
+    caller_name = "Azure Identity"
     if not dry_run:
         token = fabric_api.get_onelake_token()
+        try:
+            import base64
+            import json
+            payload = token.split(".")[1]
+            payload += "=" * (-len(payload) % 4)
+            claims = json.loads(base64.urlsafe_b64decode(payload))
+            caller_id = claims.get("upn") or claims.get("appid") or claims.get("azp") or claims.get("oid") or "Service Principal"
+            caller_name = claims.get("name") or claims.get("app_displayname") or "Service Principal"
+            tid = claims.get("tid", "")
+            print(f"[INFO] Authenticated Identity: {caller_name} (ID: {caller_id}, Tenant: {tid})")
+        except Exception:
+            pass
+
         storage_options = {
             "bearer_token": token,
             "use_fabric_endpoint": "true",

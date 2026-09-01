@@ -247,9 +247,25 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
         f"[INFO] Using assessment report: {target_doc.name}"
     ]
 
+    caller_id = "unknown"
+    caller_name = "Azure Identity"
     try:
         token = get_onelake_token()
         logs_list.append("[INFO] OneLake token acquired via DefaultAzureCredential.")
+        try:
+            import base64
+            import json
+            payload = token.split(".")[1]
+            payload += "=" * (-len(payload) % 4)
+            claims = json.loads(base64.urlsafe_b64decode(payload))
+            caller_id = claims.get("upn") or claims.get("appid") or claims.get("azp") or claims.get("oid") or "Service Principal"
+            caller_name = claims.get("name") or claims.get("app_displayname") or "Service Principal"
+            tid = claims.get("tid", "")
+            ident_info = f"Authenticated Identity: {caller_name} (ID: {caller_id}, Tenant: {tid})"
+            logs_list.append(f"[INFO] {ident_info}")
+            print(f"[INFO] {ident_info}")
+        except Exception:
+            pass
     except Exception as e:
         msg = f"Azure OneLake Authentication failed: {e}. Please ensure Azure credentials (e.g. AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID) are configured."
         print(f"ERROR: {msg}", file=sys.stderr)
@@ -323,12 +339,19 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
             raw_err = str(exc).strip().replace("\u21b3", "->")
             # Extract first line or clean summary
             first_line = raw_err.split("\n")[0] if raw_err else "Sync error"
-            err_msg = f"{schema_name}.{table_name}: {first_line}"
+            if "lacked the necessary privileges" in raw_err:
+                hint = f"Fabric OneLake ACL Permission Denied: The authenticated Azure identity '{caller_name}' ({caller_id}) lacks Contributor write access to Lakehouse '{lh_id}' in Workspace '{ws_id}'. Please add '{caller_id}' to Workspace 'Fabric Insights' with 'Contributor' or 'Admin' role in Fabric."
+                err_msg = f"{schema_name}.{table_name}: {first_line}"
+                logs_list.append(f"  [ERROR] {err_msg}")
+                logs_list.append(f"  [ACTION REQUIRED] {hint}")
+            else:
+                err_msg = f"{schema_name}.{table_name}: {first_line}"
+                logs_list.append(f"  [ERROR] {err_msg}")
+
             try:
                 print(f"  [ERROR] {err_msg}")
             except Exception:
                 pass
-            logs_list.append(f"  [ERROR] {err_msg}")
             errors.append(err_msg)
         print()
 
