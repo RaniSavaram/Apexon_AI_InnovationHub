@@ -1197,7 +1197,9 @@ export class DbScannerComponent implements AfterViewChecked {
     this.generatingFabric = true;
     this.cdr.detectChanges();
 
-    this.scanner.generateFabricArtifacts().subscribe({
+    const selectedSource = this.lastScanSource || this.source || '';
+
+    this.scanner.generateFabricArtifacts(selectedSource).subscribe({
       next: (res) => {
         this.generatingFabric = false;
         this.fabricArtifactsResult = res;

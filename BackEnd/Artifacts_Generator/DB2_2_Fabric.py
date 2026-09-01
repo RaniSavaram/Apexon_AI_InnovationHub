@@ -306,9 +306,47 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     json_path = Path(json_path).resolve()
 
     if not json_path.exists():
-        raise FileNotFoundError(
-            f"Migration JSON not found: {json_path}"
-        )
+        output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+        assessment_candidates = [
+            output_dir / "databricks_Assessment_Report.docx",
+            output_dir / "Assesment Report.docx",
+            output_dir / "Metadata_Report.docx"
+        ]
+        assessment_doc = next((p for p in assessment_candidates if p.exists()), None)
+        if assessment_doc:
+            plan_candidates = [
+                output_dir / "databricks_Migration_Plan.docx",
+                output_dir / "AI_Migration_Plan.docx",
+                output_dir / "Migration_Assessment.docx"
+            ]
+            plan_doc = next((p for p in plan_candidates if p.exists()), None)
+            try:
+                try:
+                    from Artifacts_Generator.plan_to_json import build_plan
+                except ImportError:
+                    from plan_to_json import build_plan
+                plan_data = build_plan(
+                    assessment_doc,
+                    migration_plan_path=plan_doc if plan_doc and plan_doc.exists() else None,
+                    source_system=source_system or "databricks",
+                    database_name=database_name
+                )
+                json_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump(plan_data, f, indent=2)
+                print(f"[INFO] Auto-generated {json_path.name} from {assessment_doc.name}")
+            except Exception as e:
+                print(f"[WARN] Could not auto-build {json_path.name}: {e}")
+
+    if not json_path.exists():
+        msg = f"Migration JSON not found at {json_path}. Please run scan first."
+        return {
+            "status": "error",
+            "message": msg,
+            "logs": [f"[ERROR] {msg}"],
+            "errors": [msg],
+            "tables": []
+        }
 
     plan = load_plan(json_path)
     tables = plan.get("tables", [])
@@ -486,19 +524,36 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
         f"[INFO] Errors: {len(errors)}"
     )
 
+    synced_list = [f"{t['schema']}.{t['table']} ({t['columns']} columns) [{t.get('layer', 'Table')}]" for t in created_or_updated]
+    tables_meta = [{"schema": t["schema"], "table": t["table"], "columns_count": t["columns"]} for t in created_or_updated]
+    err_list = [f"{e.get('table', 'Error')}: {str(e.get('error', '')).replace('\u21b3', '->')}" for e in errors]
+
+    logs_list = [
+        f"[INFO] Source system: {source_system}",
+        f"[INFO] Target workspace: {target_workspace_id}",
+        f"[INFO] Artifact lakehouse: {artifact_lakehouse_name} (id={default_lakehouse_id})",
+        f"[INFO] Total processed: {len(created_or_updated)}, Errors: {len(errors)}"
+    ]
+    for t in created_or_updated:
+        logs_list.append(f"[SUCCESS] {t['schema']}.{t['table']} ({t['columns']} cols) -> {t['uri']}")
+    for err in err_list:
+        logs_list.append(f"[ERROR] {err}")
+
     return {
-        "status": "success" if not errors else "completed_with_errors",
-        "json_path": str(json_path),
-        "dry_run": dry_run,
-        "workspace_id": target_workspace_id,
+        "status": "success" if not errors else ("partial" if created_or_updated else "error"),
+        "message": f"Synced {len(created_or_updated)} table(s) to Fabric Lakehouse '{artifact_lakehouse_name}' ({len(errors)} error(s)).",
+        "tables": synced_list,
+        "tables_info": tables_meta,
+        "errors": err_list,
+        "logs": logs_list,
+        "target": {
+            "workspace_id": target_workspace_id,
+            "lakehouse_id": default_lakehouse_id,
+            "report_name": artifact_lakehouse_name
+        },
         "lakehouse_name": artifact_lakehouse_name,
-        "lakehouse_id": default_lakehouse_id,
         "processed": created_or_updated,
-        "skipped": skipped,
-        "errors": errors,
-        "processed_count": len(created_or_updated),
-        "skipped_count": len(skipped),
-        "error_count": len(errors)
+        "skipped": skipped
     }
 
 if __name__ == "__main__":

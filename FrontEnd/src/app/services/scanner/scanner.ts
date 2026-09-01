@@ -140,10 +140,18 @@ export class Scanner {
    * Invokes BackEnd/Artifacts_Generator/SQL_2_Fabric.py to deploy the
    * scanned tables directly into the Microsoft Fabric OneLake Lakehouse.
    */
-  generateFabricArtifacts(filename?: string) {
-    return this.http.post<{ status: string; message: string; tables?: string[]; errors?: string[] }>(
+  generateFabricArtifacts(source?: string, filename?: string) {
+    return this.http.post<{
+      status: string;
+      message: string;
+      tables?: string[];
+      errors?: string[];
+      logs?: string[];
+      tables_info?: any[];
+      target?: any;
+    }>(
       `${this.api.baseUrl}/generate-fabric-artifacts/`,
-      filename ? { filename } : {}
+      { source, filename }
     );
   }
 }

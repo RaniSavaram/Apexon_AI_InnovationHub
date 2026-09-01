@@ -1139,20 +1139,37 @@ def debug_view(request):
 @api_view(["POST", "GET"])
 def generate_fabric_artifacts(request):
     """
-    Executes BackEnd/Artifacts_Generator/SQL_2_Fabric.py to create
-    empty Delta tables directly in a Microsoft Fabric OneLake Lakehouse
-    based on the latest assessment report.
+    Executes BackEnd/Artifacts_Generator/SQL_2_Fabric.py (for SQL Server)
+    or BackEnd/Artifacts_Generator/DB2_2_Fabric.py (for Databricks)
+    to create empty Delta tables directly in a Microsoft Fabric OneLake Lakehouse
+    based on the selected source.
     """
     try:
+        global source
+        source_param = (
+            request.data.get("source") if request.method == "POST" else request.GET.get("source")
+        ) or ""
+        if not source_param and source:
+            source_param = str(source)
+
         doc_filename = request.data.get("filename") if request.method == "POST" else request.GET.get("filename")
         workspace_id = request.data.get("workspace_id") if request.method == "POST" else request.GET.get("workspace_id")
         lakehouse_id = request.data.get("lakehouse_id") if request.method == "POST" else request.GET.get("lakehouse_id")
-        doc_path = None
-        if doc_filename:
-            output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
-            doc_path = output_dir / doc_filename
 
-        result = Generator(doc_path=doc_path, workspace_id=workspace_id, lakehouse_id=lakehouse_id)
+        source_clean = source_param.strip().lower().replace(" ", "").replace("_", "")
+
+        # Route based on source system
+        if "databricks" in source_clean:
+            from Artifacts_Generator.DB2_2_Fabric import Generator as DatabricksGenerator
+            result = DatabricksGenerator(source_system="databricks", workspace_id=workspace_id)
+        else:
+            from Artifacts_Generator.SQL_2_Fabric import Generator as SqlServerGenerator
+            doc_path = None
+            if doc_filename:
+                output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+                doc_path = output_dir / doc_filename
+            result = SqlServerGenerator(doc_path=doc_path, workspace_id=workspace_id, lakehouse_id=lakehouse_id)
+
         return Response(result, status=200)
     except Exception as exc:
         traceback.print_exc()
