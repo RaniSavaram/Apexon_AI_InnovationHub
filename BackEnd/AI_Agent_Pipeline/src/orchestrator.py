@@ -11,7 +11,7 @@ from agents import TableSummarizerAgent, MigrationGeneratorAgent
 
 # Import metadata, document generation, and tools
 from metadataProcessor import collect_metadata, read_csv_robust, infer_sql_type
-from docx_generator import create_table_summary_document, create_migration_plan_document, set_cell_margins, get_source_display_name
+from docx_generator import create_table_summary_document, create_migration_plan_document, set_cell_margins
 from tools.database_tools import table_summary_tool, get_size_category
 from rag import identify_source_type, get_common_fabric_kb, get_source_kb
 from Logs import Logs
@@ -115,34 +115,25 @@ class AzureAIOrchestrator:
 
     def _get_rag_context(self, query, top_k=3, max_chars_per_chunk=900):
         """
-        Retrieves the most relevant knowledge chunks from the common Fabric
-        KB and (if available) the source-specific KB for the given query.
-        Returns "" when nothing is relevant, so callers can splice this
-        straight into a prompt without extra branching.
+        Use the source-specific KB whenever one is known for the current
+        database platform. If no source-specific KB exists, fall back to the
+        common Fabric guidance only. This keeps SQL Server runs focused on
+        SQL Server-to-Fabric guidance and Databricks runs focused on the
+        Databricks-to-Fabric guidance instead of mixing both.
         """
-        sections = []
-        source_name_clean = (self.source_type or "").lower().strip()
-        
-        if self._common_kb:
-            # Retrieve slightly more than top_k to account for filtered items
-            raw_sections = self._common_kb.retrieve(query, top_k=top_k + 8, max_chars_per_chunk=max_chars_per_chunk)
-            filtered_sections = []
-            for heading, text in raw_sections:
-                # If active source is NOT databricks, exclude any databricks-specific guidelines
-                if source_name_clean != "databricks":
-                    if "databricks" in heading.lower() or "databricks" in text.lower():
-                        continue
-                filtered_sections.append((heading, text))
-            
-            for heading, text in filtered_sections[:top_k]:
-                sections.append(f"[{self._common_kb.label}] {heading}\n{text}")
-                
         if self._source_kb:
-            raw_sections = self._source_kb.retrieve(query, top_k=top_k, max_chars_per_chunk=max_chars_per_chunk)
-            for heading, text in raw_sections:
-                sections.append(f"[{self._source_kb.label}] {heading}\n{text}")
-                
-        return "\n\n".join(sections)
+            return self._source_kb.retrieve_as_text(
+                query,
+                top_k=top_k,
+                max_chars_per_chunk=max_chars_per_chunk,
+            )
+        if self._common_kb:
+            return self._common_kb.retrieve_as_text(
+                query,
+                top_k=top_k,
+                max_chars_per_chunk=max_chars_per_chunk,
+            )
+        return ""
 
     def _delete_if_exists(self, agent_name):
         """
@@ -344,8 +335,7 @@ class AzureAIOrchestrator:
         if rag_context:
             rag_block = "Reference migration knowledge (ground SECTION 5-8 in this guidance; do not copy it verbatim and do not cite it as a source):\n" + rag_context + "\n\n"
 
-        source_display_name = get_source_display_name(self.source_type)
-        user_msg = rag_block + f"The source database platform is {source_display_name}.\nHere is the database metadata summary gathered from files:\n\n" + metadata_summary_str + f"\n\nPlease generate the detailed text content and write-ups for Sections 1 to 9 of the Database Migration Plan for {source_display_name}."
+        user_msg = rag_block + "Here is the database metadata summary gathered from files:\n\n" + metadata_summary_str + "\n\nPlease generate the detailed text content and write-ups for Sections 1 to 9 of the Database Migration Plan."
 
         return self.run_agent_with_tool_calling(
             agent_name=self.migration_plan_name,

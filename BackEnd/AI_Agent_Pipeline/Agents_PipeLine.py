@@ -26,12 +26,6 @@ except AttributeError:
 
 
 def _update_progress(scan_id, progress=None, current_message=None, log_entry=None, log_type="Scan Info"):
-    if log_entry:
-        if log_type in Logs:
-            Logs[log_type].append(log_entry)
-        if log_type == "Scan Info":
-            Logs["Scan Info"].append(log_entry)
-            
     try:
         from Migrator.views import update_scan_job_state
         update_scan_job_state(scan_id, progress, current_message, log_entry, log_type)
@@ -85,7 +79,7 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
         sys.exit(1)
 
     print(f"[INFO] Successfully collected metadata for {len(tables_df)} tables.")
-    
+
     # 3. Initialize Orchestrator
     orchestrator = AzureAIOrchestrator(
         tables_df, columns_df, stats_df, views_df, procedures_df, dep_df,
@@ -122,7 +116,7 @@ def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, proce
     # Create agents using Microsoft AI Foundry SDK
     _update_progress(scan_id, progress=65, current_message="Initializing Harness Layer 2 AI agents...", log_entry="HARNESS LAYER 2:\nStarting evaluator-generator agents.", log_type="Harness Layer2")
     orchestrator.create_agents()
-    
+
     _update_progress(scan_id, progress=69, current_message="Harness Layer 2 AI agents initialized.", log_entry="Evaluator-generator agents created successfully.", log_type="Harness Layer2")
     time.sleep(1.2)
 
@@ -130,7 +124,7 @@ def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, proce
     print("\n--------------------------------------------------")
     print("Phase 1: Generating Table Summaries")
     print("--------------------------------------------------\n")
-    
+
     # Programmatically calculate overall summary metrics
     total_tables = len(tables_df)
     total_columns = len(columns_df)
@@ -138,21 +132,21 @@ def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, proce
     total_rows = stats_df["row_count"].sum()
     distinct_schemas = ", ".join(tables_df["schema_name"].unique())
     refresh_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Top 5 largest by size
     top5_size_df = stats_df.sort_values(by="size_mb", ascending=False).head(5)
     top5_size_list = []
     for idx, (_, r) in enumerate(top5_size_df.iterrows()):
         top5_size_list.append(f"  {idx+1}. {r['table_name']} ({r['size_mb']} MB)")
     top5_size_str = "\n".join(top5_size_list) if top5_size_list else "  None"
-    
+
     # Top 5 largest by row count
     top5_rows_df = stats_df.sort_values(by="row_count", ascending=False).head(5)
     top5_rows_list = []
     for idx, (_, r) in enumerate(top5_rows_df.iterrows()):
         top5_rows_list.append(f"  {idx+1}. {r['table_name']} ({r['row_count']} rows)")
     top5_rows_str = "\n".join(top5_rows_list) if top5_rows_list else "  None"
-    
+
     overall_summary = f"""Total Number of Tables: {total_tables}\n
 Total Number of Columns: {total_columns}\n
 Total Data Size: {total_size} MB\n
@@ -163,31 +157,31 @@ Top 5 Largest Tables by Row Count:\n
 {top5_rows_str}\n
 Distinct Schemas: {distinct_schemas}\n
 Metadata Refresh Date (if available): {refresh_date}\n"""
-    
+
     print("[INFO] Programmatic Overall Summary Calculated:")
     print(overall_summary)
-    
+
     table_summaries = []
     for idx, (_, r) in enumerate(tables_df.iterrows()):
         t_name = r["table_name"]
         s_name = r["schema_name"]
-        
+
         # Calculate dynamic table summary progress between 70% and 80%
         current_pct = int(70 + (idx / total_tables) * 10)
-        _update_progress(scan_id, progress=current_pct, current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})...")
-        
+        _update_progress(scan_id, progress=current_pct, current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})", log_entry=f"[INFO] Running Table Summarizer Agent for table '{t_name}' (Schema: '{s_name}')...", log_type="Scan Info")
+
         summary = orchestrator.run_table_summarizer_agent(t_name, schema_name=s_name)
         table_summaries.append(summary)
+        _update_progress(scan_id, log_entry=f"[INFO] Summary for '{s_name}.{t_name}' generated successfully.", log_type="Scan Info")
         print(f"[INFO] Summary for '{s_name}.{t_name}' generated successfully.")
-        
+
     source_name = (source_hint or "database").replace(" ", "_").lower()
     table_summary_filename = f"{source_name}_Assessment_Report.docx"
     migration_plan_filename = f"{source_name}_Migration_Plan.docx"
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
-    
-    _update_progress(scan_id, progress=80, current_message="Compiling table assessment report document...", log_entry="Table summarizer agent completed.", log_type="Harness Layer2")
-    _update_progress(scan_id, log_entry="[INFO] Starting assessment DOCX generation.", log_type="Scan Info")
-    
+
+    _update_progress(scan_id, progress=80, current_message=f"Compiling table assessment report document", log_entry=f"[INFO] Generating Assessment Report: {table_summary_filename}", log_type="Scan Info")
+
     create_table_summary_document(
         overall_summary=overall_summary,
         table_summaries=table_summaries,
@@ -201,29 +195,29 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         functions_df=functions_df,
         volumes_df=volumes_df
     )
-    
-    _update_progress(scan_id, log_entry="Assessment DOCX generated successfully.", log_type="Harness Layer2")
+
+    _update_progress(scan_id, log_entry=f"[INFO] Successfully saved Assessment Report: {table_summary_filename}", log_type="Scan Info")
     time.sleep(1.2)
-    
+
     # 5. Generate Database Migration Assessment Report
     print("\n--------------------------------------------------")
     print("Phase 2: Generating Migration Assessment Plan")
     print("--------------------------------------------------")
-    
+
     # Prepare text summary of all local metadata to feed the assessment agent
     stats_summary_list = []
     for _, r in stats_df.iterrows():
         stats_summary_list.append(f"- Table: {r['table_name']}, Schema: {r['schema_name']}, Rows: {r['row_count']}, Size: {r['size_mb']} MB")
-        
+
     cols_summary_list = []
     for _, r in columns_df.head(100).iterrows(): # first 100 columns for context size stability
         cols_summary_list.append(f"- Col: {r['TableName']}.{r['ColumnName']} ({r['SourceDataType']})")
-        
+
     dep_summary_list = []
     if not dep_df.empty:
         for _, r in dep_df.iterrows():
             dep_summary_list.append(f"- ForeignKey: {r['parent_table']}({r['fk_name']}) -> {r['referenced_table']}")
-            
+
     stats_summary_str = "\n".join(stats_summary_list)
     dep_summary_str = "\n".join(dep_summary_list) if dep_summary_list else "None"
     cols_summary_str = "\n".join(cols_summary_list)
@@ -241,17 +235,30 @@ Dependencies:
 Columns Sample:
 {cols_summary_str}
 """
-    
-    _update_progress(scan_id, progress=85, current_message="Running Migration Planner AI Agent...", log_entry="Migration plan generator agent started.", log_type="Harness Layer2")
-    _update_progress(scan_id, log_entry="[INFO] Starting migration plan agent.", log_type="Scan Info")
-    time.sleep(1.2)
-    
+
+    _update_progress(
+        scan_id,
+        progress=85,
+        current_message=f"Generating {source_name} Migration Roadmap with Azure AI",
+        log_entry=f"[INFO] Generating comprehensive Migration Roadmap (Sections 1 to 9) via Azure AI Foundry (estimated 30-45s)...",
+        log_type="Scan Info"
+    )
+    time.sleep(1.0)
+
     agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
-    
+
+    _update_progress(
+        scan_id,
+        progress=90,
+        current_message=f"Azure AI Migration Roadmap completed",
+        log_entry=f"[INFO] Successfully received Migration Roadmap from Azure AI Foundry.",
+        log_type="Scan Info"
+    )
+
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
-    _update_progress(scan_id, progress=92, current_message="Compiling execution order and Medallion plan...", log_entry="Compiling execution order and Medallion plan...")
+    _update_progress(scan_id, progress=92, current_message="Compiling execution order and Medallion plan", log_entry=f"[INFO] Compiling execution order and Medallion plan for {source_name}...", log_type="Scan Info")
     time.sleep(1.2)
-    
+
     create_migration_plan_document(
         tables_df=tables_df,
         columns_df=columns_df,
@@ -266,8 +273,32 @@ Columns Sample:
         tokens_used=orchestrator.tokens_used if orchestrator.client_type else None,
         source_hint=source_hint
     )
-    _update_progress(scan_id, log_entry="Migration Plan DOCX generated successfully.", log_type="Harness Layer2")
-    
+    _update_progress(scan_id, log_entry=f"[INFO] Successfully saved Migration Plan: {migration_plan_filename}", log_type="Scan Info")
+
+    # Generate Fabric JSON Metadata
+    fabric_json_filename = f"{source_name}_Fabric_Migration_Metadata.json"
+    fabric_json_path = os.path.join(output_dir, fabric_json_filename)
+    _update_progress(scan_id, progress=95, current_message="Generating Fabric JSON Metadata", log_entry=f"[INFO] Generating Fabric migration metadata JSON for {source_name}...", log_type="Scan Info")
+
+    try:
+        from AI_Agent_Pipeline.src.fabric_json_generator import generate_fabric_json_metadata
+        generate_fabric_json_metadata(
+            tables_df=tables_df,
+            columns_df=columns_df,
+            stats_df=stats_df,
+            dep_df=dep_df,
+            views_df=views_df,
+            procedures_df=procedures_df,
+            agent_writeups=agent_writeups,
+            output_path=fabric_json_path,
+            source_hint=source_hint,
+            scan_id=scan_id
+        )
+        _update_progress(scan_id, log_entry="Fabric JSON metadata generated successfully.", log_type="Harness Layer2")
+    except Exception as json_err:
+        print(f"[WARN] Failed to generate Fabric JSON metadata: {json_err}")
+        _update_progress(scan_id, log_entry=f"[WARN] Fabric JSON metadata generation failed: {json_err}", log_type="Harness Layer2")
+
     # Replicate files for compatibility with frontend and other components
     import shutil
     try:
@@ -275,10 +306,12 @@ Columns Sample:
         shutil.copy2(table_summary_docx_path, os.path.join(output_dir, "Metadata_Report.docx"))
         shutil.copy2(migration_plan_docx_path, os.path.join(output_dir, "AI_Migration_Plan.docx"))
         shutil.copy2(migration_plan_docx_path, os.path.join(output_dir, "Migration_Assessment.docx"))
+        if os.path.exists(fabric_json_path):
+            shutil.copy2(fabric_json_path, os.path.join(output_dir, "Fabric_Migration_Metadata.json"))
         print("[INFO] Replicated reports for frontend compatibility.")
     except Exception as copy_err:
         print(f"[WARN] Failed to copy files for compatibility: {copy_err}")
-        
+
     print("\n==================================================")
     print("Assessment Pipeline Executed Successfully!")
     print(f"Total API Tokens Used: {orchestrator.tokens_used['total']}")
@@ -293,18 +326,17 @@ Columns Sample:
     print(f"  - Table Summaries: {table_summary_docx_path}")
     print(f"  - Migration Plan: {migration_plan_docx_path}")
     print("==================================================")
-    
+
     generated_sections = sum(
         f"SECTION {section}" in str(agent_writeups).upper()
         for section in range(1, 10)
     )
-    _update_progress(scan_id, log_entry=f"[VALIDATION] {source_hint or 'unknown'}: {len(tables_df)} tables, {len(columns_df)} columns, {generated_sections}/9 migration sections.", log_type="Harness Layer2")
-    _update_progress(scan_id, progress=98, current_message="Finalizing database scanner outputs...", log_entry=f"[VALIDATION] Reports verified: {Path(table_summary_docx_path).name}, {Path(migration_plan_docx_path).name}.", log_type="Harness Layer2")
+    _update_progress(scan_id, log_entry=f"[INFO] Assessment Pipeline Executed Successfully for {source_name} ({len(tables_df)} tables, {len(columns_df)} columns).", log_type="Scan Info")
+    _update_progress(scan_id, progress=98, current_message="Finalizing database scanner outputs", log_entry=f"[INFO] Reports verified: {Path(table_summary_docx_path).name}, {Path(migration_plan_docx_path).name}.", log_type="Scan Info")
     time.sleep(1.0)
 
     return {
         "assessment_report": table_summary_filename,
         "migration_plan": migration_plan_filename,
+        "fabric_migration_metadata": fabric_json_filename,
     }
-
-

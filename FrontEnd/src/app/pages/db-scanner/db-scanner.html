@@ -152,6 +152,19 @@ START PART 1
 
                     </button>
 
+                    <button
+                        class="fabric-btn"
+                        (click)="openArtifactsDialog()"
+                        [disabled]="!scanCompleted || generatingFabric"
+                        [title]="!scanCompleted ? 'Complete scan first to generate artifacts' : 'Generate and view Microsoft Fabric artifacts'">
+
+                        <i class="bi bi-cloud-arrow-up-fill" *ngIf="!generatingFabric"></i>
+                        <i class="bi bi-arrow-repeat spin" *ngIf="generatingFabric"></i>
+
+                        {{ generatingFabric ? 'Generating Artifacts...' : 'Generate Artifacts' }}
+
+                    </button>
+
                 </div>
 
             </div>
@@ -164,7 +177,7 @@ START PART 1
 
             <!-- =======================================
             RIGHT SECTION
-            TOKEN INFORMATION
+            TOKENOMICS
             ========================================-->
 
             <div class="scanner-right">
@@ -185,7 +198,7 @@ START PART 1
 
                         <h3>
 
-                            Token Information
+                            Tokenomics
 
                         </h3>
 
@@ -210,7 +223,7 @@ START PART 1
 
                         <i class="bi bi-cpu-fill"></i>
 
-                        Token Information
+                        Tokenomics
 
                     </h3>
 
@@ -755,6 +768,171 @@ SCAN STATUS + ACTION BUTTONS
 
                 </div>
 
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================================================
+    GENERATED ARTIFACTS DIALOG
+    ===========================================================-->
+
+    <div
+        class="dialog-overlay"
+        *ngIf="showArtifactsDialog">
+
+        <div class="logs-dialog artifacts-dialog">
+
+            <div class="logs-header">
+
+                <div class="dialog-title-group">
+                    <h2>Generated Artifacts</h2>
+                    <span class="dialog-subtitle">Microsoft Fabric OneLake Delta Tables</span>
+                </div>
+
+                <button
+                    class="close-btn"
+                    (click)="closeArtifactsDialog()">
+
+                    <i class="bi bi-x-lg"></i>
+
+                </button>
+
+            </div>
+
+            <!-- Tabs -->
+            <div class="tab-header">
+
+                <button
+                    [class.active]="artifactsTab === 'overview'"
+                    (click)="artifactsTab = 'overview'">
+                    Artifacts Overview
+                </button>
+
+                <button
+                    [class.active]="artifactsTab === 'tables'"
+                    (click)="artifactsTab = 'tables'">
+                    Synced Tables ({{ fabricArtifactsResult?.tables?.length || 0 }})
+                </button>
+
+                <button
+                    [class.active]="artifactsTab === 'logs'"
+                    (click)="artifactsTab = 'logs'">
+                    Deployment Logs
+                </button>
+
+                <button
+                    class="re-run-btn"
+                    [disabled]="generatingFabric"
+                    (click)="generateFabricArtifacts()"
+                    style="margin-left: auto;">
+                    <i class="bi bi-arrow-repeat" [class.spin]="generatingFabric"></i>
+                    {{ generatingFabric ? 'Generating...' : 'Re-run Generation' }}
+                </button>
+
+            </div>
+
+            <!-- Loading State -->
+            <div class="artifacts-loading-body" *ngIf="generatingFabric">
+                <div class="spinner-large"></div>
+                <h3>Deploying Delta Tables to Microsoft Fabric OneLake...</h3>
+                <p>Parsing table schema, mapping PyArrow data types, and syncing Delta Lake tables.</p>
+            </div>
+
+            <!-- Tab 1: Overview -->
+            <div class="artifacts-body" *ngIf="!generatingFabric && artifactsTab === 'overview'">
+
+                <!-- Status Banner -->
+                <div class="status-banner" [ngClass]="fabricArtifactsResult?.status || 'info'">
+                    <div class="status-icon">
+                        <i class="bi bi-check-circle-fill" *ngIf="fabricArtifactsResult?.status === 'success'"></i>
+                        <i class="bi bi-exclamation-triangle-fill" *ngIf="fabricArtifactsResult?.status === 'partial' || fabricArtifactsResult?.status === 'warning'"></i>
+                        <i class="bi bi-x-circle-fill" *ngIf="fabricArtifactsResult?.status === 'error' || !fabricArtifactsResult"></i>
+                    </div>
+                    <div class="status-text">
+                        <h4>{{ getArtifactsStatusTitle() }}</h4>
+                        <p>{{ fabricArtifactsResult?.message || 'No artifact deployment details yet.' }}</p>
+                    </div>
+                </div>
+
+                <!-- Target Lakehouse Cards -->
+                <div class="artifacts-meta-grid">
+                    <div class="meta-card">
+                        <span class="meta-label"><i class="bi bi-folder2-open"></i> Target Lakehouse</span>
+                        <span class="meta-val">sai_fabric_artifcats</span>
+                        <span class="meta-sub">ID: {{ fabricArtifactsResult?.target?.lakehouse_id || 'a65899d4-3f39-4af6-b696-ae1903f4500a' }}</span>
+                    </div>
+                    <div class="meta-card">
+                        <span class="meta-label"><i class="bi bi-diagram-3-fill"></i> Workspace</span>
+                        <span class="meta-val">Fabric Insights</span>
+                        <span class="meta-sub">ID: {{ fabricArtifactsResult?.target?.workspace_id || 'bae3b540-d044-45e0-8c52-3cf4ee3dcb31' }}</span>
+                    </div>
+                    <div class="meta-card">
+                        <span class="meta-label"><i class="bi bi-file-earmark-text-fill"></i> Assessment Report</span>
+                        <span class="meta-val">{{ fabricArtifactsResult?.target?.report_name || 'sqlserver_Assessment_Report.docx' }}</span>
+                        <span class="meta-sub">Source Schema Extraction</span>
+                    </div>
+                    <div class="meta-card">
+                        <span class="meta-label"><i class="bi bi-database-check"></i> Storage Format</span>
+                        <span class="meta-val">Delta Lake (Parquet + Log)</span>
+                        <span class="meta-sub">Fabric Direct Lake / OneLake DFS</span>
+                    </div>
+                </div>
+
+                <!-- Errors / Warnings Box -->
+                <div class="errors-box" *ngIf="fabricArtifactsResult?.errors?.length">
+                    <div class="errors-header">
+                        <i class="bi bi-shield-exclamation"></i>
+                        <span>Encountered {{ fabricArtifactsResult?.errors?.length }} Sync Notice(s):</span>
+                    </div>
+                    <ul>
+                        <li *ngFor="let err of fabricArtifactsResult?.errors">{{ err }}</li>
+                    </ul>
+                </div>
+
+            </div>
+
+            <!-- Tab 2: Synced Tables -->
+            <div class="artifacts-body" *ngIf="!generatingFabric && artifactsTab === 'tables'">
+                <div class="tables-container" *ngIf="fabricArtifactsResult?.tables_info?.length">
+                    <table class="artifacts-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Schema</th>
+                                <th>Table Name</th>
+                                <th>Columns</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let t of fabricArtifactsResult?.tables_info; let i = index">
+                                <td>{{ i + 1 }}</td>
+                                <td><span class="badge-schema">{{ t.schema }}</span></td>
+                                <td class="table-name-cell"><strong>{{ t.table }}</strong></td>
+                                <td>{{ t.columns_count }} columns</td>
+                                <td>
+                                    <span class="status-pill" [class.success]="isTableSynced(t)" [class.failed]="!isTableSynced(t)">
+                                        {{ isTableSynced(t) ? 'Delta Table Synced' : 'Sync Notice' }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" *ngIf="!fabricArtifactsResult?.tables_info?.length">
+                    <p>No table schema information available. Click Re-run Generation to parse the assessment report.</p>
+                </div>
+            </div>
+
+            <!-- Tab 3: Deployment Logs -->
+            <div class="artifacts-body artifacts-logs-tab" *ngIf="!generatingFabric && artifactsTab === 'logs'">
+                <textarea
+                    readonly
+                    class="logs-window artifacts-logs-window">
+{{ (fabricArtifactsResult?.logs || []).join('\n') }}
+                </textarea>
             </div>
 
         </div>

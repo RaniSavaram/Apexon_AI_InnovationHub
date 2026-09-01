@@ -47,10 +47,13 @@ class DatabricksExtractor(BaseExtractor):
     """
 
     def __init__(self, Creds):
-        self.server_hostname = Creds.get_servername()
-        self.catalog = Creds.get_database_name()
-        self.access_token = Creds.get_password()
-        self.http_path = Creds.get_extra("http_path")
+        self.server_hostname = (Creds.get_servername() or "").strip().strip('"').strip("'")
+        self.server_hostname = re.sub(r"^https?://", "", self.server_hostname).rstrip("/")
+        self.catalog = (Creds.get_database_name() or "").strip().strip('"').strip("'")
+        self.access_token = (Creds.get_password() or "").strip().strip('"').strip("'")
+        self.http_path = (Creds.get_extra("http_path") or "").strip().strip('"').strip("'")
+        if self.http_path and not self.http_path.startswith("/"):
+            self.http_path = "/" + self.http_path
         self.connection = None
 
     def connect(self):
@@ -58,6 +61,10 @@ class DatabricksExtractor(BaseExtractor):
         print("Server Hostname :", repr(self.server_hostname))
         print("Catalog         :", repr(self.catalog))
         print("HTTP Path       :", repr(self.http_path))
+
+        token_len = len(self.access_token) if self.access_token else 0
+        token_prefix = self.access_token[:6] if token_len >= 6 else (self.access_token or "EMPTY")
+        print(f"Token length    : {token_len} (starts with '{token_prefix}')")
 
         if not self.server_hostname:
             raise ValueError("Server hostname is empty.")
@@ -68,10 +75,17 @@ class DatabricksExtractor(BaseExtractor):
         if not self.http_path:
             raise ValueError("HTTP path is empty (extra['http_path']).")
 
+        try:
+            from Logs import Logs
+            Logs["Scan Info"].append(f"[INFO]: Token details: length={token_len}, prefix='{token_prefix}'")
+        except Exception:
+            pass
+
         self.connection = databricks_sql.connect(
             server_hostname=self.server_hostname,
             http_path=self.http_path,
             access_token=self.access_token,
+            catalog=self.catalog,
         )
 
     def close(self):
