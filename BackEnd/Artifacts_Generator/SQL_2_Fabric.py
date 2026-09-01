@@ -38,7 +38,7 @@ DEFAULT_DOC_PATH = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" 
 DOC_PATH = Path(os.environ.get("ASSESSMENT_REPORT_PATH", DEFAULT_DOC_PATH))
 
 DEFAULT_WORKSPACE_ID = "bae3b540-d044-45e0-8c52-3cf4ee3dcb31"   # Fabric Insights
-DEFAULT_LAKEHOUSE_ID = "a65899d4-3f39-4af6-b696-ae1903f4500a"    # sai_fabric_artifcats
+DEFAULT_LAKEHOUSE_ID = "87ddccfe-cfa3-47d6-92ab-b638ce379319"    # SQL_Lakehouse
 
 WORKSPACE_ID = os.environ.get("FABRIC_WORKSPACE_ID", DEFAULT_WORKSPACE_ID)
 LAKEHOUSE_ID = os.environ.get("FABRIC_LAKEHOUSE_ID", DEFAULT_LAKEHOUSE_ID)

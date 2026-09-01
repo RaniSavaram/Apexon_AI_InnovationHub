@@ -860,8 +860,8 @@ SCAN STATUS + ACTION BUTTONS
                 <div class="artifacts-meta-grid">
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-folder2-open"></i> Target Lakehouse</span>
-                        <span class="meta-val">{{ fabricArtifactsResult?.lakehouse_name || (lastScanSource?.toLowerCase()?.includes('databricks') ? 'Databricks_Lakehouse' : 'sai_fabric_artifcats') }}</span>
-                        <span class="meta-sub">ID: {{ fabricArtifactsResult?.target?.lakehouse_id || (lastScanSource?.toLowerCase()?.includes('databricks') ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9' : 'a65899d4-3f39-4af6-b696-ae1903f4500a') }}</span>
+                        <span class="meta-val">{{ fabricArtifactsResult?.lakehouse_name || (lastScanSource?.toLowerCase()?.includes('databricks') ? 'Databricks_Lakehouse' : 'SQL_Lakehouse') }}</span>
+                        <span class="meta-sub">ID: {{ fabricArtifactsResult?.target?.lakehouse_id || (lastScanSource?.toLowerCase()?.includes('databricks') ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9' : '87ddccfe-cfa3-47d6-92ab-b638ce379319') }}</span>
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-diagram-3-fill"></i> Workspace</span>

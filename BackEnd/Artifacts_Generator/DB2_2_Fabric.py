@@ -84,11 +84,9 @@ WORKSPACE_ID = "bae3b540-d044-45e0-8c52-3cf4ee3dcb31"   # Fabric Insights (targe
 SOURCE_LAKEHOUSE_MAP = {
     # Verified accessible: workspace "Fabric Insights" (bae3b540-...), lakehouse "Databricks_Lakehouse".
     "databricks": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "bc94c085-a651-46a6-96a1-0c1183ef78f9"),
-    # NOTE: these three still point at workspace 9cae3cbc-5ca6-49ce-9587-302752b104eb, which this
-    # identity does NOT have access to (confirmed via 403 Forbidden from OneLake, and it's absent
-    # from GET /v1/workspaces). Swap in real ids from an accessible workspace before using these.
-    "sqlserver": ("9cae3cbc-5ca6-49ce-9587-302752b104eb", "c536b0b6-569a-4cda-b380-f5f2640ef2af"),
-    "sql server": ("9cae3cbc-5ca6-49ce-9587-302752b104eb", "c536b0b6-569a-4cda-b380-f5f2640ef2af"),
+    # Verified accessible: workspace "Fabric Insights" (bae3b540-...), lakehouse "SQL_Lakehouse".
+    "sqlserver": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "87ddccfe-cfa3-47d6-92ab-b638ce379319"),
+    "sql server": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "87ddccfe-cfa3-47d6-92ab-b638ce379319"),
     "dynamics365": ("9cae3cbc-5ca6-49ce-9587-302752b104eb", "be349165-d57c-4756-96b9-738d1c69ed65"),
     "dynamics 365": ("9cae3cbc-5ca6-49ce-9587-302752b104eb", "be349165-d57c-4756-96b9-738d1c69ed65"),
     "d365": ("9cae3cbc-5ca6-49ce-9587-302752b104eb", "be349165-d57c-4756-96b9-738d1c69ed65"),
