@@ -144,6 +144,29 @@ def infer_sql_type(col_name, series):
             return f"nvarchar({int(max_len * 1.5 // 50 * 50 + 50)})"  # rounded up
  
  
+def _estimate_column_bytes(datatype, max_len=None):
+    dt = str(datatype or "").lower()
+    if "bigint" in dt or "long" in dt or "double" in dt or "float" in dt:
+        return 8
+    if "int" in dt or "integer" in dt:
+        if "small" in dt: return 2
+        if "tiny" in dt: return 1
+        return 4
+    if "decimal" in dt or "numeric" in dt:
+        return 9
+    if "date" in dt or "time" in dt or "timestamp" in dt:
+        return 8
+    if "char" in dt or "string" in dt or "text" in dt or "varchar" in dt:
+        if max_len and isinstance(max_len, int) and 0 < max_len < 500:
+            return min(max_len, 48)
+        return 36
+    if "bool" in dt:
+        return 1
+    if "binary" in dt or "blob" in dt:
+        return 64
+    return 16
+
+
 def parse_schema_dict(schema_data, label="metadata"):
     """
     Parses one {"database": ..., "schemas": [...]} metadata export - the
@@ -204,9 +227,11 @@ def parse_schema_dict(schema_data, label="metadata"):
 
                 if sz_mb <= 0.0:
                     cols = table.get("columns", [])
-                    num_cols = len(cols)
+                    row_width = sum(_estimate_column_bytes(c.get("datatype"), c.get("max_length")) for c in cols)
+                    if row_width <= 0:
+                        row_width = len(cols) * 24
                     base_bytes = 64 * 1024  # 64 KB base page allocation
-                    row_bytes = int(row_cnt) * max(num_cols * 32, 64)
+                    row_bytes = int(row_cnt) * max(row_width, 32)
                     sz_mb = round((base_bytes + row_bytes) / (1024.0 * 1024.0), 2)
                     sz_mb = max(0.06, sz_mb)
 

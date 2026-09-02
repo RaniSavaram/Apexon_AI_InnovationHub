@@ -397,7 +397,33 @@ class DatabricksExtractor(BaseExtractor):
                 table_object["row_count"] = row_count_result[0] if row_count_result else 0
             except Exception as e:
                 print(f"[WARNING] Could not get row count for {schema_name}.{table_name}: {e}")
-                table_object["row_count"] = None
+                table_object["row_count"] = 0
+
+            # Table size in MB for Databricks table
+            try:
+                detail_cursor = self.connection.cursor()
+                detail_cursor.execute(
+                    f"DESCRIBE DETAIL `{self.catalog}`.`{schema_name}`.`{table_name}`"
+                )
+                detail_row = detail_cursor.fetchone()
+                if detail_row:
+                    col_names = [d[0].lower() for d in detail_cursor.description]
+                    detail_dict = dict(zip(col_names, detail_row))
+                    size_bytes = detail_dict.get("sizeinbytes")
+                    if size_bytes is not None and int(size_bytes) > 0:
+                        table_object["size_mb"] = round(int(size_bytes) / (1024.0 * 1024.0), 2)
+                    else:
+                        r_cnt = table_object.get("row_count") or 0
+                        c_cnt = len(table_object.get("columns", []))
+                        table_object["size_mb"] = round(max(0.06, (64 + (r_cnt * max(c_cnt * 35, 64)) / 1024.0) / 1024.0), 2)
+                else:
+                    r_cnt = table_object.get("row_count") or 0
+                    c_cnt = len(table_object.get("columns", []))
+                    table_object["size_mb"] = round(max(0.06, (64 + (r_cnt * max(c_cnt * 35, 64)) / 1024.0) / 1024.0), 2)
+            except Exception:
+                r_cnt = table_object.get("row_count") or 0
+                c_cnt = len(table_object.get("columns", []))
+                table_object["size_mb"] = round(max(0.06, (64 + (r_cnt * max(c_cnt * 35, 64)) / 1024.0) / 1024.0), 2)
 
             schema_map[schema_name]["tables"].append(table_object)
 

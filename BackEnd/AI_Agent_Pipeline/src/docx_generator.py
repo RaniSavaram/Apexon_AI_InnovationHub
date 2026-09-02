@@ -621,19 +621,29 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
         ref_val = str(t_data.get('referenced_tables', '')).strip()
         dep_val = str(t_data.get('dependent_tables', '')).strip()
 
-        # Fix table sizing if 0 or 0.0
-        tbl_size_str = str(t_data.get('size_mb', '0')).strip()
-        try:
-            tbl_size_num = float(tbl_size_str)
-        except Exception:
-            tbl_size_num = 0.0
+        # Look up exact sizing from stats_df for this table
+        tbl_size_num = None
+        if stats_df is not None and "table_name" in stats_df.columns:
+            matching_stats = stats_df[stats_df["table_name"].astype(str).str.lower() == str(t_data['table_name']).lower()]
+            if not matching_stats.empty:
+                try:
+                    tbl_size_num = float(matching_stats.iloc[0].get("size_mb", 0.0))
+                except Exception:
+                    tbl_size_num = None
+        
+        if tbl_size_num is None or tbl_size_num <= 0.0:
+            tbl_size_str = str(t_data.get('size_mb', '0')).strip()
+            try:
+                tbl_size_num = float(tbl_size_str)
+            except Exception:
+                tbl_size_num = 0.0
 
         if tbl_size_num <= 0.0:
             row_cnt = int(t_data.get('row_count') or 0)
             col_cnt = len(t_data.get('columns', []))
-            tbl_size_num = round(max(0.06, (64 + (row_cnt * max(col_cnt * 32, 64)) / 1024.0) / 1024.0), 2)
-            tbl_size_str = f"{tbl_size_num}"
+            tbl_size_num = round(max(0.06, (64 + (row_cnt * max(col_cnt * 35, 64)) / 1024.0) / 1024.0), 2)
 
+        tbl_size_str = f"{tbl_size_num:.2f}"
         size_cat = t_data.get('size_category') or ("Medium" if tbl_size_num >= 10.0 else "Small")
 
         table_findings = [

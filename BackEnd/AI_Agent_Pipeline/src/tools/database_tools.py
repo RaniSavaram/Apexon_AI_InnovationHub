@@ -78,8 +78,6 @@ def table_summary_tool(
         if "table_type" in stats.columns:
             table_type = stats.iloc[0]["table_type"]
 
-    size_category = get_size_category(size_mb, row_count)
-
     # Columns
     cols = columns_df[
         (columns_df["TableName"] == clean_table_name)
@@ -87,6 +85,14 @@ def table_summary_tool(
     ]
     if cols.empty and "FileName" in columns_df.columns:
         cols = columns_df[columns_df["FileName"] == file_name]
+
+    if size_mb is None or float(size_mb or 0) <= 0.0:
+        col_cnt = len(cols) if not cols.empty else 10
+        r_cnt = int(row_count or 0)
+        size_mb = round((64 + (r_cnt * max(col_cnt * 35, 64)) / 1024.0) / 1024.0, 2)
+        size_mb = max(0.06, size_mb)
+
+    size_category = get_size_category(size_mb, row_count)
 
     col_list = cols["ColumnName"].tolist()
 
