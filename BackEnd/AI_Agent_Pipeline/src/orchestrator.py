@@ -129,64 +129,60 @@ class AzureAIOrchestrator:
         )
 
     def _get_rag_context(self, query, top_k=3, max_chars_per_chunk=900):
-        """
-        Use the source-specific KB whenever one is known for the current
-        database platform. If no source-specific KB exists, fall back to the
-        common Fabric guidance only. This keeps SQL Server runs focused on
-        SQL Server-to-Fabric guidance and Databricks runs focused on the
-        Databricks-to-Fabric guidance instead of mixing both.
-        """
-        if not self._source_kb and not self._common_kb:
-            return ""
+        if self._source_kb:
+            return self._source_kb.retrieve_as_text(
+                query,
+                top_k=top_k,
+                max_chars_per_chunk=max_chars_per_chunk,
+            )
+        if self._common_kb:
+            return self._common_kb.retrieve_as_text(
+                query,
+                top_k=top_k,
+                max_chars_per_chunk=max_chars_per_chunk,
+            )
+        return ""
 
-        from rag.retriever import retrieve_context
-        return retrieve_context(
-            query=query,
-            source_kb=self._source_kb,
-            common_kb=self._common_kb,
-            top_k=top_k,
-            max_chars_per_chunk=max_chars_per_chunk
-        )
-
-    def _delete_if_exists(self, agent_name: str):
-        pass
+    def _delete_if_exists(self, agent_name):
+        """
+        Best-effort delete of a leftover agent from a prior run that didn't
+        reach cleanup_agents() (e.g. crashed mid-pipeline). create_version()
+        rejects with a conflict if an agent with this name is already
+        registered, so clear the name first to make agent creation
+        idempotent across retries.
+        """
+        try:
+            self.client.agents.delete(agent_name)
+            Logs["Scan Info"].append(f"[INFO] Removed leftover agent '{agent_name}' from a previous run.")
+            print(f"[INFO] Removed leftover agent '{agent_name}' from a previous run.")
+        except Exception:
+            pass  # nothing to delete - this is the expected case
 
     def create_agents(self):
+        """
+        Creates both Table_summarizer and Migration_plan_generator agents using Microsoft AI Foundry SDK
+        """
         Logs["Scan Info"].append(f"[INFO] Creating agents using Microsoft AI Foundry SDK...")
         print("[INFO] Creating agents using Microsoft AI Foundry SDK...")
-        openai_client = self.client.as_openai_client()
-        
-        try:
-            Logs["Scan Info"].append(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
-            print(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
-            self.table_summarizer_agent = openai_client.agents.create(
-                model=self.table_summarizer_builder.model,
-                name=self.table_summarizer_builder.name,
-                instructions=self.table_summarizer_builder.instructions,
-                tools=self.table_summarizer_builder.tools
-            )
-            Logs["Scan Info"].append(f"[INFO] Table_summarizer agent version '{self.table_summarizer_name}' initialized.")
-            print(f"[INFO] Table_summarizer agent version '{self.table_summarizer_name}' initialized.")
-        except Exception as e:
-            Logs["Scan Info"].append(f"[ERROR] Failed to initialize table_summarizer agent on Azure AI Foundry: {e}")
-            print(f"[ERROR] Failed to initialize table_summarizer agent on Azure AI Foundry: {e}")
-            raise e
 
-        try:
-            Logs["Scan Info"].append(f"[INFO] Initializing Migration_plan agent version '{self.migration_plan_name}' on Azure AI Foundry...")
-            print(f"[INFO] Initializing Migration_plan agent version '{self.migration_plan_name}' on Azure AI Foundry...")
-            self.migration_plan_agent = openai_client.agents.create(
-                model=self.migration_generator_builder.model,
-                name=self.migration_generator_builder.name,
-                instructions=self.migration_generator_builder.instructions,
-                tools=self.migration_generator_builder.tools
-            )
-            Logs["Scan Info"].append(f"[INFO] Migration_plan agent version '{self.migration_plan_name}' initialized.")
-            print(f"[INFO] Migration_plan agent version '{self.migration_plan_name}' initialized.")
-        except Exception as e:
-            Logs["Scan Info"].append(f"[ERROR] Failed to initialize migration_plan agent on Azure AI Foundry: {e}")
-            print(f"[ERROR] Failed to initialize migration_plan agent on Azure AI Foundry: {e}")
-            raise e
+        Logs["Scan Info"].append(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
+        print(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
+
+        self._delete_if_exists(self.table_summarizer_name)
+        self.table_summarizer_agent = self.table_summarizer_builder.create(self.client)
+
+        Logs["Scan Info"].append(f"[INFO] Table_summarizer agent version created (ID: {self.table_summarizer_agent.id}, Version: {self.table_summarizer_agent.version}).")
+        print(f"[INFO] Table_summarizer agent version created (ID: {self.table_summarizer_agent.id}, Version: {self.table_summarizer_agent.version}).")
+
+        Logs["Scan Info"].append(f"[INFO] Initializing Migration_plan_generator agent version '{self.migration_plan_name}' on Azure AI Foundry...")
+        print(f"[INFO] Initializing Migration_plan_generator agent version '{self.migration_plan_name}' on Azure AI Foundry...")
+
+        self._delete_if_exists(self.migration_plan_name)
+        self.migration_plan_agent = self.migration_generator_builder.create(self.client)
+
+        Logs["Scan Info"].append(f"[INFO] Migration_plan_generator agent version created (ID: {self.migration_plan_agent.id}, Version: {self.migration_plan_agent.version}).")
+        print(f"[INFO] Migration_plan_generator agent version created (ID: {self.migration_plan_agent.id}, Version: {self.migration_plan_agent.version}).")
+        return True
 
     def _accumulate_usage(self, response):
         if not response or not hasattr(response, "usage") or not response.usage:
@@ -201,14 +197,19 @@ class AzureAIOrchestrator:
         self.tokens_used["total"] += total_tok
 
     def run_agent_with_tool_calling(self, agent_name: str, user_msg: str, tool_map: dict = None) -> str:
-        openai_client = self.client.as_openai_client()
         try:
+            openai_client = self.client.get_openai_client(agent_name=agent_name)
             conversation = openai_client.conversations.create()
             
             response = openai_client.responses.create(
                 conversation=conversation.id,
-                extra_body={"agent": {"name": agent_name}},
-                input=user_msg
+                input=user_msg,
+                extra_body={
+                    "agent_reference": {
+                        "name": agent_name,
+                        "type": "agent_reference"
+                    }
+                }
             )
             self._accumulate_usage(response)
             
