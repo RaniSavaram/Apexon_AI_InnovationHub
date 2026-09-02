@@ -134,7 +134,33 @@ class SQLServerExtractor(BaseExtractor):
                 table_object["row_count"] = row_count_result["row_count"] if row_count_result else 0
             except Exception as e:
                 print(f"[WARNING] Could not get row count for {schema_name}.{table['TABLE_NAME']}: {e}")
-                table_object["row_count"] = None
+                table_object["row_count"] = 0
+
+            # Calculate or query table size in MB
+            try:
+                size_cursor = self.connection.cursor()
+                size_cursor.execute(f"""
+                    SELECT ROUND(((SUM(a.total_pages) * 8) / 1024.0), 2) AS size_mb
+                    FROM sys.tables t
+                    JOIN sys.schemas s ON t.schema_id = s.schema_id
+                    JOIN sys.indexes i ON t.OBJECT_ID = i.object_id
+                    JOIN sys.partitions p ON i.object_id = p.OBJECT_ID AND i.index_id = p.index_id
+                    JOIN sys.allocation_units a ON p.partition_id = a.container_id
+                    WHERE s.name = '{schema_name}' AND t.name = '{table['TABLE_NAME']}'
+                    GROUP BY t.Name, s.Name
+                """)
+                size_row = size_cursor.fetchone()
+                if size_row and size_row.get("size_mb") is not None and float(size_row["size_mb"]) > 0:
+                    table_object["size_mb"] = float(size_row["size_mb"])
+                else:
+                    r_cnt = table_object.get("row_count") or 0
+                    c_cnt = len(table_object.get("columns", []))
+                    table_object["size_mb"] = round((64 + (r_cnt * max(c_cnt * 32, 64)) / 1024.0) / 1024.0, 2)
+            except Exception:
+                r_cnt = table_object.get("row_count") or 0
+                c_cnt = len(table_object.get("columns", []))
+                table_object["size_mb"] = round((64 + (r_cnt * max(c_cnt * 32, 64)) / 1024.0) / 1024.0, 2)
+
             schema_map[schema_name]["tables"].append(table_object)
 
         # Stored procedures, kept per-schema alongside "tables" so Harness

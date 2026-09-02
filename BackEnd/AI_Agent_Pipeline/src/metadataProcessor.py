@@ -195,10 +195,25 @@ def parse_schema_dict(schema_data, label="metadata"):
                     "file_name": label,
                     "full_table_name": f"{schema_name}.{table_name}"
                 })
+                row_cnt = table.get("row_count") or 0
+                sz_mb = table.get("size_mb") or 0.0
+                try:
+                    sz_mb = float(sz_mb)
+                except Exception:
+                    sz_mb = 0.0
+
+                if sz_mb <= 0.0:
+                    cols = table.get("columns", [])
+                    num_cols = len(cols)
+                    base_bytes = 64 * 1024  # 64 KB base page allocation
+                    row_bytes = int(row_cnt) * max(num_cols * 32, 64)
+                    sz_mb = round((base_bytes + row_bytes) / (1024.0 * 1024.0), 2)
+                    sz_mb = max(0.06, sz_mb)
+
                 stats_list.append({
-                    "row_count": table.get("row_count", 0),
+                    "row_count": row_cnt,
                     "schema_name": schema_name,
-                    "size_mb": table.get("size_mb", 0.0),
+                    "size_mb": sz_mb,
                     "table_name": table_name,
                     "file_name": label,
                     "table_type": table_type

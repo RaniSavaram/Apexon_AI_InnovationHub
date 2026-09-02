@@ -23,6 +23,8 @@ MANDATORY RULES
 - Do not assume, infer, or hallucinate non-existent database objects.
 - Do not generate markdown tables or JSON format.
 - Do not use '|' characters.
+- Do not mention Medallion architecture, Bronze, Silver, or Gold layers in your summary.
+- If a property has no values, output 'None' - never leave it blank or empty.
 - Output must be clean, structured, and human-readable.
 - Follow the required output format exactly:
 
@@ -51,7 +53,7 @@ Usage:
 - Related Stored Procedures: <procedures or None>
 
 Summary:
-<2-3 factual metadata-based observations regarding structure and relationships.>
+<2-3 factual metadata-based observations regarding structure and relationships. Do not mention Medallion architecture.>
 """
 
     def create(self, client):
