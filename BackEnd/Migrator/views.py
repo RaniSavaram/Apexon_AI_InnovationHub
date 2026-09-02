@@ -453,8 +453,8 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
     try:
-        update_scan_job_state(scan_id, progress=15, current_message="Connecting to database...", log_entry="Connecting to database for metadata extraction")
-        update_scan_job_state(scan_id, progress=25, current_message="Extracting schema and table metadata...", log_entry="Extracting Metadata from DataBase")
+        update_scan_job_state(scan_id, progress=12, current_message="Connecting to database...", log_entry="Connecting to database for metadata extraction")
+        update_scan_job_state(scan_id, progress=18, current_message="Extracting schema and table metadata...", log_entry="Extracting Metadata from DataBase")
         print("Extracting Metadata from DataBase")
         metadata = obj.extract()
         original_table_count = sum(
@@ -464,20 +464,20 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
-        update_scan_job_state(scan_id, progress=35, current_message=f"Analyzing {selected_table_count} tables...", log_entry="Analyzing extracted schemas and tables")
-        update_scan_job_state(scan_id, progress=45, current_message=f"Metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
-        time.sleep(0.8)
+        update_scan_job_state(scan_id, progress=26, current_message=f"Analyzing {selected_table_count} tables...", log_entry="Analyzing extracted schemas and tables")
+        update_scan_job_state(scan_id, progress=32, current_message=f"Metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
+        time.sleep(0.5)
 
-        update_scan_job_state(scan_id, progress=55, current_message="Running Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
+        update_scan_job_state(scan_id, progress=38, current_message="Running Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
         print("MetaData Extracted\nRunning Harnness Layer-1")
-        time.sleep(1.5)
+        time.sleep(1.0)
         layer_result = layer1_Harness(metadata)
         temp = format_harness_report(layer_result)
         
-        update_scan_job_state(scan_id, progress=65, current_message="Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
+        update_scan_job_state(scan_id, progress=42, current_message="Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
         update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
         print(temp)
-        time.sleep(1.2)
+        time.sleep(0.8)
 
         if layer_result.get("decision") != "PASS":
             update_scan_job_state(scan_id, log_entry="[Err]: DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.")
@@ -494,23 +494,22 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
 
-        update_scan_job_state(scan_id, progress=70, current_message="Generating Assessment Report and Migration Plan...", log_entry="Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
+        update_scan_job_state(scan_id, progress=45, current_message="Generating Assessment Report and Migration Plan...", log_entry="Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
         print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
         
-        # Forward scan_id to Agents_PipeLine
+        # Forward scan_id to Agents_PipeLine (advances progress from 45% to 96%)
         output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
-
-        update_scan_job_state(scan_id, progress=95, current_message="Finalizing reports and logs...", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
-        print(f"Output is avaliable at Show Logs embedded in the UI Screen")
 
         fabric_push = None
         if db_type == "databricks":
-            update_scan_job_state(scan_id, log_entry="[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
+            update_scan_job_state(scan_id, progress=97, current_message="Syncing assessment with Microsoft Fabric OneLake...", log_entry="[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
             print("[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
             try:
                 fabric_push = _push_databricks_to_fabric(output_files, Creds.get_database_name())
                 update_scan_job_state(
                     scan_id,
+                    progress=98,
+                    current_message="Fabric OneLake artifacts synchronized.",
                     log_entry=(
                         f"[INFO] Fabric push completed: {fabric_push.get('processed_count')} table(s) "
                         f"created/updated in '{fabric_push.get('lakehouse_name')}', "
@@ -522,9 +521,15 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 fabric_push = {"status": "error", "error": str(fabric_exc)}
                 update_scan_job_state(
                     scan_id,
+                    progress=98,
+                    current_message="Fabric artifact sync note recorded.",
                     log_entry=f"[WARN] Fabric artifact push failed (reports above are still available): {fabric_exc}",
                 )
                 print(f"[WARN] Fabric artifact push failed: {fabric_exc}")
+
+        update_scan_job_state(scan_id, progress=99, current_message="Finalizing reports and logs...", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
+        print(f"Output is avaliable at Show Logs embedded in the UI Screen")
+        time.sleep(0.4)
 
         update_scan_job_state(scan_id, progress=100, current_message="Database scan completed successfully.", log_entry="Database scan completed successfully.")
         print(f"Database scan completed successfully.")
@@ -633,29 +638,45 @@ def get_progress_from_log(log_entry):
         return None
     log_lower = log_entry.lower().strip()
     if "scan started" in log_lower:
-        return 10
+        return 5
+    if "connecting to" in log_lower or "connecting to database" in log_lower:
+        return 12
     if "extracting metadata" in log_lower:
-        return 25
+        return 18
     if "selected" in log_lower and "tables for analysis" in log_lower:
-        return 45
+        return 26
     if "running harnnes layer-1" in log_lower or "running harness layer 1" in log_lower:
-        return 55
+        return 34
     if "harness layer 1 validation completed" in log_lower:
-        return 65
-    if "creating agents" in log_lower:
+        return 42
+    if "starting evaluator-generator agents" in log_lower or "creating agents" in log_lower:
+        return 45
+    if "evaluator-generator agents created" in log_lower:
+        return 48
+    if "running table summarizer agent" in log_lower:
+        return 55
+    if "generating assessment report" in log_lower or "compiling table assessment report" in log_lower:
         return 68
-    if "azure ai projects client initialized" in log_lower or "initializing azure ai projects client" in log_lower:
+    if "generating comprehensive migration roadmap" in log_lower or ("generating" in log_lower and "migration roadmap" in log_lower):
         return 72
-    if "fetching metadata summary for table" in log_lower or "running table summarizer agent" in log_lower:
+    if "azure ai synthesizing workload patterns" in log_lower:
         return 75
-    if "compiling table summaries" in log_lower or "generating assessment report" in log_lower:
-        return 80
-    if "roadmap generated" in log_lower or "assessment roadmap generated" in log_lower or "running migration plan generator agent" in log_lower:
-        return 85
-    if "word report compiled" in log_lower or "compiling execution order and medallion plan" in log_lower:
-        return 92
-    if "output is avaliable" in log_lower or "finalizing reports" in log_lower or "generating fabric migration metadata" in log_lower:
-        return 95
+    if "azure ai drafting medallion layer" in log_lower:
+        return 78
+    if "azure ai generating target fabric lakehouse" in log_lower:
+        return 81
+    if "azure ai formulating risk assessment" in log_lower:
+        return 84
+    if "successfully received migration roadmap" in log_lower or "azure ai migration roadmap completed" in log_lower:
+        return 86
+    if "compiling execution order and medallion plan" in log_lower:
+        return 89
+    if "generating fabric migration metadata" in log_lower:
+        return 93
+    if "fabric push completed" in log_lower or "auto-pushing assessment to microsoft fabric" in log_lower:
+        return 97
+    if "output is avaliable" in log_lower or "reports verified" in log_lower or "finalizing reports" in log_lower:
+        return 99
     if log_lower.endswith("scan completed successfully.") or log_lower == "scan completed successfully":
         return 100
     return None
@@ -1048,8 +1069,8 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
     try:
-        update_scan_job_state(scan_id, progress=15, current_message=f"Connecting to {db_name}...", log_entry=f"Connecting to {db_name} for metadata extraction")
-        update_scan_job_state(scan_id, progress=25, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=f"Extracting Metadata from {db_name}")
+        update_scan_job_state(scan_id, progress=12, current_message=f"Connecting to {db_name}...", log_entry=f"Connecting to {db_name} for metadata extraction")
+        update_scan_job_state(scan_id, progress=18, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=f"Extracting Metadata from {db_name}")
         print(f"Extracting Metadata from {db_name}")
         metadata = obj.extract()
         original_table_count = sum(
@@ -1059,29 +1080,30 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
-        update_scan_job_state(scan_id, progress=35, current_message=f"Analyzing {selected_table_count} tables from {db_name}...", log_entry="Analyzing extracted schemas and tables")
-        update_scan_job_state(scan_id, progress=45, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
-        time.sleep(0.8)
+        update_scan_job_state(scan_id, progress=26, current_message=f"Analyzing {selected_table_count} tables from {db_name}...", log_entry="Analyzing extracted schemas and tables")
+        update_scan_job_state(scan_id, progress=32, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
+        time.sleep(0.5)
 
-        update_scan_job_state(scan_id, progress=55, current_message=f"Running {db_name} Harness Layer 1 validation", log_entry=f"\n{'='*30}\n{'='*30}\n{db_name} MetaData Extracted\nRunning Harnnes Layer-1")
+        update_scan_job_state(scan_id, progress=38, current_message=f"Running {db_name} Harness Layer 1 validation", log_entry=f"\n{'='*30}\n{'='*30}\n{db_name} MetaData Extracted\nRunning Harnnes Layer-1")
         print(f"{db_name} MetaData Extracted\nRunning Harnness Layer-1")
-        time.sleep(1.5)
+        time.sleep(1.0)
         layer_result = layer1_Harness(metadata)
         temp = format_harness_report(layer_result)
         
-        update_scan_job_state(scan_id, progress=65, current_message=f"{db_name} Harness Layer 1 validation completed", log_entry=temp, log_type="Scan Info")
+        update_scan_job_state(scan_id, progress=42, current_message=f"{db_name} Harness Layer 1 validation completed", log_entry=temp, log_type="Scan Info")
         update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
         print(temp)
-        time.sleep(1.2)
+        time.sleep(0.8)
 
-        update_scan_job_state(scan_id, progress=70, current_message=f"Generating {db_name} Assessment Report and Migration Plan", log_entry=f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
+        update_scan_job_state(scan_id, progress=45, current_message=f"Generating {db_name} Assessment Report and Migration Plan", log_entry=f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
         print(f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
         
-        # Forward scan_id to Agents_PipeLine
+        # Forward scan_id to Agents_PipeLine (advances progress from 45% to 96%)
         output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
 
-        update_scan_job_state(scan_id, progress=95, current_message="Finalizing reports and logs", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
+        update_scan_job_state(scan_id, progress=98, current_message="Finalizing reports and logs", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
         print(f"Output is avaliable at Show Logs embedded in the UI Screen")
+        time.sleep(0.4)
 
         update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed successfully.", log_entry=f"{db_name} scan completed successfully.")
         print(f"{db_name} scan completed successfully.")

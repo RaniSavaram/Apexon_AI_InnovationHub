@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import threading
 import traceback
 import pandas as pd
 from datetime import datetime
@@ -137,11 +138,11 @@ def Agents_PipeLine(metadata: dict = None, source_hint: str = None, scan_id: str
 
 def _run_pipeline(orchestrator, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, output_dir, source_hint=None, scan_id=None, functions_df=None, volumes_df=None):
     # Create agents using Microsoft AI Foundry SDK
-    _update_progress(scan_id, progress=65, current_message="Initializing Harness Layer 2 AI agents...", log_entry="HARNESS LAYER 2:\nStarting evaluator-generator agents.", log_type="Harness Layer2")
+    _update_progress(scan_id, progress=45, current_message="Initializing Harness Layer 2 AI agents...", log_entry="HARNESS LAYER 2:\nStarting evaluator-generator agents.", log_type="Harness Layer2")
     orchestrator.create_agents()
     
-    _update_progress(scan_id, progress=69, current_message="Harness Layer 2 AI agents initialized.", log_entry="Evaluator-generator agents created successfully.", log_type="Harness Layer2")
-    time.sleep(1.2)
+    _update_progress(scan_id, progress=48, current_message="Harness Layer 2 AI agents initialized.", log_entry="Evaluator-generator agents created successfully.", log_type="Harness Layer2")
+    time.sleep(1.0)
 
     # 4. Generate Table-Wise Summary Report
     print("\n--------------------------------------------------")
@@ -189,8 +190,8 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         t_name = r["table_name"]
         s_name = r["schema_name"]
         
-        # Calculate dynamic table summary progress between 70% and 80%
-        current_pct = int(70 + (idx / total_tables) * 10)
+        # Calculate dynamic table summary progress between 50% and 66%
+        current_pct = int(50 + ((idx + 1) / total_tables) * 16)
         _update_progress(scan_id, progress=current_pct, current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})", log_entry=f"[INFO] Running Table Summarizer Agent for table '{t_name}' (Schema: '{s_name}')...", log_type="Scan Info")
         
         summary = orchestrator.run_table_summarizer_agent(t_name, schema_name=s_name)
@@ -203,7 +204,7 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     migration_plan_filename = f"{source_name}_Migration_Plan.docx"
     table_summary_docx_path = os.path.join(output_dir, table_summary_filename)
     
-    _update_progress(scan_id, progress=80, current_message=f"Compiling table assessment report document", log_entry=f"[INFO] Generating Assessment Report: {table_summary_filename}", log_type="Scan Info")
+    _update_progress(scan_id, progress=68, current_message=f"Compiling table assessment report document", log_entry=f"[INFO] Generating Assessment Report: {table_summary_filename}", log_type="Scan Info")
     
     create_table_summary_document(
         overall_summary=overall_summary,
@@ -261,26 +262,45 @@ Columns Sample:
     
     _update_progress(
         scan_id,
-        progress=85,
+        progress=72,
         current_message=f"Generating {source_name} Migration Roadmap with Azure AI",
-        log_entry=f"[INFO] Generating comprehensive Migration Roadmap (Sections 1 to 9) via Azure AI Foundry (estimated 30-45s)...",
+        log_entry=f"[INFO] Generating comprehensive Migration Roadmap (Sections 1 to 9) via Azure AI Foundry...",
         log_type="Scan Info"
     )
-    time.sleep(1.0)
     
-    agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
+    # Heartbeat thread while Azure AI Foundry generates Sections 1 to 9
+    stop_roadmap_heartbeat = threading.Event()
+    def _roadmap_heartbeat():
+        hb_steps = [
+            (75, "Azure AI synthesizing workload patterns and dependencies..."),
+            (78, "Azure AI drafting Medallion Layer migration architecture..."),
+            (81, "Azure AI generating target Fabric Lakehouse recommendations..."),
+            (84, "Azure AI formulating risk assessment and cutover strategy..."),
+        ]
+        for pct, msg in hb_steps:
+            if stop_roadmap_heartbeat.wait(timeout=5.0):
+                break
+            _update_progress(scan_id, progress=pct, current_message=msg, log_entry=f"[INFO] {msg}", log_type="Scan Info")
+
+    t_hb = threading.Thread(target=_roadmap_heartbeat, daemon=True)
+    t_hb.start()
+    try:
+        agent_writeups = orchestrator.run_migration_generator_agent(metadata_summary_str)
+    finally:
+        stop_roadmap_heartbeat.set()
+        t_hb.join(timeout=1.0)
     
     _update_progress(
         scan_id,
-        progress=90,
+        progress=86,
         current_message=f"Azure AI Migration Roadmap completed",
         log_entry=f"[INFO] Successfully received Migration Roadmap from Azure AI Foundry.",
         log_type="Scan Info"
     )
     
     migration_plan_docx_path = os.path.join(output_dir, migration_plan_filename)
-    _update_progress(scan_id, progress=92, current_message="Compiling execution order and Medallion plan", log_entry=f"[INFO] Compiling execution order and Medallion plan for {source_name}...", log_type="Scan Info")
-    time.sleep(1.2)
+    _update_progress(scan_id, progress=89, current_message="Compiling execution order and Medallion plan", log_entry=f"[INFO] Compiling execution order and Medallion plan for {source_name}...", log_type="Scan Info")
+    time.sleep(1.0)
     
     create_migration_plan_document(
         tables_df=tables_df,
@@ -301,7 +321,7 @@ Columns Sample:
     # Generate Fabric JSON Metadata
     fabric_json_filename = f"{source_name}_Fabric_Migration_Metadata.json"
     fabric_json_path = os.path.join(output_dir, fabric_json_filename)
-    _update_progress(scan_id, progress=95, current_message="Generating Fabric JSON Metadata", log_entry=f"[INFO] Generating Fabric migration metadata JSON for {source_name}...", log_type="Scan Info")
+    _update_progress(scan_id, progress=93, current_message="Generating Fabric JSON Metadata", log_entry=f"[INFO] Generating Fabric migration metadata JSON for {source_name}...", log_type="Scan Info")
     
     try:
         from AI_Agent_Pipeline.src.fabric_json_generator import generate_fabric_json_metadata
@@ -355,8 +375,8 @@ Columns Sample:
         for section in range(1, 10)
     )
     _update_progress(scan_id, log_entry=f"[INFO] Assessment Pipeline Executed Successfully for {source_name} ({len(tables_df)} tables, {len(columns_df)} columns).", log_type="Scan Info")
-    _update_progress(scan_id, progress=98, current_message="Finalizing database scanner outputs", log_entry=f"[INFO] Reports verified: {Path(table_summary_docx_path).name}, {Path(migration_plan_docx_path).name}.", log_type="Scan Info")
-    time.sleep(1.0)
+    _update_progress(scan_id, progress=96, current_message="Finalizing database scanner outputs", log_entry=f"[INFO] Reports verified: {Path(table_summary_docx_path).name}, {Path(migration_plan_docx_path).name}.", log_type="Scan Info")
+    time.sleep(0.5)
 
     return {
         "assessment_report": table_summary_filename,

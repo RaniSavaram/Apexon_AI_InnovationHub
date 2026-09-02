@@ -751,9 +751,9 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     this.backendResponse = null;
     this.pollErrorCount = 0;
 
-    this.progress = 8;
-    this.displayProgress = 8;
-    this.targetProgress = 18;
+    this.progress = 5;
+    this.displayProgress = 5;
+    this.targetProgress = 5;
     this.startDynamicProgress();
 
     if (this.scanInterval) {
@@ -1373,19 +1373,20 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       lastTime = now;
 
       if (this.progress < this.targetProgress) {
-        // Fluidly accelerate towards the backend target milestone
+        // Smoothly and gradually advance towards the backend target milestone
         const dist = this.targetProgress - this.progress;
-        const speed = Math.max(3.5, dist * 2.4);
+        // Paced velocity: 2.5% to 8.0% per second - never races ahead
+        const speed = Math.max(2.5, Math.min(8.0, dist * 0.9));
         this.progress = Math.min(this.targetProgress, this.progress + speed * delta);
-      } else if (this.loading && this.progress < 96) {
-        // Continuous organic movement while waiting between milestones (NEVER static)
-        const creep = Math.max(0.6, (96 - this.progress) * 0.15);
-        this.progress = Math.min(96, this.progress + creep * delta);
+      } else if (this.loading && this.progress < Math.min(98, this.targetProgress + 1.5)) {
+        // Very subtle micro-motion (0.15% / sec) while waiting for the next backend log,
+        // strictly anchored to the current backend stage so it NEVER rushes ahead to 95%
+        this.progress = this.progress + 0.15 * delta;
       }
 
-      // Display updates in natural, dynamic milestone chunks (3-5%), NEVER 1 by 1 percent
+      // Display updates dynamically in natural multi-percent steps, never 1 by 1 percent
       const rounded = Math.round(this.progress);
-      if (Math.abs(rounded - this.displayProgress) >= 3 || rounded >= 99 || (this.targetProgress === 100 && rounded === 100)) {
+      if (Math.abs(rounded - this.displayProgress) >= 2 || rounded >= 99 || (this.targetProgress === 100 && rounded === 100)) {
         this.displayProgress = Math.min(100, rounded);
       }
 
