@@ -317,10 +317,7 @@ def format_layer2_report(report_data: Dict[str, Any], table_count: int = 5) -> s
         "",
         "Assessment Report generated successfully.",
         "Migration Plan generated successfully.",
-        "Evaluator-Generator verification completed.",
-        "",
-        "If you want to continue click on SUBMIT/CONTINUE.",
-        "If you want to regenerate the AI assessment click RETRY."
+        "Evaluator-Generator verification completed."
     ]
 
     return "\n".join(lines)

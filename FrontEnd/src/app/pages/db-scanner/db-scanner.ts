@@ -867,9 +867,9 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     if (!logs) return;
     this.statusMessages = logs['Scan Info'] ?? this.statusMessages;
     this.harness1Messages = logs['Harness Layer1'] ?? this.harness1Messages;
-    this.harness2Messages = logs['Harness Layer2']?.length
-      ? logs['Harness Layer2']
-      : ['HARNESS LAYER 2:', 'No evaluator-generator messages were returned for this scan.'];
+    if (logs['Harness Layer2']?.length) {
+      this.harness2Messages = logs['Harness Layer2'];
+    }
     const tokenEntries = logs['Token Info'];
     if (tokenEntries?.length) {
       const latest = tokenEntries[tokenEntries.length - 1];
@@ -990,57 +990,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       //----------------------------------------------------
 
       if (logs && logs['Harness Layer2'] && logs['Harness Layer2'].length > 0) {
-
         this.harness2Messages = logs['Harness Layer2'];
-
-      }
-
-      else {
-
-        this.harness2Messages = [
-  "HARNESS LAYER 2 - EVALUATOR-GENERATOR FEEDBACK HARNESS:",
-  `Generated At: ${new Date().toISOString()}`,
-  "------------------------------",
-  "[SUCCESS]: AI Assessment Generation",
-  "    - Harness Steps:",
-  "        * [SUCCESS]: Metadata loaded successfully",
-  "        * [SUCCESS]: Schema relationships analyzed",
-  "        * [SUCCESS]: Business rules identified",
-  "        * [SUCCESS]: Fabric compatibility assessment completed",
-  "        * [SUCCESS]: Migration complexity calculated",
-  "",
-  "[SUCCESS]: Migration Planning",
-  "    - Harness Steps:",
-  "        * [SUCCESS]: Target architecture generated",
-  "        * [SUCCESS]: Migration sequence prepared",
-  "        * [SUCCESS]: Dependency analysis completed",
-  "        * [SUCCESS]: Migration recommendations generated",
-  "",
-  "[SUCCESS]: AI Validation",
-  "    - Harness Steps:",
-  "        * [SUCCESS]: Assessment report validated",
-  "        * [SUCCESS]: Migration plan validated",
-  "        * [SUCCESS]: AI confidence score verified",
-  "        * [SUCCESS]: Output documents generated",
-  "        * [SUCCESS]: Ready for Human Review",
-  "",
-  "------------------------------",
-  "REPORT SUMMARY:",
-  "Assessment Status: PASSED",
-  "Migration Plan Status: GENERATED",
-  "AI Output Quality: HIGH",
-  "Migration Complexity: MEDIUM",
-  "Human Review Required: YES",
-  "==============================",
-  "",
-  "Assessment Report generated successfully.",
-  "Migration Plan generated successfully.",
-  "Waiting for Human Review.",
-  "",
-  "If you want to continue click on SUBMIT/CONTINUE.",
-  "If you want to regenerate the AI assessment click RETRY."
-];
-
       }
 
       //----------------------------------------------------

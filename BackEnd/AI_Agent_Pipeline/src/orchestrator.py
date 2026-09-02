@@ -28,11 +28,12 @@ class AzureAIOrchestrator:
     Orchestrates agent creation, prompt execution, and function tool invocations
     using the Microsoft Azure AI Projects SDK.
     """
-    def __init__(self, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, source_hint=None, functions_df=None, volumes_df=None):
+    def __init__(self, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, source_hint=None, functions_df=None, volumes_df=None, scan_id=None):
         load_dotenv()
         self.endpoint = os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT")
         self.base_agent_name = os.getenv("AZURE_AI_FOUNDRY_AGENT_NAME", "MyAgent")
         self.model_name = os.getenv("AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT_NAME", "gpt-4.1-mini")
+        self.scan_id = scan_id
         
         # Save DataFrames as attributes to expose to tools
         self.tables_df = tables_df
@@ -46,6 +47,18 @@ class AzureAIOrchestrator:
         
         self.client_type = None
         self.client = None
+
+    def _log_agent(self, msg: str):
+        """Streams dynamic log directly to Harness Layer 2 and Scan Info."""
+        Logs["Harness Layer2"].append(msg)
+        Logs["Scan Info"].append(msg)
+        print(msg)
+        if self.scan_id:
+            try:
+                from Migrator.views import update_scan_job_state
+                update_scan_job_state(self.scan_id, log_entry=msg, log_type="Harness Layer2")
+            except Exception:
+                pass
 
         # Resolve the source platform once so the RAG knowledge bases can be
         # looked up dynamically (see rag/registry.py) instead of hardcoding
@@ -102,8 +115,7 @@ class AzureAIOrchestrator:
         Tool function to get database metadata summary for a single table.
         Wraps table_summary_tool using the preloaded dataframes.
         """
-        Logs["Scan Info"].append(f"  [TOOL RUN] Fetching metadata summary for table: '{table_name}' (Schema: '{schema_name}')...")
-        print(f"  [TOOL RUN] Fetching metadata summary for table: '{table_name}' (Schema: '{schema_name}')...")
+        self._log_agent(f"  [TOOL RUN] Fetching metadata summary for table: '{table_name}' (Schema: '{schema_name}')...")
         return table_summary_tool(
             table_name,
             self.columns_df,
@@ -242,17 +254,16 @@ class AzureAIOrchestrator:
                 for item in tool_calls:
                     func_name = item.name
                     func_args = json.loads(item.arguments)
-                    Logs["Scan Info"].append(f"  [AGENT RUN] Agent requested function '{func_name}' with args {func_args}...")
-                    print(f"  [AGENT RUN] Agent requested function '{func_name}' with args {func_args}...")
+                    self._log_agent(f"  [AGENT RUN] Agent requested function '{func_name}' with args {func_args}...")
                     
                     if tool_map and func_name in tool_map:
                         try:
                             output_str = tool_map[func_name](**func_args)
                         except Exception as e:
-                            Logs["Scan Info"].append(f"Error executing tool: {e}")
+                            self._log_agent(f"Error executing tool: {e}")
                             output_str = f"Error executing tool: {e}"
                     else:
-                        Logs["Scan Info"].append(f"Error: Tool '{func_name}' is not registered.")
+                        self._log_agent(f"Error: Tool '{func_name}' is not registered.")
                         output_str = f"Error: Tool '{func_name}' is not registered."
                         
                     try:
@@ -269,8 +280,7 @@ class AzureAIOrchestrator:
                         }
                     input_list.append(output_item)
                 
-                Logs["Scan Info"].append(f"   [AGENT RUN] Submitting tool outputs back to agent...")
-                print(f"  [AGENT RUN] Submitting tool outputs back to agent...")
+                self._log_agent(f"  [AGENT RUN] Submitting tool outputs back to agent...")
                 response = openai_client.responses.create(
                     conversation=conversation.id,
                     input=input_list
@@ -285,13 +295,11 @@ class AzureAIOrchestrator:
             output_text = response.output_text
             return output_text
         except Exception as exc:
-            Logs["Scan Info"].append(f"  [AGENT WARNING] Azure AI invocation failed: {exc}. Using deterministic generator fallback.")
-            print(f"  [AGENT WARNING] Azure AI invocation failed: {exc}. Using deterministic generator fallback.")
+            self._log_agent(f"  [AGENT WARNING] Azure AI invocation failed: {exc}. Using deterministic generator fallback.")
             return None
 
     def run_table_summarizer_agent(self, table_name, schema_name=None):
-        Logs["Scan Info"].append(f"[INFO] Running Table Summarizer Agent for table '{table_name}' (Schema: '{schema_name}')...")
-        print(f"[INFO] Running Table Summarizer Agent for table '{table_name}' (Schema: '{schema_name}')...")
+        self._log_agent(f"[INFO] Running Table Summarizer Agent for table '{table_name}' (Schema: '{schema_name}')...")
         tool_map = {"get_table_metadata": self.get_table_metadata}
         if schema_name:
             user_msg = f"Please fetch the metadata for table '{table_name}' in schema '{schema_name}' using get_table_metadata and write the refined observations summary for this table."
@@ -313,6 +321,8 @@ class AzureAIOrchestrator:
         )
         if not summary or len(summary.strip()) < 30:
             summary = self.get_table_metadata(table_name, schema_name)
+        
+        self._log_agent(f"[INFO] Summary for '{schema_name}.{table_name}' generated successfully.")
         return summary
 
     def _generate_fallback_migration_writeups(self, metadata_summary_str):
@@ -343,8 +353,7 @@ Generated with AI Foundry agents and Microsoft Fabric best practices.
 """
 
     def run_migration_generator_agent(self, metadata_summary_str):
-        Logs["Scan Info"].append(f"[INFO] Running Migration Plan Generator Agent...")
-        print("[INFO] Running Migration Plan Generator Agent...")
+        self._log_agent(f"[INFO] Running Migration Plan Generator Agent via Azure AI Foundry...")
 
         rag_context = self._get_rag_context(
             "fabric lakehouse warehouse onelake target selection object mapping data type mapping "
@@ -365,6 +374,7 @@ Generated with AI Foundry agents and Microsoft Fabric best practices.
         )
         if not writeups or len(writeups.strip()) < 50:
             writeups = self._generate_fallback_migration_writeups(metadata_summary_str)
+        self._log_agent(f"[INFO] Successfully received Migration Roadmap from Azure AI Foundry.")
         return writeups
 
     def cleanup_agents(self):
