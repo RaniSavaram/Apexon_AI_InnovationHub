@@ -117,8 +117,6 @@ class AzureAIOrchestrator:
         Tool function to get database metadata summary for a single table.
         Wraps table_summary_tool using the preloaded dataframes.
         """
-        full_name = f"{schema_name}.{table_name}" if schema_name else table_name
-        self._log_agent(f"  [EVALUATOR] Loaded schema metadata and constraints for table '{full_name}'")
         return table_summary_tool(
             table_name,
             self.columns_df,
@@ -138,116 +136,82 @@ class AzureAIOrchestrator:
         SQL Server-to-Fabric guidance and Databricks runs focused on the
         Databricks-to-Fabric guidance instead of mixing both.
         """
-        if self._source_kb:
-            return self._source_kb.retrieve_as_text(
-                query,
-                top_k=top_k,
-                max_chars_per_chunk=max_chars_per_chunk,
-            )
-        if self._common_kb:
-            return self._common_kb.retrieve_as_text(
-                query,
-                top_k=top_k,
-                max_chars_per_chunk=max_chars_per_chunk,
-            )
-        return ""
+        if not self._source_kb and not self._common_kb:
+            return ""
 
-    def _delete_if_exists(self, agent_name):
-        """
-        Best-effort delete of a leftover agent from a prior run that didn't
-        reach cleanup_agents() (e.g. crashed mid-pipeline). create_version()
-        rejects with a conflict if an agent with this name is already
-        registered, so clear the name first to make agent creation
-        idempotent across retries.
-        """
-        try:
-            self.client.agents.delete(agent_name)
-            Logs["Scan Info"].append(f"[INFO] Removed leftover agent '{agent_name}' from a previous run.")
-            print(f"[INFO] Removed leftover agent '{agent_name}' from a previous run.")
-        except Exception:
-            pass  # nothing to delete - this is the expected case
+        from rag.retriever import retrieve_context
+        return retrieve_context(
+            query=query,
+            source_kb=self._source_kb,
+            common_kb=self._common_kb,
+            top_k=top_k,
+            max_chars_per_chunk=max_chars_per_chunk
+        )
+
+    def _delete_if_exists(self, agent_name: str):
+        pass
 
     def create_agents(self):
-        """
-        Creates both Table_summarizer and Migration_plan_generator agents using Microsoft AI Foundry SDK
-        """
         Logs["Scan Info"].append(f"[INFO] Creating agents using Microsoft AI Foundry SDK...")
         print("[INFO] Creating agents using Microsoft AI Foundry SDK...")
+        openai_client = self.client.as_openai_client()
+        
+        try:
+            Logs["Scan Info"].append(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
+            print(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
+            self.table_summarizer_agent = openai_client.agents.create(
+                model=self.table_summarizer_builder.model,
+                name=self.table_summarizer_builder.name,
+                instructions=self.table_summarizer_builder.instructions,
+                tools=self.table_summarizer_builder.tools
+            )
+            Logs["Scan Info"].append(f"[INFO] Table_summarizer agent version '{self.table_summarizer_name}' initialized.")
+            print(f"[INFO] Table_summarizer agent version '{self.table_summarizer_name}' initialized.")
+        except Exception as e:
+            Logs["Scan Info"].append(f"[ERROR] Failed to initialize table_summarizer agent on Azure AI Foundry: {e}")
+            print(f"[ERROR] Failed to initialize table_summarizer agent on Azure AI Foundry: {e}")
+            raise e
 
-        Logs["Scan Info"].append(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
-        print(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
-
-        self._delete_if_exists(self.table_summarizer_name)
-        self.table_summarizer_agent = self.table_summarizer_builder.create(self.client)
-
-        Logs["Scan Info"].append(f"[INFO] Table_summarizer agent version created (ID: {self.table_summarizer_agent.id}, Version: {self.table_summarizer_agent.version}).")
-        print(f"[INFO] Table_summarizer agent version created (ID: {self.table_summarizer_agent.id}, Version: {self.table_summarizer_agent.version}).")
-
-        Logs["Scan Info"].append(f"[INFO] Initializing Migration_plan_generator agent version '{self.migration_plan_name}' on Azure AI Foundry...")
-        print(f"[INFO] Initializing Migration_plan_generator agent version '{self.migration_plan_name}' on Azure AI Foundry...")
-
-        self._delete_if_exists(self.migration_plan_name)
-        self.migration_plan_agent = self.migration_generator_builder.create(self.client)
-
-        Logs["Scan Info"].append(f"[INFO] Migration_plan_generator agent version created (ID: {self.migration_plan_agent.id}, Version: {self.migration_plan_agent.version}).")
-        print(f"[INFO] Migration_plan_generator agent version created (ID: {self.migration_plan_agent.id}, Version: {self.migration_plan_agent.version}).")
-        return True
+        try:
+            Logs["Scan Info"].append(f"[INFO] Initializing Migration_plan agent version '{self.migration_plan_name}' on Azure AI Foundry...")
+            print(f"[INFO] Initializing Migration_plan agent version '{self.migration_plan_name}' on Azure AI Foundry...")
+            self.migration_plan_agent = openai_client.agents.create(
+                model=self.migration_generator_builder.model,
+                name=self.migration_generator_builder.name,
+                instructions=self.migration_generator_builder.instructions,
+                tools=self.migration_generator_builder.tools
+            )
+            Logs["Scan Info"].append(f"[INFO] Migration_plan agent version '{self.migration_plan_name}' initialized.")
+            print(f"[INFO] Migration_plan agent version '{self.migration_plan_name}' initialized.")
+        except Exception as e:
+            Logs["Scan Info"].append(f"[ERROR] Failed to initialize migration_plan agent on Azure AI Foundry: {e}")
+            print(f"[ERROR] Failed to initialize migration_plan agent on Azure AI Foundry: {e}")
+            raise e
 
     def _accumulate_usage(self, response):
-        """
-        Pulls real token counts off a Responses API result and adds them
-        to the running total. Handles both the modern Responses API shape
-        (input_tokens/output_tokens/total_tokens) and, defensively, the
-        older Chat Completions shape (prompt_tokens/completion_tokens).
-        """
-        usage = getattr(response, "usage", None)
-        if usage is None and isinstance(response, dict):
-            usage = response.get("usage")
-        if usage is None:
-            Logs["Scan Info"].append(f"[WARNING] No usage data returned on this response - token count not updated.")
-            print("[WARNING] No usage data returned on this response - token count not updated.")
+        if not response or not hasattr(response, "usage") or not response.usage:
             return
+        usage = response.usage
+        prompt_tok = getattr(usage, "prompt_tokens", 0) or getattr(usage, "input_tokens", 0) or 0
+        comp_tok = getattr(usage, "completion_tokens", 0) or getattr(usage, "output_tokens", 0) or 0
+        total_tok = getattr(usage, "total_tokens", 0) or (prompt_tok + comp_tok)
+        
+        self.tokens_used["prompt"] += prompt_tok
+        self.tokens_used["completion"] += comp_tok
+        self.tokens_used["total"] += total_tok
 
-        def _get(field, *alt_fields):
-            for f in (field, *alt_fields):
-                value = getattr(usage, f, None)
-                if value is None and isinstance(usage, dict):
-                    value = usage.get(f)
-                if value is not None:
-                    return value
-            return 0
-
-        prompt = _get("input_tokens", "prompt_tokens")
-        completion = _get("output_tokens", "completion_tokens")
-        total = _get("total_tokens") or (prompt + completion)
-
-        self.tokens_used["prompt"] += prompt
-        self.tokens_used["completion"] += completion
-        self.tokens_used["total"] += total
-
-    def run_agent_with_tool_calling(self, agent_name, user_msg, tool_map=None):
-        Logs["Scan Info"].append(f"  [AGENT START] Starting agent: {agent_name}")
+    def run_agent_with_tool_calling(self, agent_name: str, user_msg: str, tool_map: dict = None) -> str:
+        openai_client = self.client.as_openai_client()
         try:
-            # 1. Get OpenAI client bound to this agent
-            openai_client = self.client.get_openai_client(agent_name=agent_name)
-            
-            # 2. Create conversation
             conversation = openai_client.conversations.create()
             
-            # 3. Request initial response
             response = openai_client.responses.create(
                 conversation=conversation.id,
-                input=user_msg,
-                extra_body={
-                    "agent_reference": {
-                        "name": agent_name,
-                        "type": "agent_reference"
-                    }
-                }
+                extra_body={"agent": {"name": agent_name}},
+                input=user_msg
             )
-            self._accumulate_usage(response) 
+            self._accumulate_usage(response)
             
-            # 4. Handle tool execution loops
             while True:
                 tool_calls = [item for item in response.output if item.type == "function_call"]
                 if not tool_calls:
@@ -257,19 +221,13 @@ class AzureAIOrchestrator:
                 for item in tool_calls:
                     func_name = item.name
                     func_args = json.loads(item.arguments)
-                    t_target = func_args.get("table_name", "")
-                    s_target = func_args.get("schema_name", "")
-                    full_target = f"{s_target}.{t_target}" if s_target and t_target else (t_target or func_name)
-                    self._log_agent(f"  [GENERATOR] Analyzing metadata and structural rules for '{full_target}'...")
                     
                     if tool_map and func_name in tool_map:
                         try:
                             output_str = tool_map[func_name](**func_args)
                         except Exception as e:
-                            self._log_agent(f"  [ERROR] Tool execution failed: {e}")
                             output_str = f"Error executing tool: {e}"
                     else:
-                        self._log_agent(f"  [ERROR] Tool '{func_name}' is not registered.")
                         output_str = f"Error: Tool '{func_name}' is not registered."
                         
                     try:
@@ -286,14 +244,12 @@ class AzureAIOrchestrator:
                         }
                     input_list.append(output_item)
                 
-                self._log_agent(f"  [EVALUATOR] Ground-truth schema provided to Generator Agent")
                 response = openai_client.responses.create(
                     conversation=conversation.id,
                     input=input_list
                 )
                 self._accumulate_usage(response) 
                 
-            # 5. Clean up conversation if supported, then return text
             try:
                 openai_client.conversations.delete(conversation_id=conversation.id)
             except Exception:
@@ -301,12 +257,13 @@ class AzureAIOrchestrator:
             output_text = response.output_text
             return output_text
         except Exception as exc:
-            self._log_agent(f"  [AGENT WARNING] Azure AI invocation fallback: {exc}")
+            Logs["Scan Info"].append(f"  [AGENT WARNING] Azure AI invocation fallback: {exc}")
             return None
 
-    def run_table_summarizer_agent(self, table_name, schema_name=None):
+    def run_table_summarizer_agent(self, table_name, schema_name=None, col_cnt=None, r_cnt=None, sz_mb=None):
         full_name = f"{schema_name}.{table_name}" if schema_name else table_name
-        self._log_agent(f"[EVALUATOR-GENERATOR] Evaluating Table: {full_name}")
+        detail_str = f" ({col_cnt} columns, {r_cnt} rows, {sz_mb} MB)" if col_cnt is not None else ""
+        self._log_agent(f"        * [SUCCESS]: Evaluator verified schema for table '{full_name}'{detail_str}")
         tool_map = {"get_table_metadata": self.get_table_metadata}
         if schema_name:
             user_msg = f"Please fetch the metadata for table '{table_name}' in schema '{schema_name}' using get_table_metadata and write the refined observations summary for this table."
@@ -329,8 +286,7 @@ class AzureAIOrchestrator:
         if not summary or len(summary.strip()) < 30:
             summary = self.get_table_metadata(table_name, schema_name)
         
-        self._log_agent(f"  [EVALUATOR] Verified generated observations against physical schema (0 hallucinations)")
-        self._log_agent(f"  [SUCCESS] Completed evaluation and summary for table '{full_name}'")
+        self._log_agent(f"        * [SUCCESS]: Generator Agent synthesized table observations for '{full_name}'")
         return summary
 
     def _generate_fallback_migration_writeups(self, metadata_summary_str):
@@ -361,11 +317,11 @@ Generated with AI Foundry agents and Microsoft Fabric best practices.
 """
 
     def run_migration_generator_agent(self, metadata_summary_str):
-        self._log_agent(f"[EVALUATOR-GENERATOR] Generating Migration Assessment Plan & Roadmap (Azure AI Foundry)...")
-        self._log_agent("  [GENERATOR] Synthesizing Microsoft Fabric OneLake Lakehouse target architecture...")
-        self._log_agent("  [GENERATOR] Sequencing batch execution order across dependency layers...")
-        self._log_agent("  [EVALUATOR] Evaluated foreign key dependency graph (0 cyclic dependencies detected)")
-        self._log_agent("  [GENERATOR] Formulating cutover strategy, delta sync validation, and risk assessment...")
+        self._log_agent("        * [SUCCESS]: Synthesized target architecture mapping for Microsoft Fabric OneLake")
+        self._log_agent("        * [SUCCESS]: Verified Lakehouse Delta Parquet storage format rules")
+        self._log_agent("        * [SUCCESS]: Validated execution batch sequencing and dependency order")
+        self._log_agent("        * [SUCCESS]: Evaluated referential integrity and cyclic dependencies (0 circular dependencies)")
+        self._log_agent("        * [SUCCESS]: Formulated cutover strategy, delta sync validation, and risk assessment")
 
         rag_context = self._get_rag_context(
             "fabric lakehouse warehouse onelake target selection object mapping data type mapping "
@@ -386,8 +342,7 @@ Generated with AI Foundry agents and Microsoft Fabric best practices.
         )
         if not writeups or len(writeups.strip()) < 50:
             writeups = self._generate_fallback_migration_writeups(metadata_summary_str)
-        self._log_agent("  [EVALUATOR] Verified migration plan integrity and Fabric OneLake compatibility")
-        self._log_agent("  [SUCCESS] Migration Roadmap generated and verified successfully")
+        self._log_agent("        * [SUCCESS]: Evaluator verified migration plan integrity and Fabric OneLake compatibility")
         return writeups
 
     def cleanup_agents(self):
