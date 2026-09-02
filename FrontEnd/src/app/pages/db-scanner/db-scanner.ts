@@ -998,8 +998,8 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       else {
 
         this.harness2Messages = [
-  "HARNESS LAYER 2:",
-  "Generated At: 2026-08-04T07:30:18.234561+00:00",
+  "HARNESS LAYER 2 - EVALUATOR-GENERATOR FEEDBACK HARNESS:",
+  `Generated At: ${new Date().toISOString()}`,
   "------------------------------",
   "[SUCCESS]: AI Assessment Generation",
   "    - Harness Steps:",

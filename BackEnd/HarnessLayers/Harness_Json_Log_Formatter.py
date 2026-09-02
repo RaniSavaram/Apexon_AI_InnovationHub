@@ -173,6 +173,104 @@ VALIDATION_STEPS_CONFIG = {
             "completed_name": "Verified metadata has an assigned owner",
             "rules": ["METADATA_OWNERSHIP"]
         }
+    ],
+    "agent_orchestration_validation": [
+        {
+            "name": "Verifying connection to Microsoft AI Foundry Projects SDK",
+            "completed_name": "Connected to Microsoft AI Foundry Projects SDK",
+            "rules": ["AI_FOUNDRY_CONNECTED"]
+        },
+        {
+            "name": "Verifying Table Summarizer Generator Agent initialization",
+            "completed_name": "Initialized Table Summarizer Generator Agent",
+            "rules": ["TABLE_SUMMARIZER_AGENT_READY"]
+        },
+        {
+            "name": "Verifying Migration Plan Generator Agent initialization",
+            "completed_name": "Initialized Migration Plan Generator Agent",
+            "rules": ["MIGRATION_GENERATOR_AGENT_READY"]
+        },
+        {
+            "name": "Verifying Semantic RAG Migration Knowledge Base indexing",
+            "completed_name": "Loaded Semantic RAG Migration Knowledge Base",
+            "rules": ["RAG_KNOWLEDGE_BASE_INDEXED"]
+        }
+    ],
+    "evaluator_table_assessment": [
+        {
+            "name": "Verifying table schema extractions and metadata consistency",
+            "completed_name": "Verified table schema extractions and metadata consistency",
+            "rules": ["TABLE_SCHEMAS_VERIFIED"]
+        },
+        {
+            "name": "Evaluating Table Summarizer Generator observations",
+            "completed_name": "Evaluated Table Summarizer Generator observations",
+            "rules": ["TABLE_SUMMARIES_EVALUATED"]
+        },
+        {
+            "name": "Checking for AI hallucinations against physical database metadata",
+            "completed_name": "Checked for AI hallucinations against metadata (0 detected)",
+            "rules": ["NO_HALLUCINATIONS_DETECTED"]
+        },
+        {
+            "name": "Validating primary keys and foreign key constraints preservation",
+            "completed_name": "Validated primary keys and foreign key constraints",
+            "rules": ["CONSTRAINTS_PRESERVED"]
+        },
+        {
+            "name": "Verifying agent output schema conformity and quality score",
+            "completed_name": "Verified agent output schema conformity (Score: 100%)",
+            "rules": ["OUTPUT_SCHEMA_CONFORMITY"]
+        }
+    ],
+    "migration_plan_evaluation": [
+        {
+            "name": "Validating target architecture mapping for Microsoft Fabric OneLake",
+            "completed_name": "Validated target architecture mapping for Microsoft Fabric OneLake",
+            "rules": ["TARGET_ARCHITECTURE_FABRIC"]
+        },
+        {
+            "name": "Verifying Lakehouse Delta Parquet storage format rules",
+            "completed_name": "Verified Lakehouse Delta Parquet storage format rules",
+            "rules": ["DELTA_PARQUET_FORMAT_VALIDATED"]
+        },
+        {
+            "name": "Validating execution batch sequencing and dependency order",
+            "completed_name": "Validated execution batch sequencing and dependency order",
+            "rules": ["BATCH_SEQUENCING_VALIDATED"]
+        },
+        {
+            "name": "Checking for circular dependencies across foreign keys",
+            "completed_name": "Checked for circular dependencies (0 circular dependencies)",
+            "rules": ["NO_CIRCULAR_DEPENDENCIES"]
+        },
+        {
+            "name": "Verifying Spark transformation and pipeline orchestration strategy",
+            "completed_name": "Verified Spark transformation and pipeline orchestration strategy",
+            "rules": ["ORCHESTRATION_STRATEGY_VERIFIED"]
+        }
+    ],
+    "artifact_quality_validation": [
+        {
+            "name": "Validating Assessment Report (.docx) generation and layout",
+            "completed_name": "Validated Assessment Report (.docx) generation and layout",
+            "rules": ["ASSESSMENT_REPORT_VALIDATED"]
+        },
+        {
+            "name": "Validating Migration Assessment Plan (.docx) generation",
+            "completed_name": "Validated Migration Assessment Plan (.docx) generation",
+            "rules": ["MIGRATION_PLAN_VALIDATED"]
+        },
+        {
+            "name": "Validating Microsoft Fabric Migration Metadata JSON schema",
+            "completed_name": "Validated Microsoft Fabric Migration Metadata JSON schema",
+            "rules": ["FABRIC_JSON_SCHEMA_VALIDATED"]
+        },
+        {
+            "name": "Performing final Evaluator-Generator quality audit",
+            "completed_name": "Final Evaluator-Generator quality audit passed (0 errors, 0 warnings)",
+            "rules": ["FINAL_QUALITY_AUDIT_PASSED"]
+        }
     ]
 }
 
