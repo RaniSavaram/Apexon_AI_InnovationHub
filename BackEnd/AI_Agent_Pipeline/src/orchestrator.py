@@ -48,18 +48,6 @@ class AzureAIOrchestrator:
         self.client_type = None
         self.client = None
 
-    def _log_agent(self, msg: str):
-        """Streams dynamic log directly to Harness Layer 2 and Scan Info."""
-        Logs["Harness Layer2"].append(msg)
-        Logs["Scan Info"].append(msg)
-        print(msg)
-        if self.scan_id:
-            try:
-                from Migrator.views import update_scan_job_state
-                update_scan_job_state(self.scan_id, log_entry=msg, log_type="Harness Layer2")
-            except Exception:
-                pass
-
         # Resolve the source platform once so the RAG knowledge bases can be
         # looked up dynamically (see rag/registry.py) instead of hardcoding
         # a source type here. Falls back to common Fabric guidance only when
@@ -93,6 +81,18 @@ class AzureAIOrchestrator:
         self.tokens_used = {"prompt": 0, "completion": 0, "total": 0}
         
         self.initialize_client()
+
+    def _log_agent(self, msg: str):
+        """Streams dynamic log directly to Harness Layer 2 and Scan Info."""
+        Logs["Harness Layer2"].append(msg)
+        Logs["Scan Info"].append(msg)
+        print(msg)
+        if self.scan_id:
+            try:
+                from Migrator.views import update_scan_job_state
+                update_scan_job_state(self.scan_id, log_entry=msg, log_type="Harness Layer2")
+            except Exception:
+                pass
 
     def initialize_client(self):
         if not self.endpoint:
