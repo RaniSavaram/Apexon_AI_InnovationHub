@@ -101,43 +101,7 @@ def _scan_status(scan_id):
         return scan_jobs.get(scan_id)
 
 
-def update_scan_job_state(scan_id=None, progress=None, current_message=None, log_entry=None, log_type="Scan Info"):
-    if log_entry:
-        print(f"[LOG][{log_type}] {log_entry}")
-        if log_type in Logs:
-            Logs[log_type].append(log_entry)
-        if log_type == "Scan Info":
-            Logs["Scan Info"].append(log_entry)
 
-    if progress is not None:
-        Logs["Progress Percentage"] = progress
-
-    if not scan_id:
-        return
-
-    with scan_jobs_lock:
-        job = scan_jobs.get(scan_id)
-        if not job:
-            return
-        if progress is not None:
-            job["progress"] = progress
-            
-        if current_message is not None:
-            job["current_message"] = current_message
-        elif log_entry and isinstance(log_entry, str):
-            clean_log = log_entry.strip().replace("[INFO] ", "").replace("[INFO]", "").replace("[Err] ", "").replace("[Err]", "").strip()
-            if "\n" not in clean_log and len(clean_log) < 120:
-                job["current_message"] = clean_log
-
-        if log_entry:
-            if log_type == "Scan Info":
-                job["logs"].append(log_entry)
-            elif log_type == "Harness Layer1":
-                job["harness1_logs"].append(log_entry)
-            elif log_type == "Harness Layer2":
-                job["harness2_logs"].append(log_entry)
-            elif log_type == "Token Info":
-                job["token_info"].append(log_entry)
 
 
 def _run_scan_in_background(scan_id, destination):
@@ -719,15 +683,20 @@ def update_scan_job_state(scan_id=None, progress=None, current_message=None, log
                 clean_msg = clean_msg[:-1].strip()
             job["current_message"] = clean_msg
 
-        if log_entry and skip_global:
+        if log_entry:
+            target_list = None
             if log_type == "Scan Info":
-                job["logs"].append(log_entry)
+                target_list = job["logs"]
             elif log_type == "Harness Layer1":
-                job["harness1_logs"].append(log_entry)
+                target_list = job["harness1_logs"]
             elif log_type == "Harness Layer2":
-                job["harness2_logs"].append(log_entry)
+                target_list = job["harness2_logs"]
             elif log_type == "Token Info":
-                job["token_info"].append(log_entry)
+                target_list = job["token_info"]
+
+            if target_list is not None:
+                if not target_list or target_list[-1] != log_entry:
+                    target_list.append(log_entry)
 
 
 def _run_scan_in_background(scan_id, destination):

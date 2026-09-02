@@ -83,16 +83,9 @@ class AzureAIOrchestrator:
         self.initialize_client()
 
     def _log_agent(self, msg: str):
-        """Streams dynamic log directly to Harness Layer 2 and Scan Info."""
-        Logs["Harness Layer2"].append(msg)
+        """Streams operational agent logs to Scan Info (Backend Logs tab)."""
         Logs["Scan Info"].append(msg)
         print(msg)
-        if self.scan_id:
-            try:
-                from Migrator.views import update_scan_job_state
-                update_scan_job_state(self.scan_id, log_entry=msg, log_type="Harness Layer2")
-            except Exception:
-                pass
 
     def initialize_client(self):
         if not self.endpoint:
