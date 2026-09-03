@@ -227,7 +227,7 @@
           "data_type": "STRING"
         }
       ],
-      "definition": "select * from bfsi_dev.sp_demo.archived_orders\nDependencies:\n- Referenced Objects: bfsi_dev.sp_demo.archived_orders\n- Dependent Objects: None"
+      "definition": "select * from bfsi_dev.sp_demo.archived_orders\nDependencies:\n- Referenced Objects: bfsi_dev.sp_demo.archived_orders\nUsage:\n- Dependent Objects: None"
     }
   ],
   "functions": [],

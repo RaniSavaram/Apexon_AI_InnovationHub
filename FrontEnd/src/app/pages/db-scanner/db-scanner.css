@@ -1342,6 +1342,21 @@ ARTIFACTS DIALOG
     color: #fbbf24;
 }
 
+.badge-type[data-type="Lakehouse"] {
+    background: rgba(45, 212, 191, 0.15);
+    color: #2dd4bf;
+}
+
+.badge-type[data-type="Warehouse"] {
+    background: rgba(251, 146, 60, 0.15);
+    color: #fb923c;
+}
+
+.badge-type[data-type="Pipeline"] {
+    background: rgba(244, 114, 182, 0.15);
+    color: #f472b6;
+}
+
 .status-pill {
     padding: 4px 10px;
     border-radius: 12px;

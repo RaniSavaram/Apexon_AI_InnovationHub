@@ -1455,6 +1455,50 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       });
     }
 
+    // The Lakehouse itself - the OneLake container every Table/Volume row
+    // above actually lands in (see resolve_artifact_lakehouse() in
+    // DB2_2_Fabric.py).
+    if (result.lakehouse_name) {
+      rows.push({
+        category: 'Lakehouse',
+        schema: '',
+        name: result.lakehouse_name,
+        detail: `Fabric Lakehouse in workspace '${result.target?.workspace_id || 'unknown'}' hosting the synced tables & volumes above`,
+        synced: true
+      });
+    }
+
+    // The shared Fabric Warehouse itself (FIXED_WAREHOUSE_CONNECTION_STRING
+    // in DB2_2_Fabric.py) - distinct from the per-View/Procedure placeholder
+    // rows above, which live inside it.
+    if (result.warehouse?.name) {
+      const wh = result.warehouse;
+      const hasFailure = !!(wh.errors && wh.errors.length) && !(wh.created && wh.created.length);
+      rows.push({
+        category: 'Warehouse',
+        schema: '',
+        name: wh.name,
+        detail: `Fabric Warehouse backing the placeholder Views/Stored Procedures for Lakehouse '${result.lakehouse_name || 'unknown'}'`,
+        synced: !hasFailure
+      });
+    }
+
+    // The Fabric Data Pipeline scaffolded to mirror the plan's execution
+    // order (see fabric_pipeline_builder.py) - one Copy activity per table
+    // synced above, source connections left to configure in Fabric Studio.
+    if (result.pipeline) {
+      const p = result.pipeline;
+      rows.push({
+        category: 'Pipeline',
+        schema: '',
+        name: p.name,
+        detail: p.error
+          ? p.error
+          : `${p.activities} Copy activit${p.activities === 1 ? 'y' : 'ies'} scaffolded for Lakehouse '${result.lakehouse_name || 'unknown'}' (source connections still need configuring)`,
+        synced: !p.error
+      });
+    }
+
     return rows;
   }
 
