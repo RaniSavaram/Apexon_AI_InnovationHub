@@ -1297,6 +1297,16 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     return 'Artifacts Deployment Details';
   }
 
+  getLakehouseUrl(): string {
+    if (this.isDatabricksSource()) {
+      return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/bc94c085-a651-46a6-96a1-0c1183ef78f9?experience=fabric-developer';
+    }
+    return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/87ddccfe-cfa3-47d6-92ab-b638ce379319?experience=fabric-developer';
+  }
+
+  getLakehouseName(): string {
+    return this.isDatabricksSource() ? 'Databricks_Lakehouse' : 'SQL_Lakehouse';
+  }
   getWorkspaceUrl(): string {
     return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/list?experience=fabric-developer';
   }
