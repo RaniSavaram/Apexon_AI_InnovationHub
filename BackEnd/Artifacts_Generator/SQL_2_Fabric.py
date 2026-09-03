@@ -54,6 +54,31 @@ def get_onelake_token():
 
 
 def parse_report(doc_path):
+    output_dir = Path(doc_path).parent if doc_path else Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+    json_candidates = [
+        output_dir / "sqlserver_Fabric_Migration_Metadata.json",
+        output_dir / "Fabric_Migration_Metadata.json",
+    ]
+    for jf in json_candidates:
+        if jf.exists():
+            try:
+                data = json.loads(jf.read_text(encoding="utf-8"))
+                tables = []
+                for obj in data.get("objects", []):
+                    obj_type = (obj.get("type") or "").lower()
+                    if obj_type == "table" and obj.get("columns"):
+                        cols = [(c.get("name"), c.get("datatype") or c.get("data_type") or "string") for c in obj.get("columns", []) if c.get("name")]
+                        if cols:
+                            tables.append({
+                                "schema": obj.get("schema") or "dbo",
+                                "table": obj.get("name"),
+                                "columns": cols
+                            })
+                if tables:
+                    return tables
+            except Exception as e:
+                print(f"[WARN] Failed to load tables from json metadata: {e}")
+
     doc = docx.Document(str(doc_path))
     
     tables = []
@@ -69,7 +94,7 @@ def parse_report(doc_path):
                 
             # --- OLD FORMAT CHECK ---
             if text.startswith("Table Name:"):
-                if current:
+                if current and current.get("columns"):
                     tables.append(current)
                 t_name = text.split(":", 1)[1].strip()
                 current = {"schema": "dbo", "table": t_name, "columns": []}
@@ -85,21 +110,22 @@ def parse_report(doc_path):
                 continue
                 
             if current and in_columns_old:
-                if text.startswith("-") and not text.startswith(BULLET):
-                    # ends the columns block
+                if (text.startswith("-") or text.startswith("*")) and any(text.lower().startswith(x) for x in ["- referenced", "- dependent", "- related", "- primary key", "- foreign key", "- indexes", "- constraints", "- row count", "- table type"]):
                     in_columns_old = False
+                    continue
+                elif text.startswith("-") and not text.startswith(BULLET) and ":" in text and "(" not in text:
+                    in_columns_old = False
+                    continue
                 elif text.endswith(":") and not text.startswith(BULLET):
                     in_columns_old = False
+                    continue
                 elif text.startswith(BULLET) or text.startswith("-") or text.startswith("*"):
                     col_part = text.lstrip("•-*").strip()
                     if "(" in col_part and ")" in col_part:
                         name_part, type_part = col_part.split("(", 1)
                         col_name = name_part.strip()
                         data_type_raw = type_part.rsplit(")", 1)[0].strip()
-                    else:
-                        col_name = col_part.strip()
-                        data_type_raw = "string"
-                    current["columns"].append((col_name, data_type_raw))
+                        current["columns"].append((col_name, data_type_raw))
                 continue
 
             # --- NEW FORMAT CHECK ---
@@ -110,7 +136,7 @@ def parse_report(doc_path):
                 is_heading2 = True
                 
             if (is_heading2 or text.startswith("5.")) and re.match(r"^5\.\d+\s+", text):
-                if current:
+                if current and current.get("columns"):
                     tables.append(current)
                 parts = text.split(" ", 1)
                 t_name = parts[1].strip()
@@ -135,10 +161,10 @@ def parse_report(doc_path):
                             if c_name and c_type:
                                 current["columns"].append((c_name, c_type))
                                 
-    if current:
+    if current and current.get("columns"):
         tables.append(current)
         
-    return tables
+    return [t for t in tables if t.get("columns") and len(t["columns"]) > 0 and not t["table"].lower().startswith("sp_")]
 
 
 def map_arrow_type(dt_raw):
