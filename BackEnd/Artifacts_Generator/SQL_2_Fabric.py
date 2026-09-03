@@ -66,14 +66,13 @@ def parse_report(doc_path):
                 tables = []
                 for obj in data.get("objects", []):
                     obj_type = (obj.get("type") or "").lower()
-                    if obj_type == "table" and obj.get("columns"):
+                    if obj_type == "table":
                         cols = [(c.get("name"), c.get("datatype") or c.get("data_type") or "string") for c in obj.get("columns", []) if c.get("name")]
-                        if cols:
-                            tables.append({
-                                "schema": obj.get("schema") or "dbo",
-                                "table": obj.get("name"),
-                                "columns": cols
-                            })
+                        tables.append({
+                            "schema": obj.get("schema") or "dbo",
+                            "table": obj.get("name"),
+                            "columns": cols if cols else [("id", "int")]
+                        })
                 if tables:
                     return tables
             except Exception as e:
@@ -94,7 +93,7 @@ def parse_report(doc_path):
                 
             # --- OLD FORMAT CHECK ---
             if text.startswith("Table Name:"):
-                if current and current.get("columns"):
+                if current:
                     tables.append(current)
                 t_name = text.split(":", 1)[1].strip()
                 current = {"schema": "dbo", "table": t_name, "columns": []}
@@ -136,7 +135,7 @@ def parse_report(doc_path):
                 is_heading2 = True
                 
             if (is_heading2 or text.startswith("5.")) and re.match(r"^5\.\d+\s+", text):
-                if current and current.get("columns"):
+                if current:
                     tables.append(current)
                 parts = text.split(" ", 1)
                 t_name = parts[1].strip()
@@ -161,10 +160,10 @@ def parse_report(doc_path):
                             if c_name and c_type:
                                 current["columns"].append((c_name, c_type))
                                 
-    if current and current.get("columns"):
+    if current:
         tables.append(current)
         
-    return [t for t in tables if t.get("columns") and len(t["columns"]) > 0 and not t["table"].lower().startswith("sp_")]
+    return [t for t in tables if not t["table"].lower().startswith("sp_")]
 
 
 def map_arrow_type(dt_raw):
@@ -331,7 +330,9 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
     for t in parsed:
         schema_name = clean_identifier(t["schema"] or "dbo")
         table_name = clean_identifier(t["table"])
-        cols = t["columns"]
+        cols = t.get("columns") or []
+        if not cols:
+            cols = [("id", "int")]
 
         table_meta = {
             "schema": schema_name,
