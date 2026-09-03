@@ -43,27 +43,7 @@ MAX_SCAN_TABLES = int(os.environ.get("MAX_SCAN_TABLES", "5"))
 
 def _limit_metadata_tables(metadata):
     """
-    Caps a scan to MAX_SCAN_TABLES objects total, but - unlike a plain
-    tables[:N] slice - does it type-aware across every object kind a
-    scanner can return (tables, views, stored procedures, volumes;
-    functions are dropped by this cap entirely, see below), since
-    schema["tables"] holds both BASE TABLE and VIEW entries mixed together
-    (see databricks_client.py's extract()) and a naive slice can silently
-    eat the one view a demo scan wants to show off, or leave procedures/
-    volumes completely uncapped since they'd otherwise pass through this
-    function untouched.
-
-    Priority (so a Databricks catalog with a bit of everything demos its
-    full variety instead of just tables): 1 view, then 1 stored procedure,
-    then 1 volume are kept whenever the scan found any, and whatever
-    budget is left after those goes to base tables. Functions get none of
-    the budget - this cap is specifically "N objects across
-    tables/views/procedures/volumes"; a scan that also needs functions
-    represented should raise MAX_SCAN_TABLES rather than have them
-    silently compete with the other three for the same 5 slots. Source
-    types without views/procedures/volumes (SQL Server, Synapse, etc.)
-    degrade to the original plain "first N tables" behavior automatically,
-    since there's nothing to reserve a budget for.
+    Caps a scan to MAX_SCAN_TABLES (5) base tables total.
     """
     budget = MAX_SCAN_TABLES
 
@@ -84,16 +64,11 @@ def _limit_metadata_tables(metadata):
     is_view = lambda t: (t.get("type") or "").upper() == "VIEW"
     is_base_table = lambda t: (t.get("type") or "").upper() != "VIEW"
 
-    kept_views = _take("tables", is_view, min(1, budget))
-    budget -= sum(len(v) for v in kept_views.values())
-
-    kept_procedures = _take("procedures", lambda _: True, min(1, budget)) if budget > 0 else {}
-    budget -= sum(len(v) for v in kept_procedures.values())
-
-    kept_volumes = _take("volumes", lambda _: True, min(1, budget)) if budget > 0 else {}
-    budget -= sum(len(v) for v in kept_volumes.values())
-
-    kept_base_tables = _take("tables", is_base_table, max(budget, 0))
+    kept_base_tables = _take("tables", is_base_table, budget)
+    remaining_budget = budget - sum(len(t) for t in kept_base_tables.values())
+    kept_views = _take("tables", is_view, max(remaining_budget, 0)) if remaining_budget > 0 else {}
+    kept_procedures = _take("procedures", lambda _: True, 1)
+    kept_volumes = _take("volumes", lambda _: True, 1)
 
     limited_schemas = []
     for idx, schema in enumerate(metadata.get("schemas", [])):
