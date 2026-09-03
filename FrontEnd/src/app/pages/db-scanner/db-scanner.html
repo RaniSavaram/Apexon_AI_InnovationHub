@@ -819,7 +819,7 @@ SCAN STATUS + ACTION BUTTONS
                 <button
                     [class.active]="artifactsTab === 'tables'"
                     (click)="artifactsTab = 'tables'">
-                    Synced Tables ({{ fabricArtifactsResult?.tables?.length || 0 }})
+                    Synced Tables ({{ getSyncedArtifactsRows().length }})
                 </button>
 
                 <button
@@ -870,20 +870,12 @@ SCAN STATUS + ACTION BUTTONS
                     </div>
                 </div>
 
-                <!-- Target Lakehouse Cards -->
+                <!-- Artifact Deployment Cards -->
                 <div class="artifacts-meta-grid">
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-file-earmark-code-fill"></i> Artifact Script</span>
                         <span class="meta-val" style="color: #6366f1; font-weight: 700;">{{ getActiveGeneratorScript() }}</span>
                         <span class="meta-sub">{{ isDatabricksSource() ? 'Databricks -> Fabric Pipeline' : 'SQL Server -> Fabric Pipeline' }}</span>
-                    </div>
-                    <div class="meta-card">
-                        <span class="meta-label"><i class="bi bi-folder2-open"></i> Target Lakehouse</span>
-                        <span class="meta-val">{{ isDatabricksSource() ? 'Databricks_Lakehouse' : 'SQL_Lakehouse' }}</span>
-                        <a [href]="getLakehouseUrl()" target="_blank" rel="noopener noreferrer" class="fabric-link" title="Open in Microsoft Fabric">
-                            <span>Open in Fabric</span>
-                            <i class="bi bi-box-arrow-up-right"></i>
-                        </a>
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-diagram-3-fill"></i> Workspace</span>
@@ -918,28 +910,30 @@ SCAN STATUS + ACTION BUTTONS
 
             </div>
 
-            <!-- Tab 2: Synced Tables -->
+            <!-- Tab 2: Synced Tables (also includes Volumes, Views & Stored Procedures when sinked) -->
             <div class="artifacts-body" *ngIf="!generatingFabric && artifactsTab === 'tables'">
-                <div class="tables-container" *ngIf="fabricArtifactsResult?.tables_info?.length">
+                <div class="tables-container" *ngIf="getSyncedArtifactsRows().length">
                     <table class="artifacts-table">
                         <thead>
                             <tr>
                                 <th>#</th>
+                                <th>Category</th>
                                 <th>Schema</th>
-                                <th>Table Name</th>
-                                <th>Columns</th>
+                                <th>Name</th>
+                                <th>Detail</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr *ngFor="let t of fabricArtifactsResult?.tables_info; let i = index">
+                            <tr *ngFor="let row of getSyncedArtifactsRows(); let i = index">
                                 <td>{{ i + 1 }}</td>
-                                <td><span class="badge-schema">{{ t.schema }}</span></td>
-                                <td class="table-name-cell"><strong>{{ t.table }}</strong></td>
-                                <td>{{ t.columns_count }} columns</td>
+                                <td><span class="badge-type" [attr.data-type]="row.category">{{ row.category }}</span></td>
+                                <td><span class="badge-schema">{{ row.schema }}</span></td>
+                                <td class="table-name-cell"><strong>{{ row.name }}</strong></td>
+                                <td>{{ row.detail }}</td>
                                 <td>
-                                    <span class="status-pill" [class.success]="isTableSynced(t)" [class.failed]="!isTableSynced(t)">
-                                        {{ isTableSynced(t) ? 'Delta Table Synced' : 'Sync Notice' }}
+                                    <span class="status-pill" [class.success]="row.synced" [class.failed]="!row.synced">
+                                        {{ row.synced ? 'Synced' : 'Sync Notice' }}
                                     </span>
                                 </td>
                             </tr>

@@ -266,6 +266,32 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         except Exception:
             pass
 
+    # Secondary objects (Views, Functions, Stored Procedures, Volumes) get
+    # the same AI-generated observations summary as tables, via
+    # orchestrator.run_secondary_object_summarizer_agent() - previously
+    # defined but never called, so Views/Procedures never got a Section 5
+    # entry in the Assessment Report even when the scan captured them (they
+    # showed up in the Database Objects Inventory table and the Fabric JSON
+    # metadata, both of which read views_df/procedures_df directly, but not
+    # in Section 5, which plan_to_json.py actually parses to build
+    # migration_plan.json for DB2_2_Fabric.py's Warehouse sync).
+    def _summarize_secondary_objects(df, object_type, name_field):
+        summaries = []
+        if df is None or df.empty:
+            return summaries
+        for _, r in df.iterrows():
+            obj_name = r[name_field]
+            s_name = r["schema_name"]
+            _update_progress(scan_id, current_message=f"Analyzing {object_type} schema: {s_name}.{obj_name}")
+            summary = orchestrator.run_secondary_object_summarizer_agent(object_type, obj_name, schema_name=s_name)
+            summaries.append(summary)
+        return summaries
+
+    view_summaries = _summarize_secondary_objects(views_df, "view", "view_name")
+    function_summaries = _summarize_secondary_objects(functions_df, "function", "function_name")
+    procedure_summaries = _summarize_secondary_objects(procedures_df, "procedure", "procedure_name")
+    volume_summaries = _summarize_secondary_objects(volumes_df, "volume", "volume_name")
+
     table_audit_steps = (
         "        * [SUCCESS]: Evaluator checked for AI hallucinations against metadata (0 detected)\n"
         "        * [SUCCESS]: Evaluator verified agent output schema conformity (Score: 100%)"
@@ -385,7 +411,11 @@ Columns Sample:
         views_df=views_df,
         procedures_df=procedures_df,
         functions_df=functions_df,
-        volumes_df=volumes_df
+        volumes_df=volumes_df,
+        view_summaries=view_summaries,
+        function_summaries=function_summaries,
+        procedure_summaries=procedure_summaries,
+        volume_summaries=volume_summaries
     )
     msg_rep = f"        * [SUCCESS]: Generated Assessment Report: {table_summary_filename}"
     _update_progress(scan_id, log_entry=msg_rep, log_type="Harness Layer2")

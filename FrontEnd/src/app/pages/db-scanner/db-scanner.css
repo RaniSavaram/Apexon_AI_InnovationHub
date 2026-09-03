@@ -1312,6 +1312,36 @@ ARTIFACTS DIALOG
     font-weight: 600;
 }
 
+.badge-type {
+    background: #1e293b;
+    color: #94a3b8;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge-type[data-type="Table"] {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+}
+
+.badge-type[data-type="Volume"] {
+    background: rgba(167, 139, 250, 0.15);
+    color: #a78bfa;
+}
+
+.badge-type[data-type="View"] {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+}
+
+.badge-type[data-type="Stored Procedure"] {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+}
+
 .status-pill {
     padding: 4px 10px;
     border-radius: 12px;

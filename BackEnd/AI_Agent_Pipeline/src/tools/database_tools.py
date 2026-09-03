@@ -180,3 +180,121 @@ Usage:
 """
 
     return summary.strip()
+
+
+def _filter_by_schema(df, name_col, name, schema_col, schema_name):
+    """
+    Shared case-insensitive (schema, name) lookup used by the view/function/
+    volume summary tools below - same matching approach as table_summary_tool
+    above, just factored out since none of the three needs table_summary_tool's
+    row-count/size/dependency logic.
+    """
+    if schema_name:
+        matches = df[
+            (df[schema_col].str.lower() == str(schema_name).lower())
+            & (df[name_col].str.lower() == str(name).lower())
+        ]
+    else:
+        matches = df[df[name_col].str.lower() == str(name).lower()]
+    return matches
+
+
+def view_summary_tool(view_name, columns_df, views_df, schema_name=None):
+    """
+    Returns a metadata-driven summary for a single Unity Catalog view -
+    the sibling of table_summary_tool() for VIEW objects, which carry a SQL
+    definition instead of stored rows/size, but still expose the same
+    ColumnName/SourceDataType shape in columns_df as any base table.
+    """
+    matches = _filter_by_schema(views_df, "view_name", view_name, "schema_name", schema_name)
+    if matches.empty:
+        return f"View '{view_name}' (Schema: {schema_name}) not found."
+
+    view_row = matches.iloc[0]
+    clean_view_name = view_row["view_name"]
+    schema = view_row["schema_name"]
+    definition = view_row.get("definition") or "Not available"
+
+    cols = columns_df[
+        (columns_df["TableName"] == clean_view_name)
+        & (columns_df["SchemaName"] == schema)
+    ]
+    column_details = "\n".join(
+        f"    • {row['ColumnName']} ({row['SourceDataType']})"
+        for _, row in cols.iterrows()
+    )
+
+    summary = f"""
+View Name: {clean_view_name}
+Schema: {schema}
+
+Structure:
+- Total Columns: {len(cols)}
+- Columns:
+{column_details if column_details else "None"}
+
+Definition:
+{definition}
+"""
+    return summary.strip()
+
+
+def function_summary_tool(function_name, functions_df, schema_name=None):
+    """
+    Returns a metadata-driven summary for a single Unity Catalog function.
+    Functions only carry a name/return type in functions_df (no columns,
+    row counts, or dependencies), so this is intentionally much shorter
+    than table_summary_tool()/view_summary_tool().
+    """
+    matches = _filter_by_schema(functions_df, "function_name", function_name, "schema_name", schema_name)
+    if matches.empty:
+        return f"Function '{function_name}' (Schema: {schema_name}) not found."
+
+    func_row = matches.iloc[0]
+    summary = f"""
+Function Name: {func_row['function_name']}
+Schema: {func_row['schema_name']}
+Return Type: {func_row.get('return_type') or 'Unknown'}
+"""
+    return summary.strip()
+
+
+def procedure_summary_tool(procedure_name, procedures_df, schema_name=None):
+    """
+    Returns a metadata-driven summary for a single stored procedure.
+    procedures_df only ever carries a name/schema (see parse_schema_dict()
+    in metadataProcessor.py - Unity Catalog's information_schema.routines
+    query for PROCEDURE routines doesn't fetch a return type the way the
+    FUNCTION query does), so this is the thinnest of the four object tools.
+    """
+    matches = _filter_by_schema(procedures_df, "procedure_name", procedure_name, "schema_name", schema_name)
+    if matches.empty:
+        return f"Stored procedure '{procedure_name}' (Schema: {schema_name}) not found."
+
+    proc_row = matches.iloc[0]
+    summary = f"""
+Procedure Name: {proc_row['procedure_name']}
+Schema: {proc_row['schema_name']}
+"""
+    return summary.strip()
+
+
+def volume_summary_tool(volume_name, volumes_df, schema_name=None):
+    """
+    Returns a metadata-driven summary for a single Unity Catalog volume.
+    Volumes are object-storage-backed file mounts, not relational objects,
+    so - like function_summary_tool() - there are no columns/dependencies
+    to report, just the storage-facing attributes captured at scan time.
+    """
+    matches = _filter_by_schema(volumes_df, "volume_name", volume_name, "schema_name", schema_name)
+    if matches.empty:
+        return f"Volume '{volume_name}' (Schema: {schema_name}) not found."
+
+    vol_row = matches.iloc[0]
+    summary = f"""
+Volume Name: {vol_row['volume_name']}
+Schema: {vol_row['schema_name']}
+Volume Type: {vol_row.get('volume_type') or 'Unknown'}
+Storage Location: {vol_row.get('storage_location') or 'Unknown'}
+"""
+    return summary.strip()

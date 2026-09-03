@@ -7,9 +7,18 @@ schemas/tables as empty Delta tables inside it via OneLake, using
 deltalake (delta-rs). No Spark/Fabric notebook required.
 
 If a Lakehouse with that name already exists in the target workspace, it
-is reused rather than duplicated. Only the Lakehouse and its Tables are
-managed here; Warehouses, Views, and Pipelines are not yet created by this
-script.
+is reused rather than duplicated.
+
+Beyond Tables, this also creates: a Fabric Data Pipeline scaffolding the
+plan's execution order (see fabric_pipeline_builder.py); a Files/ folder
+per Volume in the same Lakehouse (see fabric_api.create_onelake_directory,
+the closest Fabric equivalent to a Unity Catalog Volume); and, best-effort,
+placeholder Views/Stored Procedures in a companion Fabric Warehouse (see
+fabric_warehouse_sql.py) - the last of these requires a live SQL
+connection (pyodbc + an Azure AD token) and creates only empty,
+structurally-valid placeholders, since Fabric has no item-definition API
+for views/procedures and the source SQL is a different dialect (T-SQL vs.
+Databricks SQL) that isn't translated here.
 
 Despite the old "SQL_2_Fabric" name this used to go by, nothing here is
 SQL-Server-specific. sqlserver.py, databricks_client.py, and
@@ -66,12 +75,19 @@ except AttributeError:
     pass
 
 try:
-    from Artifacts_Generator import fabric_api
+    from Artifacts_Generator import fabric_api, fabric_pipeline_builder
 except ImportError:
     # Fallback for running this script directly (e.g. `python DB_2_Fabric.py`
     # from inside Artifacts_Generator/) where BackEnd isn't on sys.path as
     # a package root the way Django's app loading puts it.
     import fabric_api
+    import fabric_pipeline_builder
+
+# fabric_warehouse_sql needs pyodbc, which is an optional, heavier
+# dependency (a native ODBC driver, not just a pip package) only used by
+# the Views/Stored-Procedures scaffold below - importing it lazily inside
+# sync_views_and_procedures() keeps a missing driver from blocking table/
+# pipeline/volume creation, which don't need it at all.
 
 JSON_PATH = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output" / "migration_plan.json"
 
@@ -97,6 +113,23 @@ SOURCE_LAKEHOUSE_MAP = {
 # managed Lakehouse (overrides SOURCE_LAKEHOUSE_MAP/dynamic resolution for
 # just that layer). {"Bronze": ("<workspace_id>", "<lakehouse_id>"), ...}
 LAYER_LAKEHOUSE_MAP = {}
+
+# Fixed Fabric Warehouse SQL analytics endpoint that already exists in the
+# target workspace. Every placeholder View/Stored Procedure this script
+# creates (see sync_views_and_procedures() below) is written directly here
+# via a live T-SQL connection. One shared Warehouse endpoint for every
+# source system, rather than a dynamically get-or-created
+# "<source>_<database>_warehouse" per scan.
+#
+# FIXED_WAREHOUSE_DATABASE_NAME (the Warehouse item's displayName, verified
+# via GET /workspaces/{id}/warehouses/{id}) MUST be passed as the explicit
+# initial database/catalog on every connection to this host - this
+# workspace hosts many Lakehouse/Warehouse items, and without it the TDS
+# login silently defaults to some other item's database (observed: it
+# landed in an unrelated "StockMarket_LH" item instead), even though the
+# hostname itself is this specific Warehouse's own connectionString.
+FIXED_WAREHOUSE_CONNECTION_STRING = "3uikuylfb6eebabim5tojwqhty-ic26hose2dqeldcsht2o4polge.datawarehouse.fabric.microsoft.com"
+FIXED_WAREHOUSE_DATABASE_NAME = "Databricks_SQL_Warehouse"
 
 
 def get_or_create_lakehouse(workspace_id, display_name, token):
@@ -290,6 +323,89 @@ def sync_table(table_uri, schema_name, table_name, target_pa_schema, storage_opt
         log_fn(f"  [OK] {schema_name}.{table_name} already in sync")
 
 
+def sync_volumes(volumes, target_workspace_id, default_lakehouse_id, onelake_token, dry_run):
+    """
+    Creates one empty OneLake directory per volume under the Lakehouse's
+    Files/ area (Files/<schema>/<volume_name>) - the closest Fabric
+    equivalent to a Unity Catalog Volume, since a Lakehouse's Files/ folder
+    is unstructured storage in the same OneLake location Tables/ lives in.
+    This does not copy any of the volume's actual file contents - only the
+    matching folder structure, as a landing spot for a later, separate
+    file-copy step.
+
+    Returns (created, errors) - created is a list of "schema/volume_name"
+    strings, errors is a list of {"volume": ..., "error": ...} dicts.
+    """
+    created = []
+    errors = []
+
+    for volume in volumes:
+        schema_name = clean_identifier(volume.get("schema") or "dbo")
+        volume_name = clean_identifier(volume.get("volume_name") or "")
+        if not volume_name:
+            errors.append({"volume": None, "error": "Volume entry has no volume_name"})
+            continue
+
+        directory_path = f"Files/{schema_name}/{volume_name}"
+        try:
+            if dry_run:
+                print(f"[DRY-RUN] Would create OneLake directory: {directory_path}")
+            else:
+                fabric_api.create_onelake_directory(target_workspace_id, default_lakehouse_id, directory_path, onelake_token)
+                print(f"  [CREATE] Volume folder {directory_path}")
+            created.append(f"{schema_name}/{volume_name}")
+        except Exception as exc:
+            print(f"[ERROR] Failed creating volume folder {directory_path}: {exc}")
+            errors.append({"volume": f"{schema_name}.{volume_name}", "error": str(exc)})
+
+    return created, errors
+
+
+def sync_views_and_procedures(views, procedures, source_system, dry_run, target_workspace_id, default_lakehouse_id, fabric_token):
+    """
+    Best-effort scaffold: creates a structurally-valid but functionally
+    empty placeholder for each view/procedure in the fixed Fabric Warehouse
+    (FIXED_WAREHOUSE_CONNECTION_STRING above) - see
+    fabric_warehouse_sql.py's module docstring for why these are
+    placeholders (empty body, original SQL as a comment where one was
+    captured) rather than real, runnable objects: the source SQL - where
+    captured at all - is a different dialect from the T-SQL a Warehouse
+    actually runs, and this makes no attempt to translate it.
+
+    Runs via fabric_notebook_warehouse_sql.py (a Fabric Notebook, using
+    Fabric's own internal token issuance) rather than fabric_warehouse_sql.py
+    (a direct external TDS connection using an Azure-CLI-acquired token):
+    against this tenant, the direct-connection path's login is rejected by
+    the Warehouse with SQL error 18456 ("Login failed") - almost certainly
+    a Conditional Access / allowed-client-app policy blocking Azure CLI's
+    token from authenticating straight to the SQL endpoint, since the same
+    identity works fine through the Fabric portal's own SQL editor. A
+    notebook running inside Fabric sidesteps that restriction entirely
+    (verified against the real target workspace). target_workspace_id/
+    default_lakehouse_id are only used as a OneLake location to stash the
+    notebook run's result at - see that module's docstring.
+
+    This is deliberately isolated from the table/pipeline/volume sync
+    above: any failure here (notebook creation/run failure, no permission
+    on the Warehouse, etc.) is caught and reported as a warning/error list
+    rather than raised, so it can never take down a scan that otherwise
+    succeeded.
+
+    Returns (created, errors) - created is a list of "Type schema.name"
+    strings, errors is a list of {"object": ..., "error": ...} dicts.
+    """
+    try:
+        from Artifacts_Generator import fabric_notebook_warehouse_sql
+    except ImportError:
+        import fabric_notebook_warehouse_sql
+
+    return fabric_notebook_warehouse_sql.sync_views_and_procedures(
+        views, procedures, source_system, dry_run,
+        target_workspace_id, default_lakehouse_id,
+        FIXED_WAREHOUSE_CONNECTION_STRING, FIXED_WAREHOUSE_DATABASE_NAME, fabric_token,
+    )
+
+
 def Generator(json_path=None, dry_run=False, source_system=None, database_name=None, workspace_id=None):
     """
     Generate/synchronize Fabric Delta tables from migration_plan.json.
@@ -316,7 +432,16 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     json_path = Path(json_path).resolve()
 
     output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+
+    # Source-specific report names (e.g. "sqlserver_Assessment_Report.docx")
+    # take priority over the hardcoded "databricks_..." name below and the
+    # generic fallback copies - otherwise, when reports from more than one
+    # source system are sitting in output_dir at once, a non-Databricks
+    # Generator() call could silently rebuild from a stale Databricks report
+    # instead of its own.
+    src_prefix = (source_system or "").strip().lower().replace(" ", "")
     assessment_candidates = [
+        *([output_dir / f"{src_prefix}_Assessment_Report.docx"] if src_prefix else []),
         output_dir / "databricks_Assessment_Report.docx",
         output_dir / "Assesment Report.docx",
         output_dir / "Metadata_Report.docx"
@@ -349,6 +474,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     if should_rebuild and assessment_doc:
         if assessment_doc:
             plan_candidates = [
+                *([output_dir / f"{src_prefix}_Migration_Plan.docx"] if src_prefix else []),
                 output_dir / "databricks_Migration_Plan.docx",
                 output_dir / "AI_Migration_Plan.docx",
                 output_dir / "Migration_Assessment.docx"
@@ -385,6 +511,9 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
     plan = load_plan(json_path)
     tables = plan.get("tables", [])
+    views = plan.get("views", [])
+    procedures = plan.get("procedures", [])
+    volumes = plan.get("volumes", [])
 
     # source_system/database_name aren't always passed explicitly - fall
     # back to whatever plan_to_json.py recorded in meta, if anything.
@@ -404,6 +533,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
     storage_options = None
     fabric_token = None
+    token = None
 
     caller_id = "unknown"
     caller_name = "Azure Identity"
@@ -557,6 +687,71 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
                 "error": str(exc)
             })
 
+    # Beyond the Lakehouse tables above, also create/update a Fabric Data
+    # Pipeline whose activities mirror the plan's Bronze/Silver/Gold
+    # execution order - one Copy activity per table actually synced above,
+    # sink fully wired to that table in this Lakehouse. Each activity's
+    # source is left as a placeholder (see fabric_pipeline_builder.py):
+    # no source connection is configured here, so this is a structural
+    # scaffold to open in Fabric Studio and wire up, not yet a pipeline
+    # that can be run end to end.
+    pipeline_info = None
+    if created_or_updated:
+        pipeline_name = fabric_pipeline_builder.build_pipeline_name(source_system, database_name)
+        pipeline_content = fabric_pipeline_builder.build_pipeline_content(
+            created_or_updated, target_workspace_id, default_lakehouse_id, artifact_lakehouse_name,
+            source_system=source_system
+        )
+        activity_count = len(pipeline_content["properties"]["activities"])
+
+        if dry_run:
+            log(f"[DRY-RUN] Would create/update Fabric Data Pipeline '{pipeline_name}' with {activity_count} Copy activities.")
+            pipeline_info = {"name": pipeline_name, "id": None, "activities": activity_count, "dry_run": True}
+        else:
+            try:
+                pipeline_id = fabric_api.create_or_update_pipeline(
+                    target_workspace_id, pipeline_name, pipeline_content, fabric_token
+                )
+                log(
+                    f"[INFO] Fabric Data Pipeline '{pipeline_name}' ready (id={pipeline_id}, {activity_count} Copy activities). "
+                    f"Each activity's source is a placeholder - configure the real {source_system} connection per activity "
+                    f"in Fabric Studio before running it."
+                )
+                pipeline_info = {"name": pipeline_name, "id": pipeline_id, "activities": activity_count, "dry_run": False}
+            except Exception as exc:
+                log(f"[ERROR] Failed to create/update Fabric Data Pipeline '{pipeline_name}': {exc}")
+                errors.append({"table": None, "error": f"Pipeline creation failed: {exc}"})
+                pipeline_info = {"name": pipeline_name, "id": None, "activities": activity_count, "error": str(exc)}
+
+    # Volumes: one Files/<schema>/<volume_name> OneLake directory per
+    # volume in the same Lakehouse. Full, non-scaffold support - see
+    # sync_volumes() above.
+    volume_results = []
+    volume_errors = []
+    if volumes:
+        volume_results, volume_errors = sync_volumes(
+            volumes, target_workspace_id, default_lakehouse_id, token, dry_run
+        )
+        errors.extend({"table": None, "error": f"Volume {e['volume']}: {e['error']}"} for e in volume_errors)
+
+    # Views/Stored Procedures: best-effort placeholder scaffold in the one
+    # fixed, shared Fabric Warehouse (see FIXED_WAREHOUSE_CONNECTION_STRING
+    # above and sync_views_and_procedures() for exactly what "placeholder"
+    # means and why this can't be a full Delta-table-style sync the way
+    # Tables/Volumes are).
+    warehouse_info = None
+    if views or procedures:
+        wh_created, wh_errors = sync_views_and_procedures(
+            views, procedures, source_system, dry_run, target_workspace_id, default_lakehouse_id, fabric_token
+        )
+        warehouse_info = {
+            "name": FIXED_WAREHOUSE_CONNECTION_STRING,
+            "created": wh_created,
+            "errors": wh_errors,
+            "dry_run": dry_run,
+        }
+        errors.extend({"table": None, "error": f"Warehouse object {e['object']}: {e['error']}"} for e in wh_errors)
+
     log("==================================================")
     log("JSON -> FABRIC COMPLETED")
     log("==================================================")
@@ -575,7 +770,36 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
     synced_list = [f"{t['schema']}.{t['table']} ({t['columns']} columns) [{t.get('layer', 'Table')}]" for t in created_or_updated]
     tables_meta = [{"schema": t["schema"], "table": t["table"], "columns_count": t["columns"]} for t in created_or_updated]
-    err_list = [f"{e.get('table', 'Error')}: {str(e.get('error', '')).replace('\u21b3', '->')}" for e in errors]
+    err_list = [f"{e.get('table', 'Error')}: {str(e.get('error', '')).replace(chr(0x21b3), '->')}" for e in errors]
+
+    log(f"[INFO] Source system: {source_system}")
+    log(f"[INFO] Target workspace: {target_workspace_id}")
+    log(f"[INFO] Artifact lakehouse: {artifact_lakehouse_name} (id={default_lakehouse_id})")
+    log(f"[INFO] Total processed: {len(created_or_updated)}, Errors: {len(errors)}")
+
+    for t in created_or_updated:
+        log(f"[SUCCESS] {t['schema']}.{t['table']} ({t['columns']} cols) -> {t['uri']}")
+    for err in err_list:
+        log(f"[ERROR] {err}")
+
+    if pipeline_info:
+        if pipeline_info.get("error"):
+            log(f"[ERROR] Pipeline '{pipeline_info['name']}': {pipeline_info['error']}")
+        else:
+            log(
+                f"[SUCCESS] Fabric Data Pipeline '{pipeline_info['name']}' "
+                f"({pipeline_info['activities']} Copy activities, source connections still need configuring)"
+                + (" [DRY-RUN]" if pipeline_info.get("dry_run") else f" (id={pipeline_info['id']})")
+            )
+
+    for v in volume_results:
+        log(f"[SUCCESS] Volume folder Files/{v}" + (" [DRY-RUN]" if dry_run else ""))
+
+    if warehouse_info:
+        for c in warehouse_info["created"]:
+            log(f"[SUCCESS] Placeholder {c} in Warehouse '{warehouse_info['name']}'" + (" [DRY-RUN]" if dry_run else ""))
+        for e in warehouse_info["errors"]:
+            log(f"[ERROR] Warehouse object {e.get('object')}: {e.get('error')}")
 
     return {
         "status": "success" if not errors else ("partial" if created_or_updated else "error"),
@@ -593,7 +817,10 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
         },
         "lakehouse_name": artifact_lakehouse_name,
         "processed": created_or_updated,
-        "skipped": skipped
+        "skipped": skipped,
+        "pipeline": pipeline_info,
+        "volumes": {"created": volume_results, "errors": volume_errors},
+        "warehouse": warehouse_info
     }
 
 if __name__ == "__main__":

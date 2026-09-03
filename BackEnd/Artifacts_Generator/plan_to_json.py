@@ -22,19 +22,39 @@ Output shape
       ]
     },
     ...
+  ],
+  "views": [
+    {"schema": "cards", "view_name": "vw_active_cards", "columns": [...], "definition": "SELECT ..."},
+    ...
+  ],
+  "functions": [
+    {"schema": "cards", "function_name": "fn_mask_pan", "return_type": "STRING"},
+    ...
+  ],
+  "volumes": [
+    {"schema": "cards", "volume_name": "raw_files", "volume_type": "EXTERNAL", "storage_location": "s3://..."},
+    ...
   ]
 }
 
 Column/schema parsing supports both report layouts the pipeline has
 produced over time:
-  - "new format" (current docx_generator.py output): a "5.N <table>"
-    Heading 2 per table, a "The table <schema>.<table> is mapped..."
-    sentence for the schema, and a "Column | Data Type | Key" docx table.
+  - "new format" (current docx_generator.py output): a "5.N <name>"
+    Heading 2 per object (table, view, function, or volume), a
+    "The <table|view|function|volume> <schema>.<name> is mapped..." sentence
+    giving the schema and object type, a "Column | Data Type | Key" docx
+    table for tables/views, and a "Property | Value" docx table for
+    views/functions/volumes (Definition / Return Type / Volume Type /
+    Storage Location).
   - "old format" (a plain-text table_summarizer transcript): "Table Name:"
     / "Schema:" paragraphs followed by a "- Columns:" block of "• name
-    (type)" bullets.
+    (type)" bullets. Always parses as a table - views/functions/volumes
+    never existed in this older transcript layout.
 This is the same dual-format logic SQL_2_Fabric.py uses, kept in one place
 here so every target generator can share it instead of re-implementing it.
+Views/functions/volumes are additive, separate keys rather than being mixed
+into "tables" so DB2_2_Fabric.py's existing tables-only Delta table sync
+keeps working unchanged.
 
 Medallion layer comes from SECTION 5's "Medallion Architecture Mapping
 Table" (Table Name / Layer (Bronze/Silver/Gold) / Reason). Load strategy
@@ -99,7 +119,7 @@ def parse_assessment_report(doc_path):
                 if current:
                     tables.append(current)
                 t_name = text.split(":", 1)[1].strip()
-                current = {"schema": "dbo", "table_name": t_name, "columns": []}
+                current = {"schema": "dbo", "table_name": t_name, "type": "table", "columns": [], "details": {}}
                 in_columns_old = False
                 continue
 
@@ -135,17 +155,25 @@ def parse_assessment_report(doc_path):
                     tables.append(current)
                 parts = text.split(" ", 1)
                 t_name = parts[1].strip()
-                current = {"schema": "dbo", "table_name": t_name, "columns": []}
+                current = {"schema": "dbo", "table_name": t_name, "type": "table", "columns": [], "details": {}}
                 in_columns_old = False
                 continue
 
             if current:
+                # "The <table|view|function|procedure|volume> <schema>.<name>
+                # is mapped..." - the intro sentence docx_generator.py writes
+                # for every object type under Section 5. Captures both the
+                # schema and the object type in one match so plan_to_json can
+                # route tables/views/functions/procedures/volumes into
+                # separate output lists.
                 match = re.search(
-                    r"The table ([a-zA-Z0-9_]+)\." + re.escape(current["table_name"]) + r" is mapped",
+                    r"The (table|view|function|procedure|volume) ([a-zA-Z0-9_]+)\." + re.escape(current["table_name"]) + r" is mapped",
                     text,
+                    re.IGNORECASE,
                 )
                 if match:
-                    current["schema"] = match.group(1)
+                    current["type"] = match.group(1).lower()
+                    current["schema"] = match.group(2)
 
         elif element.tag.endswith('tbl') and current:
             t = docx.table.Table(element, doc)
@@ -158,6 +186,16 @@ def parse_assessment_report(doc_path):
                             c_type = row.cells[1].text.strip()
                             if c_name and c_type:
                                 current["columns"].append({"name": c_name, "data_type": c_type})
+                elif header_text == "property":
+                    # The View/Function/Volume "Object Details" table
+                    # (Property/Value) - carries Definition/Return Type/
+                    # Volume Type/Storage Location through to migration_plan.json.
+                    for row in t.rows[1:]:
+                        if len(row.cells) >= 2:
+                            prop = row.cells[0].text.strip()
+                            val = row.cells[1].text.strip()
+                            if prop:
+                                current["details"][prop] = val
 
     if current:
         tables.append(current)
@@ -269,20 +307,60 @@ def build_plan(assessment_path, migration_plan_path=None, source_system=None, da
         if source_system:
             print(f"[INFO] source_system inferred from assessment report: '{source_system}'")
 
+    # Section 5 carries tables, views, functions, procedures, and volumes
+    # side by side (see docx_generator.py's flat 5.N numbering across all
+    # five types). They're bucketed into separate output lists here -
+    # rather than all dumped into "tables" - so DB2_2_Fabric.py's existing
+    # tables-only Delta table sync keeps behaving exactly as before;
+    # views/functions/procedures/volumes are new, additive keys for
+    # whatever consumes them next.
     tables_out = []
+    views_out = []
+    functions_out = []
+    procedures_out = []
+    volumes_out = []
     for t in parsed_tables:
-        table_name = t["table_name"]
-        entry = {
-            "schema": t.get("schema") or "dbo",
-            "table_name": table_name,
-            "medallion_layer": layer_map.get(table_name.lower()) if has_plan else None,
-            "load_strategy": (
-                ("Incremental Load" if table_name.lower() in incremental_names else "Full Load")
-                if has_plan else None
-            ),
-            "columns": t["columns"],
-        }
-        tables_out.append(entry)
+        name = t["table_name"]
+        schema = t.get("schema") or "dbo"
+        obj_type = t.get("type") or "table"
+        details = t.get("details") or {}
+
+        if obj_type == "view":
+            views_out.append({
+                "schema": schema,
+                "view_name": name,
+                "columns": t["columns"],
+                "definition": details.get("Definition"),
+            })
+        elif obj_type == "function":
+            functions_out.append({
+                "schema": schema,
+                "function_name": name,
+                "return_type": details.get("Return Type"),
+            })
+        elif obj_type == "procedure":
+            procedures_out.append({
+                "schema": schema,
+                "procedure_name": name,
+            })
+        elif obj_type == "volume":
+            volumes_out.append({
+                "schema": schema,
+                "volume_name": name,
+                "volume_type": details.get("Volume Type"),
+                "storage_location": details.get("Storage Location"),
+            })
+        else:
+            tables_out.append({
+                "schema": schema,
+                "table_name": name,
+                "medallion_layer": layer_map.get(name.lower()) if has_plan else None,
+                "load_strategy": (
+                    ("Incremental Load" if name.lower() in incremental_names else "Full Load")
+                    if has_plan else None
+                ),
+                "columns": t["columns"],
+            })
 
     return {
         "meta": {
@@ -290,6 +368,10 @@ def build_plan(assessment_path, migration_plan_path=None, source_system=None, da
             "database_name": database_name,
         },
         "tables": tables_out,
+        "views": views_out,
+        "functions": functions_out,
+        "procedures": procedures_out,
+        "volumes": volumes_out,
     }
 
 
@@ -331,7 +413,14 @@ def main():
     n_tables = len(plan["tables"])
     n_cols = sum(len(t["columns"]) for t in plan["tables"])
     n_layered = sum(1 for t in plan["tables"] if t["medallion_layer"])
-    print(f"[OK] Wrote {output_path} ({n_tables} tables, {n_cols} columns, {n_layered} with a medallion layer assigned).")
+    n_views = len(plan.get("views", []))
+    n_functions = len(plan.get("functions", []))
+    n_procedures = len(plan.get("procedures", []))
+    n_volumes = len(plan.get("volumes", []))
+    print(
+        f"[OK] Wrote {output_path} ({n_tables} tables, {n_cols} columns, {n_layered} with a medallion layer assigned, "
+        f"{n_views} views, {n_functions} functions, {n_procedures} procedures, {n_volumes} volumes)."
+    )
 
 
 if __name__ == "__main__":
