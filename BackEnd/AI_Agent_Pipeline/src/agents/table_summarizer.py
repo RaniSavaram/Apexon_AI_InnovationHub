@@ -16,18 +16,25 @@ class TableSummarizerAgent:
         return """You are an Expert Database Metadata Analyst on Microsoft AI Foundry.
 
 OBJECTIVE
-Generate a complete table-wise metadata summary report using ONLY the metadata provided by your tool calls.
+Generate a complete metadata summary report for a single database object -
+a table, view, function, stored procedure, or volume - using ONLY the
+metadata provided by your tool calls.
 
 MANDATORY RULES
-- Use only the supplied metadata retrieved from get_table_metadata.
+- Use only the supplied metadata retrieved from get_table_metadata,
+  get_view_metadata, get_function_metadata, get_procedure_metadata, or
+  get_volume_metadata.
+- Call exactly the one tool the user message names - a table request calls
+  get_table_metadata, a view request calls get_view_metadata, and so on.
 - Do not assume, infer, or hallucinate non-existent database objects.
 - Do not generate markdown tables or JSON format.
 - Do not use '|' characters.
 - Do not mention Medallion architecture, Bronze, Silver, or Gold layers in your summary.
 - If a property has no values, output 'None' - never leave it blank or empty.
 - Output must be clean, structured, and human-readable.
-- Follow the required output format exactly:
+- Follow the required output format exactly for the object type requested:
 
+--- If the request is for a TABLE (get_table_metadata) ---
 Table Name: <table_name>
 Schema: <schema_name>
 
@@ -81,12 +88,96 @@ Summary:
             strict=True
         )
 
+        view_metadata_tool = FunctionTool(
+            name="get_view_metadata",
+            description="Gets detailed metadata for a single database view (e.g. columns, SQL definition).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "view_name": {
+                        "type": "string",
+                        "description": "The name of the view to retrieve metadata for."
+                    },
+                    "schema_name": {
+                        "type": "string",
+                        "description": "Optional schema name to distinguish views with identical names."
+                    }
+                },
+                "required": ["view_name", "schema_name"],
+                "additionalProperties": False
+            },
+            strict=True
+        )
+
+        function_metadata_tool = FunctionTool(
+            name="get_function_metadata",
+            description="Gets metadata for a single database function (e.g. return type).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "function_name": {
+                        "type": "string",
+                        "description": "The name of the function to retrieve metadata for."
+                    },
+                    "schema_name": {
+                        "type": "string",
+                        "description": "Optional schema name to distinguish functions with identical names."
+                    }
+                },
+                "required": ["function_name", "schema_name"],
+                "additionalProperties": False
+            },
+            strict=True
+        )
+
+        procedure_metadata_tool = FunctionTool(
+            name="get_procedure_metadata",
+            description="Gets metadata for a single stored procedure (name and schema only).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "procedure_name": {
+                        "type": "string",
+                        "description": "The name of the stored procedure to retrieve metadata for."
+                    },
+                    "schema_name": {
+                        "type": "string",
+                        "description": "Optional schema name to distinguish procedures with identical names."
+                    }
+                },
+                "required": ["procedure_name", "schema_name"],
+                "additionalProperties": False
+            },
+            strict=True
+        )
+
+        volume_metadata_tool = FunctionTool(
+            name="get_volume_metadata",
+            description="Gets metadata for a single Unity Catalog volume (e.g. volume type, storage location).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "volume_name": {
+                        "type": "string",
+                        "description": "The name of the volume to retrieve metadata for."
+                    },
+                    "schema_name": {
+                        "type": "string",
+                        "description": "Optional schema name to distinguish volumes with identical names."
+                    }
+                },
+                "required": ["volume_name", "schema_name"],
+                "additionalProperties": False
+            },
+            strict=True
+        )
+
         agent = client.agents.create_version(
             agent_name=self.agent_name,
             definition=PromptAgentDefinition(
                 model=self.model_name,
                 instructions=self.get_instructions(),
-                tools=[metadata_tool]
+                tools=[metadata_tool, view_metadata_tool, function_metadata_tool, procedure_metadata_tool, volume_metadata_tool]
             )
         )
         return agent

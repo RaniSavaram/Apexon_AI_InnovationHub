@@ -1140,7 +1140,9 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     if (this.fabricArtifactsResult?.generator_script) {
       return this.fabricArtifactsResult.generator_script;
     }
-    return this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py';
+    // Both Databricks and SQL Server route through the same generic,
+    // JSON-driven generator now - only the source_system label differs.
+    return 'DB2_2_Fabric.py';
   }
 
   openArtifactsDialog() {
@@ -1149,7 +1151,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       return;
     }
     this.showArtifactsDialog = true;
-    const expectedScript = this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py';
+    const expectedScript = 'DB2_2_Fabric.py';
     const currentScript = this.fabricArtifactsResult?.generator_script;
 
     if ((!this.fabricArtifactsResult || currentScript !== expectedScript) && !this.generatingFabric) {
@@ -1182,7 +1184,6 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     const isDatabricks = this.isDatabricksSource();
     const sourceName = isDatabricks ? 'Databricks' : 'SQL Server';
     const reportDoc = isDatabricks ? 'databricks_Assessment_Report.docx' : 'sqlserver_Assessment_Report.docx';
-    const lakehouseId = isDatabricks ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9' : '87ddccfe-cfa3-47d6-92ab-b638ce379319';
 
     // Seed with exact initial backend execution header
     this.fabricLiveLogs = [
@@ -1200,9 +1201,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
     const pendingHeaderLines = [
       `[INFO] Authenticated Identity: Service Principal (ID: 8e82282c-30c4-474c-9925-d233b3f18ed8, Tenant: 61aa10dd-0f65-4088-8028-6766e4da079e)`,
-      `[INFO] '${sourceName.toLowerCase()}' has a pre-provisioned Lakehouse - using it directly (id=${lakehouseId}).`,
-      `[INFO] Target workspace: bae3b540-d044-45e0-8c52-3cf4ee3dcb31`,
-      `[INFO] Artifact lakehouse: ${sourceName.toLowerCase()} (pre-provisioned)`
+      `[INFO] Target workspace: bae3b540-d044-45e0-8c52-3cf4ee3dcb31`
     ];
 
     let headerIdx = 0;
@@ -1282,7 +1281,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
           message: msg,
           errors: [msg],
           logs: [...this.fabricLiveLogs],
-          generator_script: this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py'
+          generator_script: 'DB2_2_Fabric.py'
         };
         this.cdr.detectChanges();
         setTimeout(() => this.scrollFabricLogsToBottom(), 100);
@@ -1296,13 +1295,6 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     if (status === 'warning') return 'Assessment Report Notice';
     if (status === 'partial') return 'Partial Artifacts Deployment';
     return 'Artifacts Deployment Details';
-  }
-
-  getLakehouseUrl(): string {
-    if (this.isDatabricksSource()) {
-      return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/bc94c085-a651-46a6-96a1-0c1183ef78f9?experience=fabric-developer';
-    }
-    return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/87ddccfe-cfa3-47d6-92ab-b638ce379319?experience=fabric-developer&selectedPath=dbo%2Fauth_group';
   }
 
   getWorkspaceUrl(): string {
@@ -1400,6 +1392,70 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     if (!this.fabricArtifactsResult?.tables) return false;
     const key = `${t.schema}.${t.table}`;
     return this.fabricArtifactsResult.tables.some((s: string) => s.startsWith(key));
+  }
+
+  // Combines Tables, Volumes, Views and Stored Procedures into one list so
+  // the "Synced Tables" tab reflects every artifact type DB2_2_Fabric.py's
+  // Generator() can sink, not just Delta tables.
+  getSyncedArtifactsRows(): { category: string; schema: string; name: string; detail: string; synced: boolean }[] {
+    const result = this.fabricArtifactsResult;
+    const rows: { category: string; schema: string; name: string; detail: string; synced: boolean }[] = [];
+    if (!result) return rows;
+
+    const categoryLabel = (kind: string): string => kind === 'Procedure' ? 'Stored Procedure' : (kind || 'Object');
+
+    for (const t of result.tables_info || []) {
+      rows.push({
+        category: 'Table',
+        schema: t.schema,
+        name: t.table,
+        detail: `${t.columns_count} columns`,
+        synced: this.isTableSynced(t)
+      });
+    }
+
+    for (const v of result.volumes?.created || []) {
+      const [schema, name] = String(v).split('/');
+      rows.push({ category: 'Volume', schema: schema || '', name: name || v, detail: 'OneLake Files/ folder', synced: true });
+    }
+    for (const e of result.volumes?.errors || []) {
+      const [schema, name] = String(e.volume || '').split('.');
+      rows.push({ category: 'Volume', schema: schema || '', name: name || e.volume || 'unknown', detail: e.error || 'Sync failed', synced: false });
+    }
+
+    for (const c of result.warehouse?.created || []) {
+      const [kind, qualified] = String(c).split(' ');
+      const [schema, name] = (qualified || '').split('.');
+      rows.push({
+        category: categoryLabel(kind),
+        schema: schema || '',
+        name: name || qualified || '',
+        detail: `Placeholder in Warehouse '${result.warehouse?.name || ''}'`,
+        synced: true
+      });
+    }
+    for (const e of result.warehouse?.errors || []) {
+      const objStr = e.object || '';
+      if (!objStr) {
+        // No object name means the Warehouse connection itself failed
+        // before reaching any specific View/Procedure - not a real synced
+        // artifact, and it has no Category/Name of its own to show. It's
+        // already surfaced in the Sync Notice(s) box above the table, so
+        // skip adding a misleading row here.
+        continue;
+      }
+      const [kind, qualified] = objStr.split(' ');
+      const [schema, name] = (qualified || '').split('.');
+      rows.push({
+        category: categoryLabel(kind),
+        schema: schema || '',
+        name: name || objStr || 'unknown',
+        detail: e.error || 'Sync failed',
+        synced: false
+      });
+    }
+
+    return rows;
   }
 
   //=========================================================

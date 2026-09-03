@@ -209,7 +209,8 @@ def parse_schema_dict(schema_data, label="metadata"):
             if table_type.upper() == "VIEW":
                 views_list.append({
                     "schema_name": schema_name,
-                    "view_name": table_name
+                    "view_name": table_name,
+                    "definition": table.get("definition"),
                 })
             else:
                 tables_list.append({
@@ -278,7 +279,7 @@ def build_dataframes(tables_list, columns_list, stats_list, views_list, procedur
     tables_df = pd.DataFrame(tables_list)
     columns_df = pd.DataFrame(columns_list)
     stats_df = pd.DataFrame(stats_list)
-    views_df = pd.DataFrame(views_list) if views_list else pd.DataFrame(columns=["schema_name", "view_name"])
+    views_df = pd.DataFrame(views_list) if views_list else pd.DataFrame(columns=["schema_name", "view_name", "definition"])
     procedures_df = pd.DataFrame(procedures_list) if procedures_list else pd.DataFrame(columns=["schema_name", "procedure_name"])
     functions_df = pd.DataFrame(functions_list) if functions_list else pd.DataFrame(columns=["schema_name", "function_name", "return_type"])
     volumes_df = pd.DataFrame(volumes_list) if volumes_list else pd.DataFrame(columns=["schema_name", "volume_name", "volume_type", "storage_location"])

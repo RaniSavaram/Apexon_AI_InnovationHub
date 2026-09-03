@@ -1,0 +1,424 @@
+{
+  "metadata": {
+    "scan_id": "32045291-a92b-43ae-a814-af9b76236628",
+    "generated_at": "2026-09-03T12:43:27.319935Z",
+    "source_platform": "Databricks",
+    "target_platform": "Microsoft Fabric (OneLake)",
+    "total_tables": 2,
+    "total_columns": 50,
+    "total_views": 1,
+    "total_procedures": 1,
+    "total_size_mb": 4.09,
+    "total_row_count": 129000
+  },
+  "source": {
+    "database_name": "bfsi_dev",
+    "schemas": [
+      "cards"
+    ]
+  },
+  "target": {
+    "lakehouse_name": "LH_databricks",
+    "medallion_architecture": "Bronze-Silver-Gold",
+    "fabric_components": {
+      "Lakehouse": "Central storage repository for raw and cleansed Delta tables.",
+      "Pipelines": "Orchestrates schema copying, pipeline runs, and historical loads.",
+      "OneLake": "Logical unified data lake storage engine using Delta Parquet format.",
+      "Spark Notebooks": "Processes Silver normalizations and Gold analytical aggregations.",
+      "Power BI Reports": "Consumes conformed Gold semantic tables for business intelligence dashboards."
+    }
+  },
+  "objects": [
+    {
+      "name": "dim_card",
+      "schema": "cards",
+      "type": "table",
+      "size_mb": 0.2,
+      "row_count": 4000,
+      "medallion_layer": "Gold",
+      "layer_reason": "sensitive attributes for broad BI access.",
+      "primary_key": "card_id",
+      "columns": [
+        {
+          "name": "card_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "card_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "card_number_masked",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "card_network",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "card_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "product_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "cardholder_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "issue_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "expiry_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "cvv_stored",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "credit_limit",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "available_limit",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "cash_limit",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "current_outstanding",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "min_amount_due",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "total_amount_due",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "statement_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "payment_due_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "reward_points",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "card_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "is_contactless",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "is_international_enabled",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 23
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "fact_card_transaction",
+      "schema": "cards",
+      "type": "table",
+      "size_mb": 3.89,
+      "row_count": 125000,
+      "medallion_layer": "Gold",
+      "layer_reason": "Aggregated reporting or analytical table",
+      "primary_key": "card_txn_id",
+      "columns": [
+        {
+          "name": "card_txn_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "card_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "txn_timestamp",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "posting_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "currency_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "billing_amount_inr",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "fx_rate",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "merchant_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "merchant_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "merchant_category_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "merchant_city",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "merchant_country",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "entry_mode",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "auth_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "approval_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "decline_reason",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "is_international",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "is_emi_converted",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "fraud_score",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "is_fraud_flagged",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        }
+      ],
+      "dependencies": [
+        "dim_card"
+      ]
+    },
+    {
+      "name": "archived_orders_view",
+      "schema": "sp_demo",
+      "type": "view",
+      "dependencies": []
+    },
+    {
+      "name": "archive_old_orders",
+      "schema": "sp_demo",
+      "type": "procedure",
+      "dependencies": []
+    }
+  ],
+  "relationships": [
+    {
+      "fk_name": "FK_fact_card_transaction_card_id_dim_card",
+      "parent_schema": "cards",
+      "parent_table": "fact_card_transaction",
+      "parent_column": "FK_fact_card_transaction_card_id_dim_card",
+      "referenced_schema": "cards",
+      "referenced_table": "dim_card",
+      "referenced_column": "FK_fact_card_transaction_card_id_dim_card"
+    }
+  ],
+  "execution_plan": {
+    "migration_sequence": [
+      "dim_card",
+      "fact_card_transaction"
+    ],
+    "batches": {
+      "Batch 1 (Independent Tables)": [
+        "dim_card"
+      ],
+      "Batch 2 (Medium Dependency Tables)": [],
+      "Batch 3 (Highly Dependent Tables)": [
+        "fact_card_transaction"
+      ],
+      "Batch 4 (Views)": [
+        "archived_orders_view"
+      ],
+      "Batch 5 (Stored Procedures)": [
+        "archive_old_orders"
+      ]
+    },
+    "strategies": {
+      "table_execution_logic": "All tables in Batch 1 can be executed in parallel due to independence. Batch 3 tables should be executed sequentially after their dependencies are satisfied.",
+      "incremental_load_candidates": []
+    }
+  }
+}

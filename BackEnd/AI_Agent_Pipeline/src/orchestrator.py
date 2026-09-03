@@ -12,7 +12,14 @@ from agents import TableSummarizerAgent, MigrationGeneratorAgent
 # Import metadata, document generation, and tools
 from metadataProcessor import collect_metadata, read_csv_robust, infer_sql_type
 from docx_generator import create_table_summary_document, create_migration_plan_document, set_cell_margins
-from tools.database_tools import table_summary_tool, get_size_category
+from tools.database_tools import (
+    table_summary_tool,
+    view_summary_tool,
+    function_summary_tool,
+    procedure_summary_tool,
+    volume_summary_tool,
+    get_size_category,
+)
 from rag import identify_source_type, get_common_fabric_kb, get_source_kb
 from Logs import Logs
 
@@ -34,7 +41,8 @@ class AzureAIOrchestrator:
         self.base_agent_name = os.getenv("AZURE_AI_FOUNDRY_AGENT_NAME", "MyAgent")
         self.model_name = os.getenv("AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT_NAME", "gpt-4.1-mini")
         self.scan_id = scan_id
-        
+        self.source_hint = source_hint
+
         # Save DataFrames as attributes to expose to tools
         self.tables_df = tables_df
         self.columns_df = columns_df
@@ -55,11 +63,12 @@ class AzureAIOrchestrator:
         self.source_type = identify_source_type(hint=source_hint)
         self._common_kb = get_common_fabric_kb()
         self._source_kb = get_source_kb(self.source_type)
-        Logs["Scan Info"].append(
-            f"[INFO] RAG source type resolved to '{self.source_type}' "
-            f"(source-specific KB {'found' if self._source_kb else 'not available - common Fabric guidance only'})."
+        rag_source_msg = (
+            f"[INFO] Detected source platform: '{self.source_type}' "
+            f"(source-specific Fabric migration guidance {'found' if self._source_kb else 'not available - falling back to common Fabric guidance'})."
         )
-        print(f"[INFO] RAG source type resolved to '{self.source_type}'.")
+        Logs["Scan Info"].append(rag_source_msg)
+        print(rag_source_msg)
         
         # Names for the agents (Azure requires alphanumeric and hyphens only).
         # A per-run suffix keeps concurrent scans from colliding on the same
@@ -104,9 +113,20 @@ class AzureAIOrchestrator:
         print("[INFO] Initializing Azure AI Projects Client...")
         from azure.identity import DefaultAzureCredential
         from azure.ai.projects import AIProjectClient
+        # exclude_shared_token_cache_credential/exclude_broker_credential:
+        # these two Windows OS-cache-backed sources (SharedTokenCacheCredential,
+        # and this azure-identity version's default-included BrokerCredential/
+        # WAM) are prone to going stale after e.g. a Windows update, surfacing
+        # as "Couldn't complete the operation due to a system update..." -
+        # stale on-disk state that persists across process restarts. See the
+        # matching exclusion in Artifacts_Generator/fabric_api.py for the
+        # same fix on the Fabric-token path.
         self.client = AIProjectClient(
             endpoint=self.endpoint,
-            credential=DefaultAzureCredential()
+            credential=DefaultAzureCredential(
+                exclude_shared_token_cache_credential=True,
+                exclude_broker_credential=True,
+            )
         )
         self.client_type = "projects"
         Logs["Scan Info"].append(f"[INFO] Azure AI Projects Client initialized successfully.")
@@ -127,6 +147,30 @@ class AzureAIOrchestrator:
             self.dep_df,
             schema_name=schema_name
         )
+
+    def get_view_metadata(self, view_name: str, schema_name: str = None) -> str:
+        """Tool function counterpart to get_table_metadata, for VIEW objects."""
+        Logs["Scan Info"].append(f"  [TOOL RUN] Fetching metadata summary for view: '{view_name}' (Schema: '{schema_name}')...")
+        print(f"  [TOOL RUN] Fetching metadata summary for view: '{view_name}' (Schema: '{schema_name}')...")
+        return view_summary_tool(view_name, self.columns_df, self.views_df, schema_name=schema_name)
+
+    def get_function_metadata(self, function_name: str, schema_name: str = None) -> str:
+        """Tool function counterpart to get_table_metadata, for FUNCTION objects."""
+        Logs["Scan Info"].append(f"  [TOOL RUN] Fetching metadata summary for function: '{function_name}' (Schema: '{schema_name}')...")
+        print(f"  [TOOL RUN] Fetching metadata summary for function: '{function_name}' (Schema: '{schema_name}')...")
+        return function_summary_tool(function_name, self.functions_df, schema_name=schema_name)
+
+    def get_procedure_metadata(self, procedure_name: str, schema_name: str = None) -> str:
+        """Tool function counterpart to get_table_metadata, for stored PROCEDURE objects."""
+        Logs["Scan Info"].append(f"  [TOOL RUN] Fetching metadata summary for procedure: '{procedure_name}' (Schema: '{schema_name}')...")
+        print(f"  [TOOL RUN] Fetching metadata summary for procedure: '{procedure_name}' (Schema: '{schema_name}')...")
+        return procedure_summary_tool(procedure_name, self.procedures_df, schema_name=schema_name)
+
+    def get_volume_metadata(self, volume_name: str, schema_name: str = None) -> str:
+        """Tool function counterpart to get_table_metadata, for VOLUME objects."""
+        Logs["Scan Info"].append(f"  [TOOL RUN] Fetching metadata summary for volume: '{volume_name}' (Schema: '{schema_name}')...")
+        print(f"  [TOOL RUN] Fetching metadata summary for volume: '{volume_name}' (Schema: '{schema_name}')...")
+        return volume_summary_tool(volume_name, self.volumes_df, schema_name=schema_name)
 
     def _get_rag_context(self, query, top_k=3, max_chars_per_chunk=900):
         if self._source_kb:
@@ -198,9 +242,10 @@ class AzureAIOrchestrator:
 
     def run_agent_with_tool_calling(self, agent_name: str, user_msg: str, tool_map: dict = None) -> str:
         try:
+            Logs["Harness Layer2"].append(f"[AGENT START] {agent_name}")
             openai_client = self.client.get_openai_client(agent_name=agent_name)
             conversation = openai_client.conversations.create()
-            
+
             response = openai_client.responses.create(
                 conversation=conversation.id,
                 input=user_msg,
@@ -212,25 +257,47 @@ class AzureAIOrchestrator:
                 }
             )
             self._accumulate_usage(response)
-            
+            Logs["Harness Layer2"].append(
+                f"[AGENT RESPONSE] {agent_name}: initial response received."
+            )
+
             while True:
                 tool_calls = [item for item in response.output if item.type == "function_call"]
                 if not tool_calls:
                     break
-                    
+
                 input_list = []
                 for item in tool_calls:
                     func_name = item.name
                     func_args = json.loads(item.arguments)
-                    
+                    tool_target = (
+                        func_args.get("table_name")
+                        or func_args.get("view_name")
+                        or func_args.get("function_name")
+                        or func_args.get("procedure_name")
+                        or func_args.get("volume_name")
+                        or "?"
+                    )
+                    if func_args.get("schema_name"):
+                        tool_target = f"{func_args['schema_name']}.{tool_target}"
+                    Logs["Harness Layer2"].append(
+                        f"[TOOL REQUEST] {agent_name} requested {func_name} for {tool_target}."
+                    )
+                    agent_request_msg = f"  [AGENT] {agent_name} is requesting '{func_name}' for {tool_target}..."
+                    Logs["Scan Info"].append(agent_request_msg)
+                    print(agent_request_msg)
+
                     if tool_map and func_name in tool_map:
                         try:
                             output_str = tool_map[func_name](**func_args)
                         except Exception as e:
+                            Logs["Harness Layer2"].append(f"[TOOL FAILED] {func_name}: {e}")
+                            Logs["Scan Info"].append(f"[ERROR] Tool '{func_name}' failed: {e}")
                             output_str = f"Error executing tool: {e}"
                     else:
+                        Logs["Scan Info"].append(f"[ERROR] Tool '{func_name}' is not registered.")
                         output_str = f"Error: Tool '{func_name}' is not registered."
-                        
+
                     try:
                         from openai.types.responses import ResponseFunctionToolCallOutputItem
                         output_item = ResponseFunctionToolCallOutputItem(
@@ -244,18 +311,27 @@ class AzureAIOrchestrator:
                             "output": output_str
                         }
                     input_list.append(output_item)
-                
+                    Logs["Harness Layer2"].append(f"[TOOL COMPLETE] {func_name} returned.")
+                agent_continue_msg = f"  [AGENT] {agent_name} received the tool result - continuing..."
+                Logs["Scan Info"].append(agent_continue_msg)
+                print(agent_continue_msg)
                 response = openai_client.responses.create(
                     conversation=conversation.id,
                     input=input_list
                 )
-                self._accumulate_usage(response) 
-                
+                self._accumulate_usage(response)
+                Logs["Harness Layer2"].append(
+                    f"[AGENT RESPONSE] {agent_name}: follow-up response received."
+                )
+
             try:
                 openai_client.conversations.delete(conversation_id=conversation.id)
-            except Exception:
-                pass
+            except Exception as cleanup_err:
+                print(f"[INFO] Could not delete the agent conversation (non-fatal): {cleanup_err}")
             output_text = response.output_text
+            Logs["Harness Layer2"].append(
+                f"[AGENT COMPLETE] {agent_name}: generated {len(output_text or '')} characters."
+            )
             return output_text
         except Exception as exc:
             Logs["Scan Info"].append(f"  [AGENT WARNING] Azure AI invocation fallback: {exc}")
@@ -316,6 +392,67 @@ The cutover roadmap encompasses schema synchronization, historical parallel data
 SECTION 7: TOKEN AND COST REPORT
 Generated with AI Foundry agents and Microsoft Fabric best practices.
 """
+
+    def run_secondary_object_summarizer_agent(self, object_type, object_name, schema_name=None):
+        """
+        Sibling of run_table_summarizer_agent() for the four non-table
+        object types Unity Catalog also exposes - views, functions, stored
+        procedures, and volumes. object_type is one of "view", "function",
+        "procedure", "volume" and picks which get_*_metadata tool the agent
+        is told to call, per the per-object-type output formats in
+        TableSummarizerAgent's instructions.
+        """
+        tool_names = {
+            "view": "get_view_metadata",
+            "function": "get_function_metadata",
+            "procedure": "get_procedure_metadata",
+            "volume": "get_volume_metadata",
+        }
+        tool_name = tool_names[object_type]
+        direct_tool_fn = {
+            "view": self.get_view_metadata,
+            "function": self.get_function_metadata,
+            "procedure": self.get_procedure_metadata,
+            "volume": self.get_volume_metadata,
+        }[object_type]
+
+        Logs["Scan Info"].append(f"[INFO] Running Table Summarizer Agent for {object_type} '{object_name}' (Schema: '{schema_name}')...")
+        print(f"[INFO] Running Table Summarizer Agent for {object_type} '{object_name}' (Schema: '{schema_name}')...")
+        tool_map = {
+            "get_table_metadata": self.get_table_metadata,
+            "get_view_metadata": self.get_view_metadata,
+            "get_function_metadata": self.get_function_metadata,
+            "get_procedure_metadata": self.get_procedure_metadata,
+            "get_volume_metadata": self.get_volume_metadata,
+        }
+        if schema_name:
+            user_msg = f"Please fetch the metadata for {object_type} '{object_name}' in schema '{schema_name}' using {tool_name} and write the refined observations summary for this {object_type}."
+        else:
+            user_msg = f"Please fetch the metadata for {object_type} '{object_name}' using {tool_name} and write the refined observations summary for this {object_type}."
+
+        rag_context = self._get_rag_context(
+            f"{object_name} {object_type} unity catalog metadata definition storage",
+            top_k=2,
+            max_chars_per_chunk=500
+        )
+        if rag_context:
+            user_msg = user_msg + "\n\nBackground platform reference (context only - do not add sections or deviate from your required output format):\n" + rag_context
+
+        summary = self.run_agent_with_tool_calling(
+            agent_name=self.table_summarizer_name,
+            user_msg=user_msg,
+            tool_map=tool_map
+        )
+        # Mirrors run_table_summarizer_agent()'s fallback: if the AI agent
+        # call failed or returned too little (run_agent_with_tool_calling()
+        # returns None on any exception - rate limits, transient API
+        # errors, etc.), fall back to the tool's own raw metadata text
+        # directly rather than letting a None summary reach
+        # parse_view_summary_string()/parse_procedure_summary_string()/etc.
+        # downstream, which call .split() on it unconditionally.
+        if not summary or len(summary.strip()) < 20:
+            summary = direct_tool_fn(object_name, schema_name)
+        return summary
 
     def run_migration_generator_agent(self, metadata_summary_str):
         self._log_agent("        * [SUCCESS]: Synthesized target architecture mapping for Microsoft Fabric OneLake")

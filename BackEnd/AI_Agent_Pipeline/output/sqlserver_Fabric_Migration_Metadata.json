@@ -1,0 +1,373 @@
+{
+  "metadata": {
+    "scan_id": "34adea71-0a41-4fc0-aa7a-9c1f3cb09487",
+    "generated_at": "2026-09-01T09:55:01.228787Z",
+    "source_platform": "SQL Server",
+    "target_platform": "Microsoft Fabric (OneLake)",
+    "total_tables": 5,
+    "total_columns": 23,
+    "total_views": 0,
+    "total_procedures": 6,
+    "total_size_mb": 0.0,
+    "total_row_count": 25
+  },
+  "source": {
+    "database_name": "ic4_metarepo",
+    "schemas": [
+      "dbo"
+    ]
+  },
+  "target": {
+    "lakehouse_name": "LH_sqlserver",
+    "medallion_architecture": "Bronze-Silver-Gold",
+    "fabric_components": {
+      "Lakehouse": "Central storage repository for raw and cleansed Delta tables.",
+      "Pipelines": "Orchestrates schema copying, pipeline runs, and historical loads.",
+      "OneLake": "Logical unified data lake storage engine using Delta Parquet format.",
+      "Spark Notebooks": "Processes Silver normalizations and Gold analytical aggregations.",
+      "Power BI Reports": "Consumes conformed Gold semantic tables for business intelligence dashboards."
+    }
+  },
+  "objects": [
+    {
+      "name": "auth_group",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.0,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "name",
+          "source_datatype": "nvarchar(150)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "auth_group_permissions",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.0,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "group_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "permission_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": [
+        "auth_group",
+        "auth_permission"
+      ]
+    },
+    {
+      "name": "auth_permission",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.0,
+      "row_count": 24,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "name",
+          "source_datatype": "nvarchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "content_type_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "codename",
+          "source_datatype": "nvarchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "auth_user",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.0,
+      "row_count": 1,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "password",
+          "source_datatype": "nvarchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "last_login",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "is_superuser",
+          "source_datatype": "bit",
+          "target_datatype": "BOOLEAN",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "username",
+          "source_datatype": "nvarchar(150)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "first_name",
+          "source_datatype": "nvarchar(150)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 6
+        },
+        {
+          "name": "last_name",
+          "source_datatype": "nvarchar(150)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 7
+        },
+        {
+          "name": "email",
+          "source_datatype": "nvarchar(254)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 8
+        },
+        {
+          "name": "is_staff",
+          "source_datatype": "bit",
+          "target_datatype": "BOOLEAN",
+          "nullable": false,
+          "ordinal_position": 9
+        },
+        {
+          "name": "is_active",
+          "source_datatype": "bit",
+          "target_datatype": "BOOLEAN",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "date_joined",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 11
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "auth_user_groups",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.0,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "user_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "group_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": [
+        "auth_user",
+        "auth_group"
+      ]
+    },
+    {
+      "name": "sp_alterdiagram",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_creatediagram",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_dropdiagram",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_helpdiagramdefinition",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_helpdiagrams",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_renamediagram",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    }
+  ],
+  "relationships": [
+    {
+      "fk_name": "FK_auth_group_permissions_group_id_auth_group",
+      "parent_schema": "dbo",
+      "parent_table": "auth_group_permissions",
+      "parent_column": "FK_auth_group_permissions_group_id_auth_group",
+      "referenced_schema": "dbo",
+      "referenced_table": "auth_group",
+      "referenced_column": "FK_auth_group_permissions_group_id_auth_group"
+    },
+    {
+      "fk_name": "FK_auth_group_permissions_permission_id_auth_permission",
+      "parent_schema": "dbo",
+      "parent_table": "auth_group_permissions",
+      "parent_column": "FK_auth_group_permissions_permission_id_auth_permission",
+      "referenced_schema": "dbo",
+      "referenced_table": "auth_permission",
+      "referenced_column": "FK_auth_group_permissions_permission_id_auth_permission"
+    },
+    {
+      "fk_name": "FK_auth_user_groups_user_id_auth_user",
+      "parent_schema": "dbo",
+      "parent_table": "auth_user_groups",
+      "parent_column": "FK_auth_user_groups_user_id_auth_user",
+      "referenced_schema": "dbo",
+      "referenced_table": "auth_user",
+      "referenced_column": "FK_auth_user_groups_user_id_auth_user"
+    },
+    {
+      "fk_name": "FK_auth_user_groups_group_id_auth_group",
+      "parent_schema": "dbo",
+      "parent_table": "auth_user_groups",
+      "parent_column": "FK_auth_user_groups_group_id_auth_group",
+      "referenced_schema": "dbo",
+      "referenced_table": "auth_group",
+      "referenced_column": "FK_auth_user_groups_group_id_auth_group"
+    }
+  ],
+  "execution_plan": {
+    "migration_sequence": [
+      "auth_group",
+      "auth_permission",
+      "auth_user",
+      "auth_group_permissions",
+      "auth_user_groups"
+    ],
+    "batches": {
+      "Batch 1 (Independent Tables)": [
+        "auth_group",
+        "auth_permission",
+        "auth_user"
+      ],
+      "Batch 2 (Medium Dependency Tables)": [],
+      "Batch 3 (Highly Dependent Tables)": [
+        "auth_group_permissions",
+        "auth_user_groups"
+      ],
+      "Batch 4 (Views)": [],
+      "Batch 5 (Stored Procedures)": [
+        "sp_alterdiagram",
+        "sp_creatediagram",
+        "sp_dropdiagram",
+        "sp_helpdiagramdefinition",
+        "sp_helpdiagrams",
+        "sp_renamediagram"
+      ]
+    },
+    "strategies": {
+      "table_execution_logic": "All tables in Batch 1 can be executed in parallel due to independence. Batch 3 tables should be executed sequentially after their dependencies are satisfied.",
+      "incremental_load_candidates": []
+    }
+  }
+}

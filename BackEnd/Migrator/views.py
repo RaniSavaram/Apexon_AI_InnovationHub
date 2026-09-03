@@ -36,22 +36,78 @@ Creds = PrivateVariables()
 source = None
 scan_jobs = {}
 scan_jobs_lock = Lock()
+import threading
+thread_local = threading.local()
 MAX_SCAN_TABLES = int(os.environ.get("MAX_SCAN_TABLES", "5"))
 
 
 def _limit_metadata_tables(metadata):
-    remaining = MAX_SCAN_TABLES
+    """
+    Caps a scan to MAX_SCAN_TABLES objects total, but - unlike a plain
+    tables[:N] slice - does it type-aware across every object kind a
+    scanner can return (tables, views, stored procedures, volumes;
+    functions are dropped by this cap entirely, see below), since
+    schema["tables"] holds both BASE TABLE and VIEW entries mixed together
+    (see databricks_client.py's extract()) and a naive slice can silently
+    eat the one view a demo scan wants to show off, or leave procedures/
+    volumes completely uncapped since they'd otherwise pass through this
+    function untouched.
+
+    Priority (so a Databricks catalog with a bit of everything demos its
+    full variety instead of just tables): 1 view, then 1 stored procedure,
+    then 1 volume are kept whenever the scan found any, and whatever
+    budget is left after those goes to base tables. Functions get none of
+    the budget - this cap is specifically "N objects across
+    tables/views/procedures/volumes"; a scan that also needs functions
+    represented should raise MAX_SCAN_TABLES rather than have them
+    silently compete with the other three for the same 5 slots. Source
+    types without views/procedures/volumes (SQL Server, Synapse, etc.)
+    degrade to the original plain "first N tables" behavior automatically,
+    since there's nothing to reserve a budget for.
+    """
+    budget = MAX_SCAN_TABLES
+
+    def _take(schema_key, obj_type_check, n):
+        """Pulls up to n items matching obj_type_check across all schemas, as {schema_index: [items]}."""
+        taken_by_schema = {}
+        remaining = n
+        for idx, schema in enumerate(metadata.get("schemas", [])):
+            if remaining <= 0:
+                break
+            candidates = [item for item in schema.get(schema_key, []) if obj_type_check(item)]
+            take = candidates[:remaining]
+            if take:
+                taken_by_schema[idx] = take
+                remaining -= len(take)
+        return taken_by_schema
+
+    is_view = lambda t: (t.get("type") or "").upper() == "VIEW"
+    is_base_table = lambda t: (t.get("type") or "").upper() != "VIEW"
+
+    kept_views = _take("tables", is_view, min(1, budget))
+    budget -= sum(len(v) for v in kept_views.values())
+
+    kept_procedures = _take("procedures", lambda _: True, min(1, budget)) if budget > 0 else {}
+    budget -= sum(len(v) for v in kept_procedures.values())
+
+    kept_volumes = _take("volumes", lambda _: True, min(1, budget)) if budget > 0 else {}
+    budget -= sum(len(v) for v in kept_volumes.values())
+
+    kept_base_tables = _take("tables", is_base_table, max(budget, 0))
+
     limited_schemas = []
-    for schema in metadata.get("schemas", []):
-        tables = schema.get("tables", [])
-        selected_tables = tables[:remaining]
-        if selected_tables:
-            limited_schema = dict(schema)
-            limited_schema["tables"] = selected_tables
-            limited_schemas.append(limited_schema)
-            remaining -= len(selected_tables)
-        if remaining == 0:
-            break
+    for idx, schema in enumerate(metadata.get("schemas", [])):
+        selected_tables = kept_base_tables.get(idx, []) + kept_views.get(idx, [])
+        selected_procedures = kept_procedures.get(idx, [])
+        selected_volumes = kept_volumes.get(idx, [])
+        if not (selected_tables or selected_procedures or selected_volumes):
+            continue
+        limited_schema = dict(schema)
+        limited_schema["tables"] = selected_tables
+        limited_schema["procedures"] = selected_procedures
+        limited_schema["functions"] = []
+        limited_schema["volumes"] = selected_volumes
+        limited_schemas.append(limited_schema)
 
     limited_metadata = dict(metadata)
     limited_metadata["schemas"] = limited_schemas
@@ -94,499 +150,6 @@ def _push_databricks_to_fabric(output_files, database_name):
         source_system="databricks",
         database_name=database_name,
     )
-
-
-def _scan_status(scan_id):
-    with scan_jobs_lock:
-        return scan_jobs.get(scan_id)
-
-
-
-
-
-def _run_scan_in_background(scan_id, destination):
-    try:
-        job = None
-        with scan_jobs_lock:
-            job = scan_jobs.get(scan_id)
-        job_source = job.get("source") if job else None
-        
-        # Pass scan_id down to _run_scan
-        result = _run_scan(destination, job_source, scan_id)
-        status = "Completed" if result.status_code < 400 else "Failed"
-        error = result.data.get("message") if status == "Failed" else None
-        result_data = dict(result.data)
-    except Exception as exc:
-        status = "Failed"
-        error = str(exc)
-        result_data = {}
-        update_scan_job_state(scan_id, log_entry=f"[ERROR] Scan failed: {exc}", log_type="Scan Info")
-        update_scan_job_state(scan_id, log_entry=traceback.format_exc(), log_type="Scan Info")
-        update_scan_job_state(scan_id, log_entry=f"[FAILED] Scan stopped during Layer 2 or report generation: {exc}", log_type="Harness Layer2")
-
-    with scan_jobs_lock:
-        job = scan_jobs.get(scan_id)
-        if job:
-            job.update({
-                "status": status,
-                "error": error,
-                "result": result_data,
-                "phase": "completed" if status == "Completed" else "failed",
-                "progress": 100 if status == "Completed" else job.get("progress", 0),
-                "current_message": "Scan completed successfully." if status == "Completed" else "Scan failed."
-            })
-
-
-@api_view(["GET"])
-def scan_status(request, scan_id):
-    scan_id_str = str(scan_id)
-    job = _scan_status(scan_id_str)
-    if not job:
-        return Response({"status": "Failed", "error": "Scan not found."}, status=404)
-
-    response = {
-        "status": job["status"],
-        "progressbar": job.get("progress", 0),
-        "scan_status_message": job.get("current_message", ""),
-        "Logs": {
-            "Token Info": job.get("token_info", []),
-            "Scan Info": job.get("logs", []),
-            "Harness Layer1": job.get("harness1_logs", []),
-            "Harness Layer2": job.get("harness2_logs", []) or DEFAULT_HARNESS_LAYER2_LOGS,
-        },
-        "result": job.get("result"),
-        "error": job.get("error")
-    }
-    return Response(response)
-
-
-def serve_generated_document(request, filename):
-    """Serve generated DOCX reports from the AI_Agent_Pipeline output folder."""
-    output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
-    file_path = (output_dir / filename).resolve()
-    try:
-        file_path.relative_to(output_dir.resolve())
-    except ValueError as exc:
-        raise Http404("Invalid file path.") from exc
-
-    if file_path.suffix.lower() != ".docx" or not file_path.is_file():
-        raise Http404("Document not found.")
-
-    if request.GET.get("view") == "1":
-        host = request.get_host()
-        if "localhost" not in host and "127.0.0.1" not in host:
-            from django.http import HttpResponseRedirect
-            import urllib.parse
-            public_url = request.build_absolute_uri(request.path)
-            if public_url.startswith("http://"):
-                public_url = "https://" + public_url[7:]
-            viewer_url = f"https://view.officeapps.live.com/op/view.aspx?src={urllib.parse.quote(public_url)}"
-            return HttpResponseRedirect(viewer_url)
-
-    response = FileResponse(file_path.open("rb"), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    disposition = "inline" if request.GET.get("view") == "1" else "attachment"
-    response["Content-Disposition"] = f'{disposition}; filename="{file_path.name}"'
-    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response["Pragma"] = "no-cache"
-    response["Expires"] = "0"
-    return response
-
-
-@api_view(["POST"])
-def connect_database(request):
-
-    global source
-    reset_Logs()
-
-    print("[INFO]: Connect request received")
-    Logs["Scan Info"].append("Connect request received")
-
-    source = request.data.get("source")
-    remember_me = str(request.data.get("remember_me", "false")).strip().lower() == "true"
-    Creds.set_servername(request.data.get("server"))
-    Creds.set_database_name(request.data.get("database"))
-    Creds.set_username (request.data.get("username"))
-    Creds.set_password (request.data.get("password"))
-    Creds.set_port(request.data.get("port") or None)
-    Creds.set_extra_dict(request.data.get("extra") or {})
-    print("[INFO]: Connection Details recieved")
-    Logs["Scan Info"].append("[INFO]: Connection Details recieved")
-
-    try:
-        server = Creds.get_servername()
-        database = Creds.get_database_name()
-
-        # Field requirements differ by DB type family:
-        #   - SQLite: only needs a file path (in `database`)
-        #   - Dynamics 365: needs the org URL (in `server`) + tenant/client
-        #     id/secret in `extra` - no `database`/username/password
-        #   - Everything else: needs both server and database
-        if source == "sqlite":
-            if not database:
-                Logs["Scan Info"].append("[Err]: Database file path is required.")
-                return Response(
-                    {"status": "error", "message": "Database file path is required."},
-                    status=400
-                )
-        elif source in ("dynamics365", "dynamics 365", "d365"):
-            if not server:
-                Logs["Scan Info"].append("[Err]: Org URL is required.")
-                return Response(
-                    {"status": "error", "message": "Org URL (Server field) is required."},
-                    status=400
-                )
-        elif not server or not database:
-            Logs["Scan Info"].append("[Err]: Server or database name are required.")
-            return Response(
-                {"status": "error", "message": "Server and database name are required."},
-                status=400
-            )
-
-        db_type = (source or "").lower()
-
-        if db_type == "sqlserver":
-            test_extractor = SQLServerExtractor(Creds)
-
-        elif db_type == "synapse":
-            test_extractor = SynapseExtractor(Creds)
-
-        elif db_type == "snowflake":
-            test_extractor = SnowflakeExtractor(Creds)
-
-        elif db_type == "databricks":
-            test_extractor = DatabricksExtractor(Creds)
-
-        elif db_type in ("dynamics365", "dynamics 365", "d365"):
-            test_extractor = Dynamics365Extractor(Creds)
-
-        else:
-            Logs["Scan Info"].append(f"[Err]: Unsupported database type: '{source}'")
-            return Response(
-                {
-                    "status": "error",
-                    "message": (
-                        f"Unsupported database type: '{source}'. Supported: sqlserver, "
-                        f"oracle, mysql, postgres, sqlite, synapse, snowflake, "
-                        f"databricks, dynamics365, sap"
-                    )
-                },
-                status=400
-            )
-
-        test_extractor.connect()
-        print("[INFO]: Successfully Connected To the Database")
-        Logs["Scan Info"].append("[INFO]: Successfully Connected To the Database")
-        test_extractor.close()
-
-        # Remember-me is now handled on the browser side with localStorage so
-        # credentials are never stored in the repo or committed to GitHub.
-        # The backend only writes to a temp file when explicitly requested.
-        if remember_me:
-            save_connection(source, {
-                "server": server,
-                "database": database,
-                "username": Creds.get_username(),
-                "password": Creds.get_password(),
-                "extra": Creds.get_extra_dict(),
-            })
-
-    except Exception as e:
-         print(e)
-         Logs["Scan Info"].append(str(e))
-         return Response({"status": "error", "message": str(e)}, status=400)
-
-    
-    Logs["Scan Info"].append(f"[INFO]: Connected to {database} on {server} successfully.")
-    return Response({
-        "status": "success",
-        "message": f"Connected to {database} on {server} successfully.",
-        "source": source,
-        "Logs":Logs
-    })
-
-@api_view(["GET"])
-def saved_connection(request):
-    src = request.query_params.get("source")
-    if not src:
-        return Response(
-            {"status": "error", "message": "Query param 'source' is required."},
-            status=400
-        )
-
-    saved = get_saved_connection(src)
-    if not saved:
-        return Response({"status": "success", "found": False})
-
-    return Response({"status": "success", "found": True, "connection": saved})
-
-
-@api_view(["GET"])
-def saved_connections(request):
-    """Returns every saved profile for a source (e.g. all known Databricks
-    servers), so the frontend can offer a picker instead of a single
-    pre-filled form."""
-    src = request.query_params.get("source")
-    if not src:
-        return Response(
-            {"status": "error", "message": "Query param 'source' is required."},
-            status=400
-        )
-
-    return Response({
-        "status": "success",
-        "connections": get_saved_connections(src),
-    })
-
-
-@api_view(["GET", "POST"])
-def Db_Scanner(request):
-    scan_id = str(uuid4())
-    destination = request.data.get("destination")
-    req_source = request.data.get("source") or source
-
-    with scan_jobs_lock:
-        scan_jobs[scan_id] = {
-            "status": "Running",
-            "source": req_source,
-            "destination": destination,
-            "scan_id": scan_id,
-            "error": None,
-            "phase": "starting",
-            "progress": 5,
-            "current_message": "Initializing scan...",
-            "logs": ["Scan job initialized."],
-            "harness1_logs": [],
-            "harness2_logs": [],
-            "token_info": []
-        }
-
-    Thread(target=_run_scan_in_background, args=(scan_id, destination), daemon=True).start()
-    return Response({
-        "status": "started",
-        "message": "Database scan started.",
-        "scan_id": scan_id,
-    }, status=202)
-
-
-def _run_scan(destination, scan_source=None, scan_id=None):
-
-    # Some DB types don't populate both fields: SQLite has no server (just
-    # a database file path), Dynamics 365 has no database (just an org
-    # URL in server). Require at least one to confirm a connect happened.
-    if not Creds.get_servername() and not Creds.get_database_name():
-        return Response(
-            {
-                "status": "error",
-                "message": "Connect to the database first."
-            },
-            status=400
-        )
-    
-    update_scan_job_state(scan_id, progress=10, current_message="Starting database scan...", log_entry=f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
-    print(f"[INFO]: {Creds.get_database_name()} DataBase Scan Started")
-    time.sleep(1.0)
-
-    db_type = (scan_source or source or "").lower()
-
-    if db_type == "sqlserver":
-        obj = SQLServerExtractor(Creds)
-
-    elif db_type == "synapse":
-        obj = SynapseExtractor(Creds)
-
-    elif db_type == "snowflake":
-        obj = SnowflakeExtractor(Creds)
-
-    elif db_type == "databricks":
-        obj = DatabricksExtractor(Creds)
-
-    elif db_type in ("dynamics365", "dynamics 365", "d365"):
-        obj = Dynamics365Extractor(Creds)
-
-    else:
-        update_scan_job_state(scan_id, log_entry=f"[Err]: Unsupported database type: '{source}'")
-        return Response(
-                {
-                    "status": "error",
-                    "message": (
-                        f"Unsupported database type: '{source}'. Supported: sqlserver, "
-                        f"oracle, mysql, postgres, sqlite, synapse, snowflake, "
-                        f"databricks, dynamics365, sap"
-                    )
-                },
-                status=400
-            )
-    try:
-        update_scan_job_state(scan_id, progress=12, current_message="Connecting to database...", log_entry="Connecting to database for metadata extraction")
-        update_scan_job_state(scan_id, progress=18, current_message="Extracting schema and table metadata...", log_entry="Extracting Metadata from DataBase")
-        print("Extracting Metadata from DataBase")
-        metadata = obj.extract()
-        original_table_count = sum(
-            len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
-        )
-        metadata = _limit_metadata_tables(metadata)
-        selected_table_count = sum(
-            len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
-        )
-        update_scan_job_state(scan_id, progress=26, current_message=f"Analyzing {selected_table_count} tables...", log_entry="Analyzing extracted schemas and tables")
-        update_scan_job_state(scan_id, progress=32, current_message=f"Metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
-        time.sleep(0.5)
-
-        update_scan_job_state(scan_id, progress=38, current_message="Running Harness Layer 1 validation...", log_entry=f"\n{'='*30}\n{'='*30}\nMetaData Extracted\nRunning Harnnes Layer-1")
-        print("MetaData Extracted\nRunning Harnness Layer-1")
-        time.sleep(1.0)
-        layer_result = layer1_Harness(metadata)
-        temp = format_harness_report(layer_result)
-        
-        update_scan_job_state(scan_id, progress=42, current_message="Harness Layer 1 validation completed.", log_entry=temp, log_type="Scan Info")
-        update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
-        print(temp)
-        time.sleep(0.8)
-
-        if layer_result.get("decision") != "PASS":
-            update_scan_job_state(scan_id, log_entry="[Err]: DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.")
-            print("[Err]: DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.")
-            return Response(
-                {
-                    "status": "error",
-                    "message": "DDL or DML statement identified - terminating process before the Assessment Agent / migration plan.",
-                    "source": source,
-                    "destination": destination,
-                    "Logs": Logs,
-                    "harness_result": layer_result,
-                },
-                status=400
-            )
-
-        update_scan_job_state(scan_id, progress=45, current_message="Generating Assessment Report and Migration Plan...", log_entry="Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
-        print("Using extracted Metadata and the Harness Feedback Generating an Assessment Report and migration Plan")
-        
-        # Forward scan_id to Agents_PipeLine (advances progress from 45% to 96%)
-        output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
-
-        fabric_push = None
-        if db_type == "databricks":
-            update_scan_job_state(scan_id, progress=97, current_message="Syncing assessment with Microsoft Fabric OneLake...", log_entry="[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
-            print("[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
-            try:
-                fabric_push = _push_databricks_to_fabric(output_files, Creds.get_database_name())
-                update_scan_job_state(
-                    scan_id,
-                    progress=98,
-                    current_message="Fabric OneLake artifacts synchronized.",
-                    log_entry=(
-                        f"[INFO] Fabric push completed: {fabric_push.get('processed_count')} table(s) "
-                        f"created/updated in '{fabric_push.get('lakehouse_name')}', "
-                        f"{fabric_push.get('error_count')} error(s)."
-                    ),
-                )
-                print(f"[INFO] Fabric push completed: {fabric_push}")
-            except Exception as fabric_exc:
-                fabric_push = {"status": "error", "error": str(fabric_exc)}
-                update_scan_job_state(
-                    scan_id,
-                    progress=98,
-                    current_message="Fabric artifact sync note recorded.",
-                    log_entry=f"[WARN] Fabric artifact push failed (reports above are still available): {fabric_exc}",
-                )
-                print(f"[WARN] Fabric artifact push failed: {fabric_exc}")
-
-        update_scan_job_state(scan_id, progress=99, current_message="Finalizing reports and logs...", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
-        print(f"Output is avaliable at Show Logs embedded in the UI Screen")
-        time.sleep(0.4)
-
-        update_scan_job_state(scan_id, progress=100, current_message="Database scan completed successfully.", log_entry="Database scan completed successfully.")
-        print(f"Database scan completed successfully.")
-        
-        # Retrieve logs for direct response compat
-        with scan_jobs_lock:
-            job = scan_jobs.get(scan_id)
-            job_logs = job.get("logs", []) if job else list(Logs.get("Scan Info", []))
-            job_tokens = job.get("token_info", []) if job else list(Logs.get("Token Info", []))
-
-        return Response({
-                "status": "success",
-                "message": "Database scan completed successfully. Refer to View Output tab below ",
-                "source": source,
-                "destination": destination,
-                "data": job_tokens,
-                "Logs": {
-                    "Scan Info": job_logs,
-                    "Harness Layer1": job.get("harness1_logs", []) if job else list(Logs.get("Harness Layer1", [])),
-                    "Harness Layer2": job.get("harness2_logs", []) if job else list(Logs.get("Harness Layer2", [])),
-                },
-                "output_files": output_files,
-                "tables_found": selected_table_count,
-                "fabric_push": fabric_push,
-            })
-    except Exception as e:
-        update_scan_job_state(scan_id, log_entry=str(e))
-        return Response(
-                        {
-                            "status": "Error",
-                            "message": str(e)
-                        },
-                        status=400
-                    )
-import os
-import time
-import traceback
-from pathlib import Path
-from threading import Lock, Thread
-from uuid import uuid4
-
-from django.http import FileResponse, Http404
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-
-from config.Credentials import PrivateVariables
-from Migrator.connection_store import save_connection, get_saved_connection, get_saved_connections
-from Metadata_Scanner.extractors.sqlserver import SQLServerExtractor
-#from Metadata_Scanner.extractors.oracle import OracleExtractor
-#from Metadata_Scanner.extractors.mysql import MySQLExtractor
-#from Metadata_Scanner.extractors.postgres import PostgreSQLExtractor
-#from Metadata_Scanner.extractors.sqlite import SQLiteExtractor
-from Metadata_Scanner.extractors.synapse import SynapseExtractor
-from Metadata_Scanner.extractors.snowflake_extractor import SnowflakeExtractor
-from Metadata_Scanner.extractors.databricks_client import DatabricksExtractor
-from Metadata_Scanner.extractors.dynamics365 import Dynamics365Extractor
-#from Metadata_Scanner.extractors.sap import SAPExtractor
-from AI_Agent_Pipeline.Agents_PipeLine import Agents_PipeLine
-from HarnessLayers.layer1.Layer import layer1_Harness
-from HarnessLayers.Harness_Json_Log_Formatter import format_harness_report
-from Logs import Logs,reset_Logs
-
-DEFAULT_HARNESS_LAYER2_LOGS = [
-    "HARNESS LAYER 2:",
-    "Waiting for the AI assessment and migration report generation to finish.",
-]
-
-Creds = PrivateVariables()
-source = None
-scan_jobs = {}
-scan_jobs_lock = Lock()
-import threading
-thread_local = threading.local()
-MAX_SCAN_TABLES = int(os.environ.get("MAX_SCAN_TABLES", "5"))
-
-
-def _limit_metadata_tables(metadata):
-    remaining = MAX_SCAN_TABLES
-    limited_schemas = []
-    for schema in metadata.get("schemas", []):
-        tables = schema.get("tables", [])
-        selected_tables = tables[:remaining]
-        if selected_tables:
-            limited_schema = dict(schema)
-            limited_schema["tables"] = selected_tables
-            limited_schemas.append(limited_schema)
-            remaining -= len(selected_tables)
-        if remaining == 0:
-            break
-
-    limited_metadata = dict(metadata)
-    limited_metadata["schemas"] = limited_schemas
-    return limited_metadata
 
 
 def _scan_status(scan_id):
@@ -900,7 +463,7 @@ def connect_database(request):
          return Response({"status": "error", "message": str(e)}, status=400)
 
     
-    Logs["Scan Info"].append(f"[INFO]: Connected to {database} on {server} successfully.")
+    Logs["Scan Info"].append(f"[INFO] Connected to {database} on {server} successfully.")
     return Response({
         "status": "success",
         "message": f"Connected to {database} on {server} successfully.",
@@ -958,7 +521,7 @@ def Db_Scanner(request):
             "phase": "starting",
             "progress": 5,
             "current_message": "Initializing scan",
-            "logs": ["Scan job initialized."],
+            "logs": ["[INFO] Scan job initialized."],
             "harness1_logs": [],
             "harness2_logs": [],
             "token_info": []
@@ -1003,8 +566,9 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         )
     
     db_name = get_db_display_name(scan_source or source)
-    update_scan_job_state(scan_id, progress=5, current_message=f"Starting {db_name} scan...", log_entry=f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
-    print(f"[INFO]: {Creds.get_database_name()} {db_name} Scan Started")
+    scan_started_msg = f"[INFO] {db_name} scan started for database '{Creds.get_database_name()}'."
+    update_scan_job_state(scan_id, progress=5, current_message=f"Starting {db_name} scan...", log_entry=scan_started_msg)
+    print(scan_started_msg)
     time.sleep(0.5)
 
     db_type = (scan_source or source or "").lower()
@@ -1025,7 +589,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         obj = Dynamics365Extractor(Creds)
 
     else:
-        update_scan_job_state(scan_id, log_entry=f"[Err]: Unsupported database type: '{source}'")
+        update_scan_job_state(scan_id, log_entry=f"[ERROR] Unsupported database type: '{source}'.")
         return Response(
                 {
                     "status": "error",
@@ -1038,9 +602,13 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                 status=400
             )
     try:
-        update_scan_job_state(scan_id, progress=12, current_message=f"Connecting to {db_name}...", log_entry=f"Connecting to {db_name} for metadata extraction")
-        update_scan_job_state(scan_id, progress=18, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=f"Extracting Metadata from {db_name}")
-        print(f"Extracting Metadata from {db_name}")
+        connecting_msg = f"[INFO] Connecting to {db_name}..."
+        update_scan_job_state(scan_id, progress=12, current_message=f"Connecting to {db_name}...", log_entry=connecting_msg)
+        print(connecting_msg)
+
+        extracting_msg = f"[INFO] Extracting schema and table metadata from {db_name}..."
+        update_scan_job_state(scan_id, progress=18, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=extracting_msg)
+        print(extracting_msg)
         metadata = obj.extract()
         original_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
@@ -1049,33 +617,80 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
-        update_scan_job_state(scan_id, progress=26, current_message=f"Analyzing {selected_table_count} tables from {db_name}...", log_entry="Analyzing extracted schemas and tables")
-        update_scan_job_state(scan_id, progress=32, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"Selected {selected_table_count} of {original_table_count} tables for analysis.")
+        update_scan_job_state(scan_id, progress=26, current_message=f"Analyzing {selected_table_count} tables from {db_name}...", log_entry="[INFO] Analyzing extracted schemas and tables")
+        update_scan_job_state(scan_id, progress=32, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"[INFO] Selected {selected_table_count} of {original_table_count} available tables for this scan.")
         time.sleep(0.5)
 
-        update_scan_job_state(scan_id, progress=38, current_message=f"Running {db_name} Harness Layer 1 validation", log_entry=f"\n{'='*30}\n{'='*30}\n{db_name} MetaData Extracted\nRunning Harnnes Layer-1")
-        print(f"{db_name} MetaData Extracted\nRunning Harnness Layer-1")
+        harness_start_msg = f"[INFO] {db_name} metadata extracted. Running Harness Layer 1 validation..."
+        update_scan_job_state(scan_id, progress=38, current_message=f"Running {db_name} Harness Layer 1 validation", log_entry=f"\n{'=' * 60}\n{harness_start_msg}\n{'=' * 60}")
+        print(harness_start_msg)
         time.sleep(1.0)
         layer_result = layer1_Harness(metadata)
         temp = format_harness_report(layer_result)
-        
+
         update_scan_job_state(scan_id, progress=42, current_message=f"{db_name} Harness Layer 1 validation completed", log_entry=temp, log_type="Scan Info")
         update_scan_job_state(scan_id, log_entry=temp, log_type="Harness Layer1")
         print(temp)
         time.sleep(0.8)
 
-        update_scan_job_state(scan_id, progress=45, current_message=f"Generating {db_name} Assessment Report and Migration Plan", log_entry=f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
-        print(f"Using extracted {db_name} Metadata and Harness feedback to generate Assessment Report & Migration Plan")
-        
+        if layer_result.get("decision") != "PASS":
+            blocked_msg = "[ERROR] Destructive SQL (DDL/DML) statement identified in the scanned metadata - stopping before generating the Assessment Report / Migration Plan."
+            update_scan_job_state(scan_id, log_entry=blocked_msg)
+            print(blocked_msg)
+            return Response(
+                {
+                    "status": "error",
+                    "message": "Destructive SQL (DDL/DML) statement identified - stopping before generating the Assessment Report / Migration Plan.",
+                    "source": source,
+                    "destination": destination,
+                    "Logs": Logs,
+                    "harness_result": layer_result,
+                },
+                status=400
+            )
+
+        generating_msg = f"[INFO] Generating {db_name} Assessment Report and Migration Plan using the extracted metadata and Harness Layer 1 findings..."
+        update_scan_job_state(scan_id, progress=45, current_message=f"Generating {db_name} Assessment Report and Migration Plan", log_entry=generating_msg)
+        print(generating_msg)
+
         # Forward scan_id to Agents_PipeLine (advances progress from 45% to 96%)
         output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
 
-        update_scan_job_state(scan_id, progress=98, current_message="Finalizing reports and logs", log_entry="Output is avaliable at Show Logs embedded in the UI Screen")
-        print(f"Output is avaliable at Show Logs embedded in the UI Screen")
+        fabric_push = None
+        if db_type == "databricks":
+            update_scan_job_state(scan_id, progress=97, current_message="Syncing assessment with Microsoft Fabric OneLake...", log_entry="[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
+            print("[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
+            try:
+                fabric_push = _push_databricks_to_fabric(output_files, Creds.get_database_name())
+                update_scan_job_state(
+                    scan_id,
+                    progress=98,
+                    current_message="Fabric OneLake artifacts synchronized.",
+                    log_entry=(
+                        f"[INFO] Fabric push completed: {len(fabric_push.get('processed', []) or [])} table(s) "
+                        f"created/updated in '{fabric_push.get('lakehouse_name')}', "
+                        f"{len(fabric_push.get('errors', []) or [])} error(s)."
+                    ),
+                )
+                print(f"[INFO] Fabric push completed: {fabric_push}")
+            except Exception as fabric_exc:
+                fabric_push = {"status": "error", "error": str(fabric_exc)}
+                update_scan_job_state(
+                    scan_id,
+                    progress=98,
+                    current_message="Fabric artifact sync note recorded.",
+                    log_entry=f"[WARN] Fabric artifact push failed (reports above are still available): {fabric_exc}",
+                )
+                print(f"[WARN] Fabric artifact push failed: {fabric_exc}")
+
+        finalizing_msg = "[INFO] All output is available in the Logs panel below."
+        update_scan_job_state(scan_id, progress=99, current_message="Finalizing reports and logs...", log_entry=finalizing_msg)
+        print(finalizing_msg)
         time.sleep(0.4)
 
-        update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed successfully.", log_entry=f"{db_name} scan completed successfully.")
-        print(f"{db_name} scan completed successfully.")
+        completed_msg = f"[INFO] {db_name} scan completed successfully."
+        update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed successfully.", log_entry=completed_msg)
+        print(completed_msg)
         
         # Retrieve logs for direct response compat
         with scan_jobs_lock:
@@ -1134,10 +749,15 @@ def debug_view(request):
 @api_view(["POST", "GET"])
 def generate_fabric_artifacts(request):
     """
-    Executes BackEnd/Artifacts_Generator/SQL_2_Fabric.py (for SQL Server)
-    or BackEnd/Artifacts_Generator/DB2_2_Fabric.py (for Databricks)
-    to create empty Delta tables directly in a Microsoft Fabric OneLake Lakehouse
-    based on the selected source.
+    Executes BackEnd/Artifacts_Generator/DB2_2_Fabric.py - the generic,
+    JSON-driven generator (nothing in it is actually Databricks-specific;
+    see its module docstring) - to create Delta tables, Views, Stored
+    Procedures, Volumes, and a Data Pipeline scaffold directly in Microsoft
+    Fabric, based on the selected source's Assessment Report/Migration Plan.
+
+    Both Databricks and SQL Server route through the same Generator now:
+    SQL Server used to run the older, table-only SQL_2_Fabric.py, which had
+    no Views/Stored Procedures support at all.
     """
     try:
         global source
@@ -1155,34 +775,26 @@ def generate_fabric_artifacts(request):
                     source_param = latest_job.get("source") or ""
 
         # Fallback to Creds if databricks connection is configured
-        if not source_param and Creds.get_databricks_http_path():
+        if not source_param and Creds.get_extra("http_path"):
             source_param = "databricks"
 
-        doc_filename = request.data.get("filename") if request.method == "POST" else request.GET.get("filename")
         workspace_id = request.data.get("workspace_id") if request.method == "POST" else request.GET.get("workspace_id")
-        lakehouse_id = request.data.get("lakehouse_id") if request.method == "POST" else request.GET.get("lakehouse_id")
 
         source_clean = (source_param or "").strip().lower().replace(" ", "").replace("_", "")
 
-        # Route based on source system:
-        # If source is Databricks -> execute DB2_2_Fabric.py
-        # If source is SQL Server -> execute SQL_2_Fabric.py
+        # Route based on source system - both paths now go through the same
+        # generic Generator(); only the source_system label (and therefore
+        # which pre-provisioned Lakehouse/report files it resolves) differs.
+        script_name = "DB2_2_Fabric.py"
+        from Artifacts_Generator.DB2_2_Fabric import Generator as FabricGenerator
         if "databricks" in source_clean:
-            script_name = "DB2_2_Fabric.py"
             source_display = "Databricks"
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            from Artifacts_Generator.DB2_2_Fabric import Generator as DatabricksGenerator
-            result = DatabricksGenerator(source_system="databricks", workspace_id=workspace_id)
+            result = FabricGenerator(source_system="databricks", database_name=Creds.get_database_name(), workspace_id=workspace_id)
         else:
-            script_name = "SQL_2_Fabric.py"
             source_display = "SQL Server"
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            from Artifacts_Generator.SQL_2_Fabric import Generator as SqlServerGenerator
-            doc_path = None
-            if doc_filename:
-                output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
-                doc_path = output_dir / doc_filename
-            result = SqlServerGenerator(doc_path=doc_path, workspace_id=workspace_id, lakehouse_id=lakehouse_id)
+            result = FabricGenerator(source_system="sqlserver", database_name=Creds.get_database_name(), workspace_id=workspace_id)
 
         result["generator_script"] = script_name
         result["source_system"] = source_display
@@ -1192,7 +804,7 @@ def generate_fabric_artifacts(request):
         return Response(result, status=200)
     except Exception as exc:
         traceback.print_exc()
-        fallback_script = "DB2_2_Fabric.py" if "databricks" in (source_param if "source_param" in locals() else "").lower() else "SQL_2_Fabric.py"
+        fallback_script = "DB2_2_Fabric.py"
         return Response({
             "status": "error",
             "message": str(exc),

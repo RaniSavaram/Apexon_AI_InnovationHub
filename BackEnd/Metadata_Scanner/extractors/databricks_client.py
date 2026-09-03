@@ -1,9 +1,11 @@
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 import databricks.sql as databricks_sql
+import requests
 from config import Credentials
 from Metadata_Scanner.extractors.base_extractor import BaseExtractor
 
@@ -23,6 +25,42 @@ from Metadata_Scanner.extractors.base_extractor import BaseExtractor
 # regardless of this flag. Demo the positive case FIRST, then flip this to
 # True for the negative case - not the other way around.
 DEMO_FORCE_DESTRUCTIVE_STATEMENT = False
+
+# Capping a scan to a small, representative sample of objects (rather than
+# the whole catalog) is handled one layer up, in Migrator/views.py's
+# _limit_metadata_tables() - it runs on every source type's extract()
+# output, not just Databricks, and is the single place that decides how
+# many tables/views/procedures/volumes a scan keeps. This extractor always
+# returns everything it finds.
+
+
+def _log_object_fetch(object_label, catalog, count):
+    """
+    Logs how many of a given object type were found, on both stdout and the
+    app's "Scan Info" log panel. Worth logging even on success (count == 0
+    included): a query that runs with no exception but returns zero rows -
+    e.g. because the object was created in a different catalog than the one
+    configured for this scan, or this principal lacks a grant on it - looks
+    identical to "there really are none" unless the catalog and count are
+    both spelled out explicitly.
+    """
+    message = f"[INFO] Found {count} {object_label}(s) in catalog '{catalog}'."
+    print(message)
+    try:
+        from Logs import Logs
+        Logs["Scan Info"].append(message)
+    except Exception:
+        pass
+
+
+def _log_object_fetch_warning(message):
+    full_message = f"[WARNING] {message}"
+    print(full_message)
+    try:
+        from Logs import Logs
+        Logs["Scan Info"].append(full_message)
+    except Exception:
+        pass
 
 
 class DatabricksExtractor(BaseExtractor):
@@ -56,15 +94,99 @@ class DatabricksExtractor(BaseExtractor):
             self.http_path = "/" + self.http_path
         self.connection = None
 
-    def connect(self):
+    def _log_scan_info(self, message):
+        print(message)
+        try:
+            from Logs import Logs
+            Logs["Scan Info"].append(message)
+        except Exception:
+            pass
 
-        print("Server Hostname :", repr(self.server_hostname))
-        print("Catalog         :", repr(self.catalog))
-        print("HTTP Path       :", repr(self.http_path))
+    def _ensure_warehouse_running(self, poll_timeout_seconds=300, poll_interval_seconds=5):
+        """
+        Databricks SQL warehouses auto-suspend after a period of inactivity;
+        the first connection after that triggers a cold start that can take
+        anywhere from ~30 seconds (serverless) to several minutes (classic/
+        pro warehouses provisioning cluster nodes). databricks_sql.connect()
+        below has no timeout of its own by default (databricks-sql-
+        connector's _socket_timeout defaults to None, i.e. wait forever), so
+        without this a stopped warehouse just makes the scan sit there with
+        no explanation - indistinguishable from a genuine hang.
+
+        This checks the warehouse's state via the Databricks REST API first
+        and, if it isn't already running, explicitly starts it and polls
+        (logging progress to Scan Info the whole time) until it reports
+        RUNNING or poll_timeout_seconds elapses - so a slow scan now reads as
+        "warehouse is starting up" instead of looking broken.
+
+        Best-effort: any failure here (token lacks CAN_MANAGE on the
+        warehouse, workspace policy blocks the REST call, http_path doesn't
+        look like a warehouse path, etc.) is logged as a warning and
+        swallowed - falls through to the normal connect() call below, which
+        still works fine against an already-running warehouse and is
+        Databricks' own cold-start path for everything else.
+        """
+        match = re.search(r"/warehouses/([A-Za-z0-9]+)", self.http_path or "")
+        if not match:
+            return
+        warehouse_id = match.group(1)
+        base_url = f"https://{self.server_hostname}/api/2.0/sql/warehouses/{warehouse_id}"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+
+        try:
+            resp = requests.get(base_url, headers=headers, timeout=15)
+            resp.raise_for_status()
+            state = resp.json().get("state")
+        except Exception as e:
+            self._log_scan_info(f"[WARNING] Could not check SQL warehouse state (continuing anyway): {e}")
+            return
+
+        if state == "RUNNING":
+            return
+
+        self._log_scan_info(
+            f"[INFO] SQL warehouse is currently '{state}' - requesting start. "
+            "A stopped warehouse can take 1-5 minutes to become available; this is normal Databricks cold-start behavior, not a hang."
+        )
+
+        try:
+            requests.post(f"{base_url}/start", headers=headers, timeout=15)
+        except Exception as e:
+            self._log_scan_info(f"[WARNING] Could not request SQL warehouse start (continuing anyway): {e}")
+            return
+
+        deadline = time.time() + poll_timeout_seconds
+        last_logged_state = state
+        while time.time() < deadline:
+            time.sleep(poll_interval_seconds)
+            try:
+                resp = requests.get(base_url, headers=headers, timeout=15)
+                resp.raise_for_status()
+                state = resp.json().get("state")
+            except Exception:
+                continue
+            if state != last_logged_state:
+                self._log_scan_info(f"[INFO] SQL warehouse state: {state}...")
+                last_logged_state = state
+            if state == "RUNNING":
+                return
+
+        self._log_scan_info(
+            f"[WARNING] SQL warehouse did not report RUNNING within {poll_timeout_seconds}s "
+            f"(last state: {state}) - attempting to connect anyway."
+        )
+
+    def connect(self):
 
         token_len = len(self.access_token) if self.access_token else 0
         token_prefix = self.access_token[:6] if token_len >= 6 else (self.access_token or "EMPTY")
-        print(f"Token length    : {token_len} (starts with '{token_prefix}')")
+        print(
+            "[INFO] Databricks connection details:\n"
+            f"    Server hostname : {self.server_hostname or '(not set)'}\n"
+            f"    Catalog         : {self.catalog or '(not set)'}\n"
+            f"    HTTP path       : {self.http_path or '(not set)'}\n"
+            f"    Access token    : {token_len} characters, starts with '{token_prefix}'"
+        )
 
         if not self.server_hostname:
             raise ValueError("Server hostname is empty.")
@@ -77,9 +199,11 @@ class DatabricksExtractor(BaseExtractor):
 
         try:
             from Logs import Logs
-            Logs["Scan Info"].append(f"[INFO]: Token details: length={token_len}, prefix='{token_prefix}'")
+            Logs["Scan Info"].append(f"[INFO] Access token verified ({token_len} characters, starts with '{token_prefix}').")
         except Exception:
             pass
+
+        self._ensure_warehouse_running()
 
         self.connection = databricks_sql.connect(
             server_hostname=self.server_hostname,
@@ -129,7 +253,13 @@ class DatabricksExtractor(BaseExtractor):
             """)
             rows = cursor.fetchall()
         except Exception as e:
-            print(f"[WARNING] Could not read system.query.history for destructive-statement check: {e}")
+            warning = f"[WARNING] Could not read system.query.history for destructive-statement check: {e}"
+            print(warning)
+            try:
+                from Logs import Logs
+                Logs["Scan Info"].append(warning)
+            except Exception:
+                pass
             return statements_by_table
 
         for row in rows:
@@ -179,8 +309,22 @@ class DatabricksExtractor(BaseExtractor):
             probe_cursor = self.connection.cursor()
             probe_cursor.execute(statement)
         except Exception as e:
-            print(f"[WARNING] Destructive-statement probe DELETE failed (likely missing MODIFY permission): {e}")
+            warning = f"[WARNING] Destructive-statement probe DELETE failed (likely missing MODIFY permission): {e}"
+            print(warning)
+            try:
+                from Logs import Logs
+                Logs["Scan Info"].append(warning)
+            except Exception:
+                pass
             return {}
+
+        try:
+            from Logs import Logs
+            Logs["Scan Info"].append(
+                f"[INFO]: Destructive-statement probe executed against {schema_name}.{table_name} for negative-case demo"
+            )
+        except Exception:
+            pass
 
         return {(schema_name, table_name): [statement]}
 
@@ -207,8 +351,9 @@ class DatabricksExtractor(BaseExtractor):
             """)
             for schema_name, routine_name in cursor.fetchall():
                 procedures_by_schema.setdefault(schema_name, []).append({"name": routine_name})
+            _log_object_fetch("stored procedure", self.catalog, sum(len(v) for v in procedures_by_schema.values()))
         except Exception as e:
-            print(f"[WARNING] Could not list stored procedures: {e}")
+            _log_object_fetch_warning(f"Could not list stored procedures in catalog '{self.catalog}': {e}")
         return procedures_by_schema
 
     def _fetch_view_definitions(self):
@@ -230,8 +375,9 @@ class DatabricksExtractor(BaseExtractor):
             """)
             for schema_name, view_name, view_definition in cursor.fetchall():
                 definitions[(schema_name, view_name)] = view_definition
+            _log_object_fetch("view definition", self.catalog, len(definitions))
         except Exception as e:
-            print(f"[WARNING] Could not read view definitions: {e}")
+            _log_object_fetch_warning(f"Could not read view definitions in catalog '{self.catalog}': {e}")
         return definitions
 
     def _fetch_functions(self):
@@ -257,8 +403,9 @@ class DatabricksExtractor(BaseExtractor):
                     "name": routine_name,
                     "return_type": return_type,
                 })
+            _log_object_fetch("function", self.catalog, sum(len(v) for v in functions_by_schema.values()))
         except Exception as e:
-            print(f"[WARNING] Could not list functions: {e}")
+            _log_object_fetch_warning(f"Could not list functions in catalog '{self.catalog}': {e}")
         return functions_by_schema
 
     def _fetch_volumes(self):
@@ -285,8 +432,9 @@ class DatabricksExtractor(BaseExtractor):
                     "volume_type": volume_type,
                     "storage_location": storage_location,
                 })
+            _log_object_fetch("volume", self.catalog, sum(len(v) for v in volumes_by_schema.values()))
         except Exception as e:
-            print(f"[WARNING] Could not list volumes: {e}")
+            _log_object_fetch_warning(f"Could not list volumes in catalog '{self.catalog}': {e}")
         return volumes_by_schema
 
     def extract(self, output_file="data/metadata.json"):
@@ -312,8 +460,15 @@ class DatabricksExtractor(BaseExtractor):
 
         columns_desc = [d[0] for d in cursor.description]
         tables = [dict(zip(columns_desc, row)) for row in cursor.fetchall()]
+        base_table_count = sum(1 for t in tables if (t.get("table_type") or "").upper() != "VIEW")
+        view_count = len(tables) - base_table_count
+        _log_object_fetch("base table", self.catalog, base_table_count)
+        _log_object_fetch("view", self.catalog, view_count)
 
         view_definitions = self._fetch_view_definitions()
+        procedures_by_schema = self._fetch_procedures()
+        functions_by_schema = self._fetch_functions()
+        volumes_by_schema = self._fetch_volumes()
 
         # NEGATIVE-CASE DEMO: see DEMO_FORCE_DESTRUCTIVE_STATEMENT at the top of
         # this file - flip that one line to switch between the positive-case
@@ -438,13 +593,13 @@ class DatabricksExtractor(BaseExtractor):
                 }
             return schema_map[schema_name]
 
-        for schema_name, procedures in self._fetch_procedures().items():
+        for schema_name, procedures in procedures_by_schema.items():
             _ensure_schema(schema_name)["procedures"] = procedures
 
-        for schema_name, functions in self._fetch_functions().items():
+        for schema_name, functions in functions_by_schema.items():
             _ensure_schema(schema_name)["functions"] = functions
 
-        for schema_name, volumes in self._fetch_volumes().items():
+        for schema_name, volumes in volumes_by_schema.items():
             _ensure_schema(schema_name)["volumes"] = volumes
 
         metadata["schemas"] = list(schema_map.values())

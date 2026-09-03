@@ -147,8 +147,8 @@ def parse_table_summary_string(summary_text):
         "related_procedures": "None",
         "summary": ""
     }
-    
-    lines = summary_text.split("\n")
+
+    lines = (summary_text or "").split("\n")
     in_columns = False
     summary_lines = []
     in_summary = False
@@ -254,6 +254,162 @@ def parse_table_summary_string(summary_text):
             continue
             
     data["summary"] = " ".join(summary_lines)
+    return data
+
+
+def _parse_summary_lines(summary_text, field_prefixes, multiline_fields=()):
+    """
+    Shared line-by-line parser for the View/Function/Volume agent output
+    formats - a lighter-weight sibling of parse_table_summary_string() for
+    object types that don't have tables' Structure/Dependencies/Usage
+    sections. field_prefixes maps a "Label:" prefix to the output dict key;
+    multiline_fields are keys (e.g. "definition") whose value can span
+    multiple lines up to the next recognized prefix or "Summary:".
+    """
+    data = {key: "" for key in field_prefixes.values()}
+    data["columns"] = []
+    data["summary"] = ""
+
+    lines = (summary_text or "").split("\n")
+    active_multiline = None
+    in_columns = False
+    in_summary = False
+    summary_lines = []
+    multiline_buffers = {key: [] for key in multiline_fields}
+
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+
+        matched_prefix = False
+        for prefix, key in field_prefixes.items():
+            if line_stripped.startswith(prefix):
+                value = line_stripped.split(":", 1)[1].strip()
+                if key in multiline_fields:
+                    active_multiline = key
+                    if value:
+                        multiline_buffers[key].append(value)
+                else:
+                    data[key] = value
+                    active_multiline = None
+                in_columns = False
+                in_summary = False
+                matched_prefix = True
+                break
+        if matched_prefix:
+            continue
+
+        if line_stripped.startswith("- Columns:") or line_stripped == "Columns:":
+            in_columns = True
+            in_summary = False
+            active_multiline = None
+            continue
+
+        if line_stripped.startswith("Summary:"):
+            in_summary = True
+            in_columns = False
+            active_multiline = None
+            continue
+
+        if in_columns and (line_stripped.startswith("•") or line_stripped.startswith("*") or line_stripped.startswith("-")):
+            col_part = line_stripped.lstrip("•*-").strip()
+            if "(" in col_part and ")" in col_part:
+                name_part, type_part = col_part.split("(", 1)
+                col_name = name_part.strip()
+                col_type = type_part.rsplit(")", 1)[0].strip()
+            else:
+                col_name = col_part.strip()
+                col_type = "string"
+            data["columns"].append((col_name, col_type))
+            continue
+
+        if in_summary:
+            summary_lines.append(line_stripped)
+            continue
+
+        if active_multiline:
+            multiline_buffers[active_multiline].append(line_stripped)
+
+    for key in multiline_fields:
+        data[key] = "\n".join(multiline_buffers[key]).strip()
+    data["summary"] = " ".join(summary_lines)
+    return data
+
+
+def parse_view_summary_string(summary_text):
+    """Parses a VIEW summary produced by TableSummarizerAgent (see its
+    get_view_metadata output format) into a dict."""
+    data = _parse_summary_lines(
+        summary_text,
+        field_prefixes={
+            "View Name:": "view_name",
+            "Schema:": "schema_name",
+            "- Total Columns:": "total_columns",
+            "Definition:": "definition",
+        },
+        multiline_fields=("definition",),
+    )
+    if not data.get("view_name"):
+        data["view_name"] = "Unknown"
+    if not data.get("schema_name"):
+        data["schema_name"] = "dbo"
+    if not data.get("definition"):
+        data["definition"] = "Not available"
+    return data
+
+
+def parse_function_summary_string(summary_text):
+    """Parses a FUNCTION summary produced by TableSummarizerAgent (see its
+    get_function_metadata output format) into a dict."""
+    data = _parse_summary_lines(
+        summary_text,
+        field_prefixes={
+            "Function Name:": "function_name",
+            "Schema:": "schema_name",
+            "Return Type:": "return_type",
+        },
+    )
+    if not data.get("function_name"):
+        data["function_name"] = "Unknown"
+    if not data.get("schema_name"):
+        data["schema_name"] = "dbo"
+    return data
+
+
+def parse_procedure_summary_string(summary_text):
+    """Parses a STORED PROCEDURE summary produced by TableSummarizerAgent
+    (see its get_procedure_metadata output format) into a dict."""
+    data = _parse_summary_lines(
+        summary_text,
+        field_prefixes={
+            "Procedure Name:": "procedure_name",
+            "Schema:": "schema_name",
+        },
+    )
+    if not data.get("procedure_name"):
+        data["procedure_name"] = "Unknown"
+    if not data.get("schema_name"):
+        data["schema_name"] = "dbo"
+    return data
+
+
+def parse_volume_summary_string(summary_text):
+    """Parses a VOLUME summary produced by TableSummarizerAgent (see its
+    get_volume_metadata output format) into a dict."""
+    data = _parse_summary_lines(
+        summary_text,
+        field_prefixes={
+            "Volume Name:": "volume_name",
+            "Schema:": "schema_name",
+            "Volume Type:": "volume_type",
+            "Storage Location:": "storage_location",
+        },
+    )
+    if not data.get("volume_name"):
+        data["volume_name"] = "Unknown"
+    if not data.get("schema_name"):
+        data["schema_name"] = "dbo"
     return data
 
 
@@ -395,7 +551,7 @@ def add_agent_writeup_section(doc, sections, section_num):
         add_custom_paragraph(doc, line_stripped, is_bullet=is_bullet)
 
 
-def create_table_summary_document(overall_summary, table_summaries, output_path, source_hint="database", tables_df=None, columns_df=None, stats_df=None, views_df=None, procedures_df=None, functions_df=None, volumes_df=None):
+def create_table_summary_document(overall_summary, table_summaries, output_path, source_hint="database", tables_df=None, columns_df=None, stats_df=None, views_df=None, procedures_df=None, functions_df=None, volumes_df=None, view_summaries=None, function_summaries=None, procedure_summaries=None, volume_summaries=None):
     """
     Compiles the redesigned Assessment Report into a Microsoft Word document (.docx)
     following the visual style tokens and content layout sections specified in the approved plan.
@@ -574,14 +730,21 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
         populate_and_style_cell(table4.cell(idx, 0), a, is_first_col=True)
         populate_and_style_cell(table4.cell(idx, 1), f)
 
-    # Section 5: Table-Wise Assessment
-    add_custom_heading(doc, "5. Table-Wise Assessment", 1)
-    
-    for i, summary in enumerate(table_summaries):
+    # Section 5: Object-Wise Assessment. Tables, views, functions, and
+    # volumes all get a numbered 5.N sub-heading here - plan_to_json.py
+    # keys off exactly this "5.<n> <name>" heading pattern (regardless of
+    # object type) to pull entries out of this report into migration_plan.json,
+    # so numbering must stay flat and sequential across all four types
+    # rather than restarting per type.
+    add_custom_heading(doc, "5. Object-Wise Assessment", 1)
+    section5_counter = 0
+
+    for summary in table_summaries:
         t_data = parse_table_summary_string(summary)
-        
+        section5_counter += 1
+
         # Heading 2: 5.X table_name
-        add_custom_heading(doc, f"5.{i+1} {t_data['table_name']}", 2, space_before=Pt(12))
+        add_custom_heading(doc, f"5.{section5_counter} {t_data['table_name']}", 2, space_before=Pt(12))
         
         add_custom_paragraph(doc, f"The table {t_data['schema_name']}.{t_data['table_name']} is mapped to Microsoft Fabric. Below is the parsed column list and findings observation.")
         
@@ -658,6 +821,102 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
         for f_idx, (a, fd) in enumerate(table_findings, start=1):
             populate_and_style_cell(findings_table.cell(f_idx, 0), a, is_first_col=True)
             populate_and_style_cell(findings_table.cell(f_idx, 1), fd)
+
+    def _add_object_details_table(doc, detail_rows):
+        """
+        Renders the Property/Value table used by the View/Function/Volume
+        5.N sections below. Header text "Property" (rather than tables'
+        "Assessment Area"/"Finding Details") is what lets plan_to_json.py
+        tell this table apart from the Column/Data Type/Key table and pull
+        Definition/Return Type/Volume Type/Storage Location out of it.
+        """
+        details_table = doc.add_table(rows=len(detail_rows) + 1, cols=2)
+        details_table.style = 'Table Grid'
+        populate_and_style_cell(details_table.cell(0, 0), "Property", is_header=True)
+        populate_and_style_cell(details_table.cell(0, 1), "Value", is_header=True)
+        for d_idx, (prop, val) in enumerate(detail_rows, start=1):
+            populate_and_style_cell(details_table.cell(d_idx, 0), prop, is_first_col=True)
+            populate_and_style_cell(details_table.cell(d_idx, 1), val)
+
+    for summary in (view_summaries or []):
+        v_data = parse_view_summary_string(summary)
+        section5_counter += 1
+
+        add_custom_heading(doc, f"5.{section5_counter} {v_data['view_name']}", 2, space_before=Pt(12))
+        add_custom_paragraph(doc, f"The view {v_data['schema_name']}.{v_data['view_name']} is mapped to Microsoft Fabric. This is a VIEW object - its logic is defined by a SQL query rather than stored data.")
+
+        p_obs = add_custom_paragraph(doc)
+        p_obs.add_run("Observations: ").bold = True
+        p_obs.add_run(v_data["summary"])
+
+        add_custom_paragraph(doc, "Schema Columns:")
+        col_list = v_data["columns"]
+        col_table = doc.add_table(rows=len(col_list) + 1, cols=3)
+        col_table.style = 'Table Grid'
+        populate_and_style_cell(col_table.cell(0, 0), "Column", is_header=True)
+        populate_and_style_cell(col_table.cell(0, 1), "Data Type", is_header=True)
+        populate_and_style_cell(col_table.cell(0, 2), "Key", is_header=True)
+        for c_idx, (col_name, col_type) in enumerate(col_list, start=1):
+            populate_and_style_cell(col_table.cell(c_idx, 0), col_name, is_first_col=True)
+            populate_and_style_cell(col_table.cell(c_idx, 1), col_type)
+            populate_and_style_cell(col_table.cell(c_idx, 2), "None")
+
+        add_custom_paragraph(doc, "Object Details:")
+        _add_object_details_table(doc, [
+            ("Object Type", "View"),
+            ("Definition", v_data["definition"]),
+        ])
+
+    for summary in (function_summaries or []):
+        fn_data = parse_function_summary_string(summary)
+        section5_counter += 1
+
+        add_custom_heading(doc, f"5.{section5_counter} {fn_data['function_name']}", 2, space_before=Pt(12))
+        add_custom_paragraph(doc, f"The function {fn_data['schema_name']}.{fn_data['function_name']} is mapped to Microsoft Fabric. This is a FUNCTION object; it has no columns of its own.")
+
+        p_obs = add_custom_paragraph(doc)
+        p_obs.add_run("Observations: ").bold = True
+        p_obs.add_run(fn_data["summary"])
+
+        add_custom_paragraph(doc, "Object Details:")
+        _add_object_details_table(doc, [
+            ("Object Type", "Function"),
+            ("Return Type", fn_data.get("return_type") or "Unknown"),
+        ])
+
+    for summary in (procedure_summaries or []):
+        proc_data = parse_procedure_summary_string(summary)
+        section5_counter += 1
+
+        add_custom_heading(doc, f"5.{section5_counter} {proc_data['procedure_name']}", 2, space_before=Pt(12))
+        add_custom_paragraph(doc, f"The procedure {proc_data['schema_name']}.{proc_data['procedure_name']} is mapped to Microsoft Fabric. This is a STORED PROCEDURE object; it has no columns of its own.")
+
+        p_obs = add_custom_paragraph(doc)
+        p_obs.add_run("Observations: ").bold = True
+        p_obs.add_run(proc_data["summary"])
+
+        add_custom_paragraph(doc, "Object Details:")
+        _add_object_details_table(doc, [
+            ("Object Type", "Stored Procedure"),
+        ])
+
+    for summary in (volume_summaries or []):
+        vol_data = parse_volume_summary_string(summary)
+        section5_counter += 1
+
+        add_custom_heading(doc, f"5.{section5_counter} {vol_data['volume_name']}", 2, space_before=Pt(12))
+        add_custom_paragraph(doc, f"The volume {vol_data['schema_name']}.{vol_data['volume_name']} is mapped to Microsoft Fabric. This is a VOLUME object (Unity Catalog managed/external file storage), not a relational structure.")
+
+        p_obs = add_custom_paragraph(doc)
+        p_obs.add_run("Observations: ").bold = True
+        p_obs.add_run(vol_data["summary"])
+
+        add_custom_paragraph(doc, "Object Details:")
+        _add_object_details_table(doc, [
+            ("Object Type", "Volume"),
+            ("Volume Type", vol_data.get("volume_type") or "Unknown"),
+            ("Storage Location", vol_data.get("storage_location") or "Unknown"),
+        ])
 
     # Section 6: Assessment Conclusion
     add_custom_heading(doc, "6. Assessment Conclusion", 1)

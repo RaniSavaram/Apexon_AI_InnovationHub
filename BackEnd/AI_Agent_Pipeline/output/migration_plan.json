@@ -1,13 +1,13 @@
 {
   "meta": {
     "source_system": "databricks",
-    "database_name": null
+    "database_name": "bfsi_dev"
   },
   "tables": [
     {
       "schema": "cards",
       "table_name": "dim_card",
-      "medallion_layer": "Silver",
+      "medallion_layer": null,
       "load_strategy": "Full Load",
       "columns": [
         {
@@ -107,7 +107,7 @@
     {
       "schema": "cards",
       "table_name": "fact_card_transaction",
-      "medallion_layer": "Silver",
+      "medallion_layer": null,
       "load_strategy": "Full Load",
       "columns": [
         {
@@ -199,214 +199,50 @@
           "data_type": "STRING"
         }
       ]
-    },
+    }
+  ],
+  "views": [
     {
-      "schema": "cards",
-      "table_name": "fact_dispute",
-      "medallion_layer": "Silver",
-      "load_strategy": "Full Load",
+      "schema": "sp_demo",
+      "view_name": "archived_orders_view",
       "columns": [
         {
-          "name": "dispute_id",
-          "data_type": "STRING"
-        },
-        {
-          "name": "card_id",
-          "data_type": "STRING"
-        },
-        {
-          "name": "card_txn_id",
-          "data_type": "STRING"
-        },
-        {
-          "name": "raised_date",
-          "data_type": "DATE"
-        },
-        {
-          "name": "dispute_amount",
-          "data_type": "DOUBLE"
-        },
-        {
-          "name": "reason_code",
-          "data_type": "STRING"
-        },
-        {
-          "name": "reason_description",
-          "data_type": "STRING"
-        },
-        {
-          "name": "dispute_status",
-          "data_type": "STRING"
-        },
-        {
-          "name": "chargeback_stage",
-          "data_type": "STRING"
-        },
-        {
-          "name": "resolution_date",
-          "data_type": "DATE"
-        },
-        {
-          "name": "resolved_in_favour_of",
-          "data_type": "STRING"
-        },
-        {
-          "name": "provisional_credit_given",
-          "data_type": "STRING"
-        },
-        {
-          "name": "recovery_amount",
-          "data_type": "DOUBLE"
-        },
-        {
-          "name": "analyst_id",
-          "data_type": "STRING"
-        },
-        {
-          "name": "sla_breached",
-          "data_type": "STRING"
-        }
-      ]
-    },
-    {
-      "schema": "core_banking",
-      "table_name": "dim_account",
-      "medallion_layer": "Silver",
-      "load_strategy": "Full Load",
-      "columns": [
-        {
-          "name": "account_id",
-          "data_type": "STRING"
-        },
-        {
-          "name": "account_number",
-          "data_type": "STRING"
-        },
-        {
-          "name": "iban",
-          "data_type": "STRING"
+          "name": "order_id",
+          "data_type": "LONG"
         },
         {
           "name": "customer_id",
-          "data_type": "STRING"
+          "data_type": "LONG"
         },
         {
-          "name": "branch_id",
-          "data_type": "STRING"
-        },
-        {
-          "name": "ifsc_code",
-          "data_type": "STRING"
-        },
-        {
-          "name": "account_type",
-          "data_type": "STRING"
-        },
-        {
-          "name": "product_code",
-          "data_type": "STRING"
-        },
-        {
-          "name": "currency_code",
-          "data_type": "STRING"
-        },
-        {
-          "name": "open_date",
+          "name": "order_date",
           "data_type": "DATE"
         },
         {
-          "name": "close_date",
-          "data_type": "DATE"
+          "name": "amount",
+          "data_type": "DECIMAL"
         },
         {
-          "name": "current_balance",
-          "data_type": "DOUBLE"
-        },
-        {
-          "name": "available_balance",
-          "data_type": "DOUBLE"
-        },
-        {
-          "name": "avg_monthly_balance",
-          "data_type": "DOUBLE"
-        },
-        {
-          "name": "overdraft_limit",
-          "data_type": "DOUBLE"
-        },
-        {
-          "name": "interest_rate_pct",
-          "data_type": "DOUBLE"
-        },
-        {
-          "name": "account_status",
-          "data_type": "STRING"
-        },
-        {
-          "name": "last_txn_date",
-          "data_type": "DATE"
-        },
-        {
-          "name": "is_dormant",
-          "data_type": "STRING"
-        },
-        {
-          "name": "nominee_name",
+          "name": "status",
           "data_type": "STRING"
         }
-      ]
-    },
+      ],
+      "definition": "select * from bfsi_dev.sp_demo.archived_orders\nDependencies:\n- Referenced Objects: bfsi_dev.sp_demo.archived_orders\n- Dependent Objects: None"
+    }
+  ],
+  "functions": [],
+  "procedures": [
     {
-      "schema": "core_banking",
-      "table_name": "dim_branch",
-      "medallion_layer": "Silver",
-      "load_strategy": "Full Load",
-      "columns": [
-        {
-          "name": "branch_id",
-          "data_type": "STRING"
-        },
-        {
-          "name": "branch_code",
-          "data_type": "STRING"
-        },
-        {
-          "name": "branch_name",
-          "data_type": "STRING"
-        },
-        {
-          "name": "ifsc_code",
-          "data_type": "STRING"
-        },
-        {
-          "name": "city",
-          "data_type": "STRING"
-        },
-        {
-          "name": "state",
-          "data_type": "STRING"
-        },
-        {
-          "name": "pincode",
-          "data_type": "STRING"
-        },
-        {
-          "name": "region",
-          "data_type": "STRING"
-        },
-        {
-          "name": "branch_type",
-          "data_type": "STRING"
-        },
-        {
-          "name": "opened_date",
-          "data_type": "DATE"
-        },
-        {
-          "name": "is_active",
-          "data_type": "STRING"
-        }
-      ]
+      "schema": "sp_demo",
+      "procedure_name": "archive_old_orders"
+    }
+  ],
+  "volumes": [
+    {
+      "schema": "cards",
+      "volume_name": "credit_card_details_ext_vol",
+      "volume_type": "Unknown",
+      "storage_location": "Unknown"
     }
   ]
 }
