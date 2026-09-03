@@ -222,13 +222,16 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
     lh_id = lakehouse_id or os.environ.get("FABRIC_LAKEHOUSE_ID") or LAKEHOUSE_ID
 
     if doc_path is None:
-        if DOC_PATH.exists():
+        output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+        sqlserver_report = output_dir / "sqlserver_Assessment_Report.docx"
+        if sqlserver_report.exists():
+            target_doc = sqlserver_report
+        elif DOC_PATH.exists():
             target_doc = DOC_PATH
         else:
-            output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
-            reports = list(output_dir.glob("*Assessment_Report.docx")) if output_dir.exists() else []
+            reports = [p for p in output_dir.glob("*Assessment_Report.docx") if "Migration" not in p.name] if output_dir.exists() else []
             if not reports and output_dir.exists():
-                reports = list(output_dir.glob("*.docx"))
+                reports = [p for p in output_dir.glob("*.docx") if "Migration" not in p.name]
             if reports:
                 reports.sort(key=lambda p: p.stat().st_mtime, reverse=True)
                 target_doc = reports[0]

@@ -782,19 +782,21 @@ def generate_fabric_artifacts(request):
 
         source_clean = (source_param or "").strip().lower().replace(" ", "").replace("_", "")
 
-        # Route based on source system - both paths now go through the same
-        # generic Generator(); only the source_system label (and therefore
-        # which pre-provisioned Lakehouse/report files it resolves) differs.
-        script_name = "DB2_2_Fabric.py"
-        from Artifacts_Generator.DB2_2_Fabric import Generator as FabricGenerator
+        # Route based on source system:
+        # Databricks -> DB2_2_Fabric.py
+        # SQL Server -> SQL_2_Fabric.py
         if "databricks" in source_clean:
+            script_name = "DB2_2_Fabric.py"
             source_display = "Databricks"
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            result = FabricGenerator(source_system="databricks", database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            from Artifacts_Generator.DB2_2_Fabric import Generator as DatabricksGenerator
+            result = DatabricksGenerator(source_system="databricks", database_name=Creds.get_database_name(), workspace_id=workspace_id)
         else:
+            script_name = "SQL_2_Fabric.py"
             source_display = "SQL Server"
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            result = FabricGenerator(source_system="sqlserver", database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            from Artifacts_Generator.SQL_2_Fabric import Generator as SqlServerGenerator
+            result = SqlServerGenerator(workspace_id=workspace_id)
 
         result["generator_script"] = script_name
         result["source_system"] = source_display
@@ -804,7 +806,7 @@ def generate_fabric_artifacts(request):
         return Response(result, status=200)
     except Exception as exc:
         traceback.print_exc()
-        fallback_script = "DB2_2_Fabric.py"
+        fallback_script = "DB2_2_Fabric.py" if "databricks" in (source_param if "source_param" in locals() else "").lower() else "SQL_2_Fabric.py"
         return Response({
             "status": "error",
             "message": str(exc),

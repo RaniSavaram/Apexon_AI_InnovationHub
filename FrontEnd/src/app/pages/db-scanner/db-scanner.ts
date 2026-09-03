@@ -1140,9 +1140,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     if (this.fabricArtifactsResult?.generator_script) {
       return this.fabricArtifactsResult.generator_script;
     }
-    // Both Databricks and SQL Server route through the same generic,
-    // JSON-driven generator now - only the source_system label differs.
-    return 'DB2_2_Fabric.py';
+    return this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py';
   }
 
   openArtifactsDialog() {
@@ -1151,7 +1149,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       return;
     }
     this.showArtifactsDialog = true;
-    const expectedScript = 'DB2_2_Fabric.py';
+    const expectedScript = this.isDatabricksSource() ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py';
     const currentScript = this.fabricArtifactsResult?.generator_script;
 
     if ((!this.fabricArtifactsResult || currentScript !== expectedScript) && !this.generatingFabric) {
@@ -1180,22 +1178,18 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     }
 
     this.generatingFabric = true;
-    const script = this.getActiveGeneratorScript();
     const isDatabricks = this.isDatabricksSource();
+    const script = isDatabricks ? 'DB2_2_Fabric.py' : 'SQL_2_Fabric.py';
     const sourceName = isDatabricks ? 'Databricks' : 'SQL Server';
     const reportDoc = isDatabricks ? 'databricks_Assessment_Report.docx' : 'sqlserver_Assessment_Report.docx';
+    const targetLakehouse = isDatabricks ? 'Databricks_Lakehouse' : 'SQL_Lakehouse';
 
     // Seed with exact initial backend execution header
     this.fabricLiveLogs = [
       `Routing Generate Artifacts to: ${script} for source: ${sourceName}`,
-      `[INFO] Auto-generated migration_plan.json from ${reportDoc}`,
-      `==================================================`,
-      `JSON -> FABRIC`,
-      `==================================================`,
-      `[INFO] JSON: /app/BackEnd/AI_Agent_Pipeline/output/migration_plan.json`,
-      `[INFO] Tables found: 5`,
-      `[INFO] Dry run: False`,
-      `[INFO] Source system: ${sourceName.toLowerCase()}`
+      `[INFO] Target Lakehouse: ${targetLakehouse}`,
+      `[INFO] Using assessment report: ${reportDoc}`,
+      `[INFO] Target Workspace: bae3b540-d044-45e0-8c52-3cf4ee3dcb31`
     ];
     this.cdr.detectChanges();
 
