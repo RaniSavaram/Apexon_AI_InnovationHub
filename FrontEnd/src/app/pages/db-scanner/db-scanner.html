@@ -886,6 +886,14 @@ SCAN STATUS + ACTION BUTTONS
                         </a>
                     </div>
                     <div class="meta-card">
+                        <span class="meta-label"><i class="bi bi-folder2-open"></i> Target Lakehouse</span>
+                        <span class="meta-val">{{ getLakehouseName() }}</span>
+                        <a [href]="getLakehouseUrl()" target="_blank" rel="noopener noreferrer" class="fabric-link" title="Open in Microsoft Fabric">
+                            <span>Open in Fabric</span>
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    </div>
+                    <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-file-earmark-text-fill"></i> Assessment Report</span>
                         <span class="meta-val">{{ fabricArtifactsResult?.target?.report_name || (isDatabricksSource() ? 'databricks_Assessment_Report.docx' : 'sqlserver_Assessment_Report.docx') }}</span>
                         <span class="meta-sub">Source Schema Extraction</span>
