@@ -1,20 +1,21 @@
 {
   "metadata": {
-    "scan_id": "e5c7c6de-8733-439e-8b49-2bf3de9ca4f2",
-    "generated_at": "2026-09-03T14:19:02.494085Z",
+    "scan_id": "2a98e3d9-a8a8-45ad-bd3a-5999fca8771a",
+    "generated_at": "2026-09-08T10:20:43.002646Z",
     "source_platform": "Databricks",
     "target_platform": "Microsoft Fabric (OneLake)",
-    "total_tables": 2,
-    "total_columns": 50,
-    "total_views": 1,
+    "total_tables": 5,
+    "total_columns": 91,
+    "total_views": 0,
     "total_procedures": 1,
-    "total_size_mb": 4.09,
-    "total_row_count": 129000
+    "total_size_mb": 4.54,
+    "total_row_count": 137275
   },
   "source": {
     "database_name": "bfsi_dev",
     "schemas": [
-      "cards"
+      "cards",
+      "core_banking"
     ]
   },
   "target": {
@@ -36,7 +37,7 @@
       "size_mb": 0.2,
       "row_count": 4000,
       "medallion_layer": "Gold",
-      "layer_reason": "sensitive attributes required by BI.",
+      "layer_reason": "Aggregated reporting or analytical table",
       "primary_key": "card_id",
       "columns": [
         {
@@ -373,9 +374,368 @@
       ]
     },
     {
-      "name": "archived_orders_view",
-      "schema": "sp_demo",
-      "type": "view",
+      "name": "fact_dispute",
+      "schema": "cards",
+      "type": "table",
+      "size_mb": 0.01,
+      "row_count": 250,
+      "medallion_layer": "Gold",
+      "layer_reason": "Aggregated reporting or analytical table",
+      "primary_key": "dispute_id",
+      "columns": [
+        {
+          "name": "dispute_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "card_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "card_txn_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "raised_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "dispute_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "reason_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "reason_description",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "dispute_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "chargeback_stage",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "resolution_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "resolved_in_favour_of",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "provisional_credit_given",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "recovery_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "analyst_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "sla_breached",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        }
+      ],
+      "dependencies": [
+        "dim_card"
+      ]
+    },
+    {
+      "name": "dim_account",
+      "schema": "core_banking",
+      "type": "table",
+      "size_mb": 0.37,
+      "row_count": 8000,
+      "medallion_layer": "Gold",
+      "layer_reason": "Aggregated reporting or analytical table",
+      "primary_key": "account_id",
+      "columns": [
+        {
+          "name": "account_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "account_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "iban",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "branch_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "ifsc_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "account_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "product_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "currency_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "open_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "close_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "current_balance",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "available_balance",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "avg_monthly_balance",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "overdraft_limit",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "interest_rate_pct",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "account_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "last_txn_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "is_dormant",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "nominee_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        }
+      ],
+      "dependencies": [
+        "dim_branch"
+      ]
+    },
+    {
+      "name": "dim_branch",
+      "schema": "core_banking",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 25,
+      "medallion_layer": "Gold",
+      "layer_reason": "Aggregated reporting or analytical table",
+      "primary_key": "branch_id",
+      "columns": [
+        {
+          "name": "branch_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "branch_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "branch_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "ifsc_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "city",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "state",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "pincode",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "region",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "branch_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "opened_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "is_active",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        }
+      ],
       "dependencies": []
     },
     {
@@ -394,24 +754,46 @@
       "referenced_schema": "cards",
       "referenced_table": "dim_card",
       "referenced_column": "FK_fact_card_transaction_card_id_dim_card"
+    },
+    {
+      "fk_name": "FK_fact_dispute_card_id_dim_card",
+      "parent_schema": "cards",
+      "parent_table": "fact_dispute",
+      "parent_column": "FK_fact_dispute_card_id_dim_card",
+      "referenced_schema": "cards",
+      "referenced_table": "dim_card",
+      "referenced_column": "FK_fact_dispute_card_id_dim_card"
+    },
+    {
+      "fk_name": "FK_dim_account_branch_id_dim_branch",
+      "parent_schema": "core_banking",
+      "parent_table": "dim_account",
+      "parent_column": "FK_dim_account_branch_id_dim_branch",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_branch",
+      "referenced_column": "FK_dim_account_branch_id_dim_branch"
     }
   ],
   "execution_plan": {
     "migration_sequence": [
       "dim_card",
-      "fact_card_transaction"
+      "dim_branch",
+      "fact_card_transaction",
+      "fact_dispute",
+      "dim_account"
     ],
     "batches": {
       "Batch 1 (Independent Tables)": [
-        "dim_card"
+        "dim_card",
+        "dim_branch"
       ],
       "Batch 2 (Medium Dependency Tables)": [],
       "Batch 3 (Highly Dependent Tables)": [
-        "fact_card_transaction"
+        "fact_card_transaction",
+        "fact_dispute",
+        "dim_account"
       ],
-      "Batch 4 (Views)": [
-        "archived_orders_view"
-      ],
+      "Batch 4 (Views)": [],
       "Batch 5 (Stored Procedures)": [
         "archive_old_orders"
       ]

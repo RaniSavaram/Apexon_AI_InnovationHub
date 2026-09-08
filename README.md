@@ -184,10 +184,14 @@ DJANGO_SECRET_KEY=your-secure-secret-key
 DEBUG=False
 ALLOWED_HOSTS=*
 
-# Azure AI Foundry & OpenAI
-AZURE_AI_PROJECT_CONNECTION_STRING="<your-foundry-connection-string>"
-AZURE_OPENAI_API_KEY="<your-azure-openai-key>"
-AZURE_OPENAI_ENDPOINT="https://<your-resource>.openai.azure.com/"
+# Azure AI Foundry & Agent Models
+AZURE_AI_FOUNDRY_PROJECT_ENDPOINT="https://<your-foundry-resource>.services.ai.azure.com/api/projects/<project-name>"
+AZURE_AI_FOUNDRY_AGENT_NAME="MyAgent"
+# Distinct deployed models for the two agents (strictly enforced):
+AZURE_AI_FOUNDRY_TABLE_SUMMARIZER_MODEL="gpt-4.1-mini"       # Model for Table Summarizer Agent
+AZURE_AI_FOUNDRY_MIGRATION_PLAN_MODEL="gpt-4o"              # Model for Migration Plan Generator Agent
+# Legacy single model fallback:
+AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
 
 # Azure Service Principal / Fabric Identity
 AZURE_TENANT_ID="<your-tenant-id>"
