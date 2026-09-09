@@ -39,7 +39,35 @@ class AzureAIOrchestrator:
         load_dotenv()
         self.endpoint = os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT")
         self.base_agent_name = os.getenv("AZURE_AI_FOUNDRY_AGENT_NAME", "MyAgent")
-        self.model_name = os.getenv("AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT_NAME", "gpt-4.1-mini")
+
+        # Two distinct AI Foundry model deployments for the two agents
+        self.table_summarizer_model = (
+            os.getenv("AZURE_AI_FOUNDRY_TABLE_SUMMARIZER_MODEL")
+            or os.getenv("AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT_NAME")
+            or ""
+        ).strip()
+
+        self.migration_generator_model = (
+            os.getenv("AZURE_AI_FOUNDRY_MIGRATION_PLAN_MODEL")
+            or os.getenv("AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT_NAME")
+            or ""
+        ).strip()
+
+        # Strict validation: both models must be explicitly configured
+        if not self.table_summarizer_model:
+            raise ValueError(
+                "[STRICT CONFIG ERROR] No model deployment specified for Table Summarizer Agent! "
+                "Please set AZURE_AI_FOUNDRY_TABLE_SUMMARIZER_MODEL (or AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT_NAME) in your .env."
+            )
+
+        if not self.migration_generator_model:
+            raise ValueError(
+                "[STRICT CONFIG ERROR] No model deployment specified for Migration Generator Agent! "
+                "Please set AZURE_AI_FOUNDRY_MIGRATION_PLAN_MODEL (or AZURE_AI_FOUNDRY_MODEL_DEPLOYMENT_NAME) in your .env."
+            )
+
+        # Retain self.model_name for backward compatibility
+        self.model_name = self.table_summarizer_model
         self.scan_id = scan_id
         self.source_hint = source_hint
 
@@ -80,9 +108,9 @@ class AzureAIOrchestrator:
         self.table_summarizer_name = f"{sanitized_base}-table-summarizer-{run_suffix}"
         self.migration_plan_name = f"{sanitized_base}-migration-plan-generator-{run_suffix}"
         
-        # Agent Helpers
-        self.table_summarizer_builder = TableSummarizerAgent(self.table_summarizer_name, self.model_name)
-        self.migration_generator_builder = MigrationGeneratorAgent(self.migration_plan_name, self.model_name)
+        # Agent Helpers configured strictly with their respective models
+        self.table_summarizer_builder = TableSummarizerAgent(self.table_summarizer_name, self.table_summarizer_model)
+        self.migration_generator_builder = MigrationGeneratorAgent(self.migration_plan_name, self.migration_generator_model)
         
         # Azure Agent Version Instances
         self.table_summarizer_agent = None
@@ -209,23 +237,23 @@ class AzureAIOrchestrator:
         Logs["Scan Info"].append(f"[INFO] Creating agents using Microsoft AI Foundry SDK...")
         print("[INFO] Creating agents using Microsoft AI Foundry SDK...")
 
-        Logs["Scan Info"].append(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
-        print(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' on Azure AI Foundry...")
+        Logs["Scan Info"].append(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' using model '{self.table_summarizer_model}' on Azure AI Foundry...")
+        print(f"[INFO] Initializing Table_summarizer agent version '{self.table_summarizer_name}' using model '{self.table_summarizer_model}' on Azure AI Foundry...")
 
         self._delete_if_exists(self.table_summarizer_name)
         self.table_summarizer_agent = self.table_summarizer_builder.create(self.client)
 
-        Logs["Scan Info"].append(f"[INFO] Table_summarizer agent version created (ID: {self.table_summarizer_agent.id}, Version: {self.table_summarizer_agent.version}).")
-        print(f"[INFO] Table_summarizer agent version created (ID: {self.table_summarizer_agent.id}, Version: {self.table_summarizer_agent.version}).")
+        Logs["Scan Info"].append(f"[INFO] Table_summarizer agent version created (ID: {self.table_summarizer_agent.id}, Version: {self.table_summarizer_agent.version}, Model: {self.table_summarizer_model}).")
+        print(f"[INFO] Table_summarizer agent version created (ID: {self.table_summarizer_agent.id}, Version: {self.table_summarizer_agent.version}, Model: {self.table_summarizer_model}).")
 
-        Logs["Scan Info"].append(f"[INFO] Initializing Migration_plan_generator agent version '{self.migration_plan_name}' on Azure AI Foundry...")
-        print(f"[INFO] Initializing Migration_plan_generator agent version '{self.migration_plan_name}' on Azure AI Foundry...")
+        Logs["Scan Info"].append(f"[INFO] Initializing Migration_plan_generator agent version '{self.migration_plan_name}' using model '{self.migration_generator_model}' on Azure AI Foundry...")
+        print(f"[INFO] Initializing Migration_plan_generator agent version '{self.migration_plan_name}' using model '{self.migration_generator_model}' on Azure AI Foundry...")
 
         self._delete_if_exists(self.migration_plan_name)
         self.migration_plan_agent = self.migration_generator_builder.create(self.client)
 
-        Logs["Scan Info"].append(f"[INFO] Migration_plan_generator agent version created (ID: {self.migration_plan_agent.id}, Version: {self.migration_plan_agent.version}).")
-        print(f"[INFO] Migration_plan_generator agent version created (ID: {self.migration_plan_agent.id}, Version: {self.migration_plan_agent.version}).")
+        Logs["Scan Info"].append(f"[INFO] Migration_plan_generator agent version created (ID: {self.migration_plan_agent.id}, Version: {self.migration_plan_agent.version}, Model: {self.migration_generator_model}).")
+        print(f"[INFO] Migration_plan_generator agent version created (ID: {self.migration_plan_agent.id}, Version: {self.migration_plan_agent.version}, Model: {self.migration_generator_model}).")
         return True
 
     def _accumulate_usage(self, response):
@@ -334,8 +362,11 @@ class AzureAIOrchestrator:
             )
             return output_text
         except Exception as exc:
-            Logs["Scan Info"].append(f"  [AGENT WARNING] Azure AI invocation fallback: {exc}")
-            return None
+            err_msg = f"[STRICT ERROR] Azure AI Foundry invocation failed for {agent_name}: {exc}"
+            Logs["Scan Info"].append(f"  {err_msg}")
+            Logs["Harness Layer2"].append(f"  {err_msg}")
+            print(f"  {err_msg}")
+            raise RuntimeError(err_msg) from exc
 
     def run_table_summarizer_agent(self, table_name, schema_name=None, col_cnt=None, r_cnt=None, sz_mb=None):
         full_name = f"{schema_name}.{table_name}" if schema_name else table_name
@@ -361,7 +392,10 @@ class AzureAIOrchestrator:
             tool_map=tool_map
         )
         if not summary or len(summary.strip()) < 30:
-            summary = self.get_table_metadata(table_name, schema_name)
+            raise RuntimeError(
+                f"[STRICT ERROR] Table Summarizer Agent failed to generate valid observations for table '{full_name}' "
+                f"using model '{self.table_summarizer_model}'. Output was empty or incomplete."
+            )
         
         self._log_agent(f"        * [SUCCESS]: Generator Agent synthesized table observations for '{full_name}'")
         return summary
@@ -443,15 +477,11 @@ Generated with AI Foundry agents and Microsoft Fabric best practices.
             user_msg=user_msg,
             tool_map=tool_map
         )
-        # Mirrors run_table_summarizer_agent()'s fallback: if the AI agent
-        # call failed or returned too little (run_agent_with_tool_calling()
-        # returns None on any exception - rate limits, transient API
-        # errors, etc.), fall back to the tool's own raw metadata text
-        # directly rather than letting a None summary reach
-        # parse_view_summary_string()/parse_procedure_summary_string()/etc.
-        # downstream, which call .split() on it unconditionally.
         if not summary or len(summary.strip()) < 20:
-            summary = direct_tool_fn(object_name, schema_name)
+            raise RuntimeError(
+                f"[STRICT ERROR] Table Summarizer Agent failed to generate valid observations for {object_type} '{object_name}' "
+                f"using model '{self.table_summarizer_model}'. Output was empty or incomplete."
+            )
         return summary
 
     def run_migration_generator_agent(self, metadata_summary_str):
@@ -479,7 +509,10 @@ Generated with AI Foundry agents and Microsoft Fabric best practices.
             user_msg=user_msg
         )
         if not writeups or len(writeups.strip()) < 50:
-            writeups = self._generate_fallback_migration_writeups(metadata_summary_str)
+            raise RuntimeError(
+                f"[STRICT ERROR] Migration Generator Agent failed to synthesize migration roadmap "
+                f"using model '{self.migration_generator_model}'. Output was empty or incomplete."
+            )
         self._log_agent("        * [SUCCESS]: Evaluator verified migration plan integrity and Fabric OneLake compatibility")
         return writeups
 

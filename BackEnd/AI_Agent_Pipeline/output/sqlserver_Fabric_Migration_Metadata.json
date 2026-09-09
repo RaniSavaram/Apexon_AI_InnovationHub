@@ -1,14 +1,14 @@
 {
   "metadata": {
-    "scan_id": "34adea71-0a41-4fc0-aa7a-9c1f3cb09487",
-    "generated_at": "2026-09-01T09:55:01.228787Z",
+    "scan_id": "873289c8-39f0-4181-b277-c7e77b43403f",
+    "generated_at": "2026-09-08T10:10:47.046674Z",
     "source_platform": "SQL Server",
     "target_platform": "Microsoft Fabric (OneLake)",
     "total_tables": 5,
     "total_columns": 23,
     "total_views": 0,
-    "total_procedures": 6,
-    "total_size_mb": 0.0,
+    "total_procedures": 1,
+    "total_size_mb": 0.53,
     "total_row_count": 25
   },
   "source": {
@@ -33,10 +33,10 @@
       "name": "auth_group",
       "schema": "dbo",
       "type": "table",
-      "size_mb": 0.0,
+      "size_mb": 0.06,
       "row_count": 0,
-      "medallion_layer": "Bronze",
-      "layer_reason": "Categorized based on dependencies and naming",
+      "medallion_layer": "Silver",
+      "layer_reason": "Cleaned and relational structured table",
       "primary_key": "id",
       "columns": [
         {
@@ -60,10 +60,10 @@
       "name": "auth_group_permissions",
       "schema": "dbo",
       "type": "table",
-      "size_mb": 0.0,
+      "size_mb": 0.06,
       "row_count": 0,
-      "medallion_layer": "Bronze",
-      "layer_reason": "Categorized based on dependencies and naming",
+      "medallion_layer": "Silver",
+      "layer_reason": "Cleaned and relational structured table",
       "primary_key": "id",
       "columns": [
         {
@@ -97,10 +97,10 @@
       "name": "auth_permission",
       "schema": "dbo",
       "type": "table",
-      "size_mb": 0.0,
+      "size_mb": 0.21,
       "row_count": 24,
-      "medallion_layer": "Bronze",
-      "layer_reason": "Categorized based on dependencies and naming",
+      "medallion_layer": "Silver",
+      "layer_reason": "Cleaned and relational structured table",
       "primary_key": "id",
       "columns": [
         {
@@ -138,10 +138,10 @@
       "name": "auth_user",
       "schema": "dbo",
       "type": "table",
-      "size_mb": 0.0,
+      "size_mb": 0.14,
       "row_count": 1,
-      "medallion_layer": "Bronze",
-      "layer_reason": "Categorized based on dependencies and naming",
+      "medallion_layer": "Silver",
+      "layer_reason": "Cleaned and relational structured table",
       "primary_key": "id",
       "columns": [
         {
@@ -228,10 +228,10 @@
       "name": "auth_user_groups",
       "schema": "dbo",
       "type": "table",
-      "size_mb": 0.0,
+      "size_mb": 0.06,
       "row_count": 0,
-      "medallion_layer": "Bronze",
-      "layer_reason": "Categorized based on dependencies and naming",
+      "medallion_layer": "Silver",
+      "layer_reason": "Cleaned and relational structured table",
       "primary_key": "id",
       "columns": [
         {
@@ -263,36 +263,6 @@
     },
     {
       "name": "sp_alterdiagram",
-      "schema": "dbo",
-      "type": "procedure",
-      "dependencies": []
-    },
-    {
-      "name": "sp_creatediagram",
-      "schema": "dbo",
-      "type": "procedure",
-      "dependencies": []
-    },
-    {
-      "name": "sp_dropdiagram",
-      "schema": "dbo",
-      "type": "procedure",
-      "dependencies": []
-    },
-    {
-      "name": "sp_helpdiagramdefinition",
-      "schema": "dbo",
-      "type": "procedure",
-      "dependencies": []
-    },
-    {
-      "name": "sp_helpdiagrams",
-      "schema": "dbo",
-      "type": "procedure",
-      "dependencies": []
-    },
-    {
-      "name": "sp_renamediagram",
       "schema": "dbo",
       "type": "procedure",
       "dependencies": []
@@ -357,12 +327,7 @@
       ],
       "Batch 4 (Views)": [],
       "Batch 5 (Stored Procedures)": [
-        "sp_alterdiagram",
-        "sp_creatediagram",
-        "sp_dropdiagram",
-        "sp_helpdiagramdefinition",
-        "sp_helpdiagrams",
-        "sp_renamediagram"
+        "sp_alterdiagram"
       ]
     },
     "strategies": {

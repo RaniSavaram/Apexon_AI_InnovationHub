@@ -54,6 +54,30 @@ def get_onelake_token():
 
 
 def parse_report(doc_path):
+    output_dir = Path(doc_path).parent if doc_path else Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+    json_candidates = [
+        output_dir / "sqlserver_Fabric_Migration_Metadata.json",
+        output_dir / "Fabric_Migration_Metadata.json",
+    ]
+    for jf in json_candidates:
+        if jf.exists():
+            try:
+                data = json.loads(jf.read_text(encoding="utf-8"))
+                tables = []
+                for obj in data.get("objects", []):
+                    obj_type = (obj.get("type") or "").lower()
+                    if obj_type == "table":
+                        cols = [(c.get("name"), c.get("datatype") or c.get("data_type") or "string") for c in obj.get("columns", []) if c.get("name")]
+                        tables.append({
+                            "schema": obj.get("schema") or "dbo",
+                            "table": obj.get("name"),
+                            "columns": cols if cols else [("id", "int")]
+                        })
+                if tables:
+                    return tables
+            except Exception as e:
+                print(f"[WARN] Failed to load tables from json metadata: {e}")
+
     doc = docx.Document(str(doc_path))
     
     tables = []
@@ -85,21 +109,22 @@ def parse_report(doc_path):
                 continue
                 
             if current and in_columns_old:
-                if text.startswith("-") and not text.startswith(BULLET):
-                    # ends the columns block
+                if (text.startswith("-") or text.startswith("*")) and any(text.lower().startswith(x) for x in ["- referenced", "- dependent", "- related", "- primary key", "- foreign key", "- indexes", "- constraints", "- row count", "- table type"]):
                     in_columns_old = False
+                    continue
+                elif text.startswith("-") and not text.startswith(BULLET) and ":" in text and "(" not in text:
+                    in_columns_old = False
+                    continue
                 elif text.endswith(":") and not text.startswith(BULLET):
                     in_columns_old = False
+                    continue
                 elif text.startswith(BULLET) or text.startswith("-") or text.startswith("*"):
                     col_part = text.lstrip("•-*").strip()
                     if "(" in col_part and ")" in col_part:
                         name_part, type_part = col_part.split("(", 1)
                         col_name = name_part.strip()
                         data_type_raw = type_part.rsplit(")", 1)[0].strip()
-                    else:
-                        col_name = col_part.strip()
-                        data_type_raw = "string"
-                    current["columns"].append((col_name, data_type_raw))
+                        current["columns"].append((col_name, data_type_raw))
                 continue
 
             # --- NEW FORMAT CHECK ---
@@ -138,7 +163,7 @@ def parse_report(doc_path):
     if current:
         tables.append(current)
         
-    return tables
+    return [t for t in tables if not t["table"].lower().startswith("sp_")]
 
 
 def map_arrow_type(dt_raw):
@@ -222,13 +247,16 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
     lh_id = lakehouse_id or os.environ.get("FABRIC_LAKEHOUSE_ID") or LAKEHOUSE_ID
 
     if doc_path is None:
-        if DOC_PATH.exists():
+        output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
+        sqlserver_report = output_dir / "sqlserver_Assessment_Report.docx"
+        if sqlserver_report.exists():
+            target_doc = sqlserver_report
+        elif DOC_PATH.exists():
             target_doc = DOC_PATH
         else:
-            output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
-            reports = list(output_dir.glob("*Assessment_Report.docx")) if output_dir.exists() else []
+            reports = [p for p in output_dir.glob("*Assessment_Report.docx") if "Migration" not in p.name] if output_dir.exists() else []
             if not reports and output_dir.exists():
-                reports = list(output_dir.glob("*.docx"))
+                reports = [p for p in output_dir.glob("*.docx") if "Migration" not in p.name]
             if reports:
                 reports.sort(key=lambda p: p.stat().st_mtime, reverse=True)
                 target_doc = reports[0]
@@ -302,7 +330,9 @@ def Generator(doc_path=None, workspace_id=None, lakehouse_id=None):
     for t in parsed:
         schema_name = clean_identifier(t["schema"] or "dbo")
         table_name = clean_identifier(t["table"])
-        cols = t["columns"]
+        cols = t.get("columns") or []
+        if not cols:
+            cols = [("id", "int")]
 
         table_meta = {
             "schema": schema_name,

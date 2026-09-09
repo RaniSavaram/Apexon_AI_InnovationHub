@@ -1308,6 +1308,15 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     return 'sqlserver_Assessment_Report.docx';
   }
 
+  // Matches fabric_generator_core.py's SOURCE_LAKEHOUSE_MAP - each source
+  // has its own pre-provisioned Fabric Lakehouse, used as-is instead of
+  // dynamically creating a "<source>_<database>" one.
+  getActiveTargetLakehouse(): string {
+    if (this.isDatabricksSource()) return 'Databricks_Lakehouse';
+    if (this.isDynamics365Source()) return 'Dynamics365_Lakehouse';
+    return 'SQL_Lakehouse';
+  }
+
   // Each source routes through its own thin *2_fabric.py entry point
   // (databricks2_fabric.py / sqlserver2_fabric.py / dynamics3652_fabric.py)
   // - all backed by the same fabric_generator_core.Generator(), only the
@@ -1365,18 +1374,14 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     const script = this.getActiveGeneratorScript();
     const sourceName = this.getActiveSourceDisplayName();
     const reportDoc = this.getActiveReportDocName();
+    const targetLakehouse = this.getActiveTargetLakehouse();
 
     // Seed with exact initial backend execution header
     this.fabricLiveLogs = [
       `Routing Generate Artifacts to: ${script} for source: ${sourceName}`,
-      `[INFO] Auto-generated migration_plan.json from ${reportDoc}`,
-      `==================================================`,
-      `JSON -> FABRIC`,
-      `==================================================`,
-      `[INFO] JSON: /app/BackEnd/AI_Agent_Pipeline/output/migration_plan.json`,
-      `[INFO] Tables found: 5`,
-      `[INFO] Dry run: False`,
-      `[INFO] Source system: ${sourceName.toLowerCase()}`
+      `[INFO] Target Lakehouse: ${targetLakehouse}`,
+      `[INFO] Using assessment report: ${reportDoc}`,
+      `[INFO] Target Workspace: bae3b540-d044-45e0-8c52-3cf4ee3dcb31`
     ];
     this.cdr.detectChanges();
 
@@ -1476,6 +1481,22 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     if (status === 'warning') return 'Assessment Report Notice';
     if (status === 'partial') return 'Partial Artifacts Deployment';
     return 'Artifacts Deployment Details';
+  }
+
+  // Matches fabric_generator_core.py's SOURCE_LAKEHOUSE_MAP - each source
+  // has its own pre-provisioned Fabric Lakehouse (same "Fabric Insights"
+  // workspace, different lakehouse id per source).
+  getLakehouseUrl(): string {
+    const lakehouseId = this.isDatabricksSource()
+      ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9'
+      : this.isDynamics365Source()
+      ? 'efa4494d-ab51-4902-85cb-6fb074d9201d'
+      : '87ddccfe-cfa3-47d6-92ab-b638ce379319';
+    return `https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/${lakehouseId}?experience=fabric-developer`;
+  }
+
+  getLakehouseName(): string {
+    return this.getActiveTargetLakehouse();
   }
 
   getWorkspaceUrl(): string {
