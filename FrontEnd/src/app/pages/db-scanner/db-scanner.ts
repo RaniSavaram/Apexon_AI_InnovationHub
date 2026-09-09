@@ -2,7 +2,7 @@ import { Component, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewC
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
-import { Scanner, SavedConnectionProfile } from '../../services/scanner/scanner';
+import { Scanner, SavedConnectionProfile, ConnectionDetails } from '../../services/scanner/scanner';
 
 @Component({
   selector: 'app-db-scanner',
@@ -180,7 +180,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
   // CONNECTION DETAILS
   //=========================================================
 
-  connection = {
+  connection: ConnectionDetails = {
 
     server: '',
 
@@ -190,9 +190,34 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
     password: '',
 
-    httpPath: ''
+    httpPath: '',
+
+    tenantId: '',
+
+    clientId: '',
+
+    clientSecret: '',
+
+    account: '',
+
+    warehouse: '',
+
+    role: '',
+
+    token: ''
 
   };
+
+  // Dynamics 365 only: 'secret' = app registration (client-credentials
+  // flow), 'password' = the user's own sign-in (resource-owner-password
+  // flow) - the latter needs no client secret, for free/developer accounts
+  // that don't have an app registration set up.
+  dynamicsAuthMode: 'secret' | 'password' = 'secret';
+
+  // Snowflake only: 'token' = Programmatic Access Token, PAT (no username or
+  // password needed - Snowflake identifies the session from the token
+  // itself), 'password' = classic username + password login.
+  snowflakeAuthMode: 'token' | 'password' = 'token';
 
   rememberMe = false;
 
@@ -255,6 +280,13 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       profile.username ?? '',
       profile.password ?? '',
       profile.extra?.http_path ?? '',
+      profile.extra?.tenant_id ?? '',
+      profile.extra?.client_id ?? '',
+      profile.extra?.client_secret ?? '',
+      profile.extra?.account ?? '',
+      profile.extra?.warehouse ?? '',
+      profile.extra?.role ?? '',
+      profile.extra?.token ?? '',
     ].join('|');
   }
 
@@ -297,6 +329,13 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       username: '',
       password: '',
       httpPath: '',
+      tenantId: '',
+      clientId: '',
+      clientSecret: '',
+      account: '',
+      warehouse: '',
+      role: '',
+      token: '',
     };
   }
 
@@ -306,12 +345,22 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     }
 
     const key = this.getRememberedConnectionKey(this.source);
+    const extra: { http_path?: string; tenant_id?: string; client_id?: string; client_secret?: string; account?: string; warehouse?: string; role?: string; token?: string } = {};
+    if (this.connection.httpPath) extra.http_path = this.connection.httpPath;
+    if (this.connection.tenantId) extra.tenant_id = this.connection.tenantId;
+    if (this.connection.clientId) extra.client_id = this.connection.clientId;
+    if (this.connection.clientSecret) extra.client_secret = this.connection.clientSecret;
+    if (this.connection.account) extra.account = this.connection.account;
+    if (this.connection.warehouse) extra.warehouse = this.connection.warehouse;
+    if (this.connection.role) extra.role = this.connection.role;
+    if (this.connection.token) extra.token = this.connection.token;
+
     const profile: SavedConnectionProfile = {
       server: this.connection.server,
       database: this.connection.database,
       username: this.connection.username,
       password: this.connection.password,
-      extra: this.connection.httpPath ? { http_path: this.connection.httpPath } : {},
+      extra,
     };
 
     if (!this.rememberMe) {
@@ -338,6 +387,13 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
         username: '',
         password: '',
         httpPath: '',
+        tenantId: '',
+        clientId: '',
+        clientSecret: '',
+        account: '',
+        warehouse: '',
+        role: '',
+        token: '',
       };
       return;
     }
@@ -356,7 +412,20 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       username: profile.username ?? '',
       password: profile.password ?? '',
       httpPath: profile.extra?.http_path ?? '',
+      tenantId: profile.extra?.tenant_id ?? '',
+      clientId: profile.extra?.client_id ?? '',
+      clientSecret: profile.extra?.client_secret ?? '',
+      account: profile.extra?.account ?? '',
+      warehouse: profile.extra?.warehouse ?? '',
+      role: profile.extra?.role ?? '',
+      token: profile.extra?.token ?? '',
     };
+    if (this.source === 'dynamics365') {
+      this.dynamicsAuthMode = profile.extra?.client_secret ? 'secret' : 'password';
+    }
+    if (this.source === 'Snowflake') {
+      this.snowflakeAuthMode = profile.extra?.token ? 'token' : 'password';
+    }
   }
 
   sourceChanged() {
@@ -383,9 +452,25 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
       password: '',
 
-      httpPath: ''
+      httpPath: '',
+
+      tenantId: '',
+
+      clientId: '',
+
+      clientSecret: '',
+
+      account: '',
+
+      warehouse: '',
+
+      role: '',
+
+      token: ''
 
     };
+
+    this.snowflakeAuthMode = 'token';
 
     this.loadRememberedConnection();
 
@@ -450,7 +535,20 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
               username: response.connection.username ?? '',
               password: response.connection.password ?? '',
               httpPath: response.connection.extra?.http_path ?? '',
+              tenantId: response.connection.extra?.tenant_id ?? '',
+              clientId: response.connection.extra?.client_id ?? '',
+              clientSecret: response.connection.extra?.client_secret ?? '',
+              account: response.connection.extra?.account ?? '',
+              warehouse: response.connection.extra?.warehouse ?? '',
+              role: response.connection.extra?.role ?? '',
+              token: response.connection.extra?.token ?? '',
             };
+            if (this.source === 'dynamics365') {
+              this.dynamicsAuthMode = response.connection.extra?.client_secret ? 'secret' : 'password';
+            }
+            if (this.source === 'Snowflake') {
+              this.snowflakeAuthMode = response.connection.extra?.token ? 'token' : 'password';
+            }
             this.cdr.detectChanges();
           }
         },
@@ -602,6 +700,22 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     };
 
   }
+
+  //=========================================================
+  // SNOWFLAKE: AUTH MODE CHANGED
+  //=========================================================
+
+  onSnowflakeAuthModeChange() {
+    // Username stays in both modes - Snowflake validates a PAT against the
+    // login name it was issued for, so only the password/token field
+    // toggles.
+    if (this.snowflakeAuthMode === 'token') {
+      this.connection.password = '';
+    } else {
+      this.connection.token = '';
+    }
+  }
+
   //=========================================================
   // CONNECT DATABASE
   //=========================================================
@@ -609,19 +723,60 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
   connectDatabase() {
 
     const isDatabricks = this.source === 'Databricks';
+    const isDynamics365 = this.source === 'dynamics365';
+    const isSnowflake = this.source === 'Snowflake';
 
-    if (
-      this.connection.server.trim() === '' ||
-      this.connection.database.trim() === '' ||
-      (!isDatabricks && this.connection.username.trim() === '') ||
-      this.connection.password.trim() === '' ||
-      (isDatabricks && this.connection.httpPath.trim() === '')
-    ) {
+    // Dynamics 365 has no database field - it authenticates to Dataverse
+    // either via an Azure AD app registration (org URL + tenant/client
+    // id/secret) or, for free/developer accounts with no app registration,
+    // via the user's own username/password (no client secret needed).
+    const missingFields = isDynamics365
+      ? (
+          this.connection.server.trim() === '' ||
+          (this.dynamicsAuthMode === 'secret'
+            ? (
+                (this.connection.tenantId ?? '').trim() === '' ||
+                (this.connection.clientId ?? '').trim() === '' ||
+                (this.connection.clientSecret ?? '').trim() === ''
+              )
+            : (
+                this.connection.username.trim() === '' ||
+                this.connection.password.trim() === ''
+              ))
+        )
+      // Snowflake connects via account identifier + warehouse rather than a
+      // host - the "Server" field isn't shown to the user, it's derived
+      // from the account identifier below since the backend still requires
+      // it to be non-empty. Username is required in both auth modes -
+      // Snowflake validates a PAT against the login name it was issued for.
+      : isSnowflake
+      ? (
+          (this.connection.account ?? '').trim() === '' ||
+          this.connection.database.trim() === '' ||
+          (this.connection.warehouse ?? '').trim() === '' ||
+          this.connection.username.trim() === '' ||
+          (this.snowflakeAuthMode === 'token'
+            ? (this.connection.token ?? '').trim() === ''
+            : this.connection.password.trim() === '')
+        )
+      : (
+          this.connection.server.trim() === '' ||
+          this.connection.database.trim() === '' ||
+          (!isDatabricks && this.connection.username.trim() === '') ||
+          this.connection.password.trim() === '' ||
+          (isDatabricks && (this.connection.httpPath ?? '').trim() === '')
+        );
+
+    if (missingFields) {
 
       alert('Please fill all mandatory fields.');
 
       return;
 
+    }
+
+    if (isSnowflake) {
+      this.connection.server = this.connection.account ?? '';
     }
 
     this.connecting = true;
@@ -1136,13 +1291,40 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     return src.includes('databricks');
   }
 
+  isDynamics365Source(): boolean {
+    const src = (this.source || this.lastScanSource || '').toLowerCase();
+    return src.includes('dynamics') || src === 'd365';
+  }
+
+  getActiveSourceDisplayName(): string {
+    if (this.isDatabricksSource()) return 'Databricks';
+    if (this.isDynamics365Source()) return 'Dynamics 365';
+    return 'SQL Server';
+  }
+
+  getActiveReportDocName(): string {
+    if (this.isDatabricksSource()) return 'databricks_Assessment_Report.docx';
+    if (this.isDynamics365Source()) return 'dynamics365_Assessment_Report.docx';
+    return 'sqlserver_Assessment_Report.docx';
+  }
+
+  // Each source routes through its own thin *2_fabric.py entry point
+  // (databricks2_fabric.py / sqlserver2_fabric.py / dynamics3652_fabric.py)
+  // - all backed by the same fabric_generator_core.Generator(), only the
+  // filename (and therefore which pre-provisioned Lakehouse it resolves)
+  // differs. This is the filename expected for the *currently selected*
+  // source, independent of whatever a stale cached result says.
+  private getExpectedGeneratorScript(): string {
+    if (this.isDatabricksSource()) return 'databricks2_fabric.py';
+    if (this.isDynamics365Source()) return 'dynamics3652_fabric.py';
+    return 'sqlserver2_fabric.py';
+  }
+
   getActiveGeneratorScript(): string {
     if (this.fabricArtifactsResult?.generator_script) {
       return this.fabricArtifactsResult.generator_script;
     }
-    // Both Databricks and SQL Server route through the same generic,
-    // JSON-driven generator now - only the source_system label differs.
-    return 'DB2_2_Fabric.py';
+    return this.getExpectedGeneratorScript();
   }
 
   openArtifactsDialog() {
@@ -1151,7 +1333,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       return;
     }
     this.showArtifactsDialog = true;
-    const expectedScript = 'DB2_2_Fabric.py';
+    const expectedScript = this.getExpectedGeneratorScript();
     const currentScript = this.fabricArtifactsResult?.generator_script;
 
     if ((!this.fabricArtifactsResult || currentScript !== expectedScript) && !this.generatingFabric) {
@@ -1181,9 +1363,8 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
     this.generatingFabric = true;
     const script = this.getActiveGeneratorScript();
-    const isDatabricks = this.isDatabricksSource();
-    const sourceName = isDatabricks ? 'Databricks' : 'SQL Server';
-    const reportDoc = isDatabricks ? 'databricks_Assessment_Report.docx' : 'sqlserver_Assessment_Report.docx';
+    const sourceName = this.getActiveSourceDisplayName();
+    const reportDoc = this.getActiveReportDocName();
 
     // Seed with exact initial backend execution header
     this.fabricLiveLogs = [
@@ -1281,7 +1462,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
           message: msg,
           errors: [msg],
           logs: [...this.fabricLiveLogs],
-          generator_script: 'DB2_2_Fabric.py'
+          generator_script: this.getExpectedGeneratorScript()
         };
         this.cdr.detectChanges();
         setTimeout(() => this.scrollFabricLogsToBottom(), 100);
@@ -1395,7 +1576,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
   }
 
   // Combines Tables, Volumes, Views and Stored Procedures into one list so
-  // the "Synced Tables" tab reflects every artifact type DB2_2_Fabric.py's
+  // the "Synced Tables" tab reflects every artifact type fabric_generator_core.py's
   // Generator() can sink, not just Delta tables.
   getSyncedArtifactsRows(): { category: string; schema: string; name: string; detail: string; synced: boolean }[] {
     const result = this.fabricArtifactsResult;
@@ -1457,7 +1638,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
     // The Lakehouse itself - the OneLake container every Table/Volume row
     // above actually lands in (see resolve_artifact_lakehouse() in
-    // DB2_2_Fabric.py).
+    // fabric_generator_core.py).
     if (result.lakehouse_name) {
       rows.push({
         category: 'Lakehouse',
@@ -1469,8 +1650,8 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     }
 
     // The shared Fabric Warehouse itself (FIXED_WAREHOUSE_CONNECTION_STRING
-    // in DB2_2_Fabric.py) - distinct from the per-View/Procedure placeholder
-    // rows above, which live inside it.
+    // in fabric_generator_core.py) - distinct from the per-View/Procedure
+    // placeholder rows above, which live inside it.
     if (result.warehouse?.name) {
       const wh = result.warehouse;
       const hasFailure = !!(wh.errors && wh.errors.length) && !(wh.created && wh.created.length);

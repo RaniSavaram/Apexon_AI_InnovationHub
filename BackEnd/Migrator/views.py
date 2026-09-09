@@ -118,16 +118,18 @@ def _push_databricks_to_fabric(output_files, database_name):
     """
     Converts the just-generated Assessment Report + Migration Plan docx
     into migration_plan.json and pushes it straight into the pre-provisioned
-    "Databricks_Lakehouse" in Fabric via DB2_2_Fabric.py - no manual CLI
-    step needed for databricks scans. Only called for db_type == "databricks";
-    other sources aren't wired up to a real Fabric Lakehouse yet.
+    "Databricks_Lakehouse" in Fabric via databricks2_fabric.py - no manual
+    CLI step needed for databricks scans. Only called for db_type ==
+    "databricks"; other sources aren't wired up to a real Fabric Lakehouse
+    yet.
 
-    Returns the dict DB2_2_Fabric.Generator() returns (status/processed/errors).
-    Raises on failure - callers should catch and log rather than fail the scan,
-    since the docx reports themselves already succeeded by the time this runs.
+    Returns the dict databricks2_fabric.Generator() returns
+    (status/processed/errors). Raises on failure - callers should catch and
+    log rather than fail the scan, since the docx reports themselves
+    already succeeded by the time this runs.
     """
     from Artifacts_Generator.plan_to_json import build_plan
-    from Artifacts_Generator import DB2_2_Fabric
+    from Artifacts_Generator import databricks2_fabric
 
     output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
     assessment_path = output_dir / output_files["assessment_report"]
@@ -144,10 +146,9 @@ def _push_databricks_to_fabric(output_files, database_name):
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(plan, f, indent=2, ensure_ascii=False)
 
-    return DB2_2_Fabric.Generator(
+    return databricks2_fabric.Generator(
         json_path=json_path,
         dry_run=False,
-        source_system="databricks",
         database_name=database_name,
     )
 
@@ -749,15 +750,16 @@ def debug_view(request):
 @api_view(["POST", "GET"])
 def generate_fabric_artifacts(request):
     """
-    Executes BackEnd/Artifacts_Generator/DB2_2_Fabric.py - the generic,
-    JSON-driven generator (nothing in it is actually Databricks-specific;
-    see its module docstring) - to create Delta tables, Views, Stored
+    Executes one of the per-source BackEnd/Artifacts_Generator/*2_fabric.py
+    scripts (databricks2_fabric.py, sqlserver2_fabric.py,
+    dynamics3652_fabric.py) to create Delta tables, Views, Stored
     Procedures, Volumes, and a Data Pipeline scaffold directly in Microsoft
     Fabric, based on the selected source's Assessment Report/Migration Plan.
 
-    Both Databricks and SQL Server route through the same Generator now:
-    SQL Server used to run the older, table-only SQL_2_Fabric.py, which had
-    no Views/Stored Procedures support at all.
+    All three are thin wrappers around the same
+    fabric_generator_core.Generator() - see that module's docstring - each
+    just pinning source_system and reporting its own filename back as
+    generator_script.
     """
     try:
         global source
@@ -782,19 +784,29 @@ def generate_fabric_artifacts(request):
 
         source_clean = (source_param or "").strip().lower().replace(" ", "").replace("_", "")
 
-        # Route based on source system - both paths now go through the same
-        # generic Generator(); only the source_system label (and therefore
-        # which pre-provisioned Lakehouse/report files it resolves) differs.
-        script_name = "DB2_2_Fabric.py"
-        from Artifacts_Generator.DB2_2_Fabric import Generator as FabricGenerator
+        # Route based on source system - each source has its own thin
+        # *2_fabric.py entry point (all backed by the same
+        # fabric_generator_core.Generator()); only which one gets imported,
+        # and therefore the resolved pre-provisioned Lakehouse/report
+        # files, differs.
         if "databricks" in source_clean:
             source_display = "Databricks"
+            from Artifacts_Generator import databricks2_fabric as fabric_script
+            script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            result = FabricGenerator(source_system="databricks", database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
+        elif "dynamics" in source_clean or source_clean == "d365":
+            source_display = "Dynamics 365"
+            from Artifacts_Generator import dynamics3652_fabric as fabric_script
+            script_name = fabric_script.SCRIPT_NAME
+            print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
+            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
         else:
             source_display = "SQL Server"
+            from Artifacts_Generator import sqlserver2_fabric as fabric_script
+            script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            result = FabricGenerator(source_system="sqlserver", database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
 
         result["generator_script"] = script_name
         result["source_system"] = source_display
@@ -804,10 +816,9 @@ def generate_fabric_artifacts(request):
         return Response(result, status=200)
     except Exception as exc:
         traceback.print_exc()
-        fallback_script = "DB2_2_Fabric.py"
         return Response({
             "status": "error",
             "message": str(exc),
             "logs": [str(exc)],
-            "generator_script": fallback_script
+            "generator_script": None
         }, status=200)

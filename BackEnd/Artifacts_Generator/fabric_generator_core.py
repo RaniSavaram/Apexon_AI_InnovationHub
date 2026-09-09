@@ -1,4 +1,7 @@
 """
+Shared implementation behind the per-source *2_fabric.py generator scripts
+(databricks2_fabric.py, sqlserver2_fabric.py, dynamics3652_fabric.py).
+
 Reads migration_plan.json (produced by plan_to_json.py, which is itself
 built from AI_Migration_Plan.docx + Assesment Report.docx), resolves (or
 creates) a dedicated Fabric Lakehouse named "<source_system>_<database_name>"
@@ -20,43 +23,25 @@ structurally-valid placeholders, since Fabric has no item-definition API
 for views/procedures and the source SQL is a different dialect (T-SQL vs.
 Databricks SQL) that isn't translated here.
 
-Despite the old "SQL_2_Fabric" name this used to go by, nothing here is
-SQL-Server-specific. sqlserver.py, databricks_client.py, and
-dynamics365.py (see Metadata_Scanner/extractors/) all normalize their scan
-results into the identical {name, datatype, max_length, precision, scale,
-nullable} column shape before the AI agents ever see them, so the same
-migration_plan.json - and this same script - works unchanged whether the
-source was SQL Server, Databricks/Unity Catalog, or Dynamics 365/
-Dataverse. map_arrow_type() below understands all three type vocabularies
-(e.g. SQL Server "varchar"/"datetime", Databricks "STRING"/"TIMESTAMP",
-Dataverse "String"/"DateTime"/"Uniqueidentifier"/"Picklist").
+Nothing in this module is source-specific. sqlserver.py, databricks_client.py,
+and dynamics365.py (see Metadata_Scanner/extractors/) all normalize their
+scan results into the identical {name, datatype, max_length, precision,
+scale, nullable} column shape before the AI agents ever see them, so the
+same migration_plan.json - and this same Generator() - works unchanged
+whether the source was SQL Server, Databricks/Unity Catalog, or
+Dynamics 365/Dataverse. map_arrow_type() below understands all three type
+vocabularies (e.g. SQL Server "varchar"/"datetime", Databricks
+"STRING"/"TIMESTAMP", Dataverse "String"/"DateTime"/"Uniqueidentifier"/
+"Picklist"). Each of the three per-source scripts just fixes
+source_system and generator_script before delegating to Generator() here,
+so the docx-parsing/Fabric-sync logic lives in exactly one place.
 
-This used to parse Assesment Report.docx directly. It's now JSON-driven so
-that:
-  - the docx-parsing logic lives in exactly one place (plan_to_json.py),
-    shared by every target-specific generator instead of re-implemented here
-  - this script no longer cares which source DB the metadata came from —
-    it only understands the normalized JSON shape
-  - each table's Medallion layer (Bronze/Silver/Gold), decided by the AI
-    Migration Plan agent, is used to route the table into the matching
-    Fabric Lakehouse zone instead of every table landing in one flat spot
-
-Re-running this script is safe: existing tables are only ever extended with
+Re-running Generator() is safe: existing tables are only ever extended with
 new columns found in the JSON. Columns removed from the JSON, or whose type
 changed, are reported as warnings and left untouched. Re-running against
 the same source_system/database_name reuses the same Lakehouse instead of
 creating a duplicate.
-
-Usage
------
-    python DB_2_Fabric.py [--json path/to/migration_plan.json] [--dry-run] \\
-        [--source-system databricks] [--database-name sales_prod]
-
---dry-run skips Azure auth, the Lakehouse get-or-create call, and OneLake
-writes entirely; it just prints what would be created/updated and where.
-Useful for validating the JSON and layer routing before touching Fabric.
 """
-import argparse
 import base64
 import json
 import sys
@@ -77,9 +62,9 @@ except AttributeError:
 try:
     from Artifacts_Generator import fabric_api, fabric_pipeline_builder
 except ImportError:
-    # Fallback for running this script directly (e.g. `python DB_2_Fabric.py`
-    # from inside Artifacts_Generator/) where BackEnd isn't on sys.path as
-    # a package root the way Django's app loading puts it.
+    # Fallback for running a *2_fabric.py script directly (e.g. from inside
+    # Artifacts_Generator/) where BackEnd isn't on sys.path as a package
+    # root the way Django's app loading puts it.
     import fabric_api
     import fabric_pipeline_builder
 
@@ -104,9 +89,10 @@ SOURCE_LAKEHOUSE_MAP = {
     # Verified accessible: workspace "Fabric Insights" (bae3b540-...), lakehouse "SQL_Lakehouse".
     "sqlserver": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "87ddccfe-cfa3-47d6-92ab-b638ce379319"),
     "sql server": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "87ddccfe-cfa3-47d6-92ab-b638ce379319"),
-    "dynamics365": ("9cae3cbc-5ca6-49ce-9587-302752b104eb", "be349165-d57c-4756-96b9-738d1c69ed65"),
-    "dynamics 365": ("9cae3cbc-5ca6-49ce-9587-302752b104eb", "be349165-d57c-4756-96b9-738d1c69ed65"),
-    "d365": ("9cae3cbc-5ca6-49ce-9587-302752b104eb", "be349165-d57c-4756-96b9-738d1c69ed65"),
+    # Verified accessible: workspace "Fabric Insights" (bae3b540-...), lakehouse "Dynamics365_Lakehouse".
+    "dynamics365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "efa4494d-ab51-4902-85cb-6fb074d9201d"),
+    "dynamics 365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "efa4494d-ab51-4902-85cb-6fb074d9201d"),
+    "d365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "efa4494d-ab51-4902-85cb-6fb074d9201d"),
 }
 
 # Only used when a Medallion layer should live in its own, separately
@@ -406,7 +392,7 @@ def sync_views_and_procedures(views, procedures, source_system, dry_run, target_
     )
 
 
-def Generator(json_path=None, dry_run=False, source_system=None, database_name=None, workspace_id=None):
+def Generator(json_path=None, dry_run=False, source_system=None, database_name=None, workspace_id=None, generator_script=None):
     """
     Generate/synchronize Fabric Delta tables from migration_plan.json.
 
@@ -415,6 +401,10 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     "databricks", database_name="sales_prod" -> lakehouse "databricks_sales_prod".
     If a Lakehouse with that name already exists in the workspace, it is
     reused rather than duplicated.
+
+    `generator_script` is purely cosmetic: the calling *2_fabric.py wrapper
+    passes its own filename so the returned result (and the UI showing it)
+    reports the actual entry point that was run, not this shared module.
 
     This function can be called directly from Django.
 
@@ -695,8 +685,20 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     # no source connection is configured here, so this is a structural
     # scaffold to open in Fabric Studio and wire up, not yet a pipeline
     # that can be run end to end.
+    # Dynamics 365 / Dataverse: pipeline creation is skipped outright here -
+    # Fabric's pipeline-definition API rejects this scaffold's Copy activity
+    # JSON with a 400 "invalid input parameter: Type" error specifically for
+    # this source (see fabric_pipeline_builder.py's _placeholder_source -
+    # even the real LakehouseTableSource-based placeholder wasn't accepted),
+    # so rather than surface a hard failure on every Dynamics 365 run, the
+    # Lakehouse tables/volumes/warehouse objects still get created and this
+    # step is just left out for now.
+    is_dynamics365 = (source_system or "").strip().lower() in ("dynamics365", "dynamics 365", "d365")
+
     pipeline_info = None
-    if created_or_updated:
+    if created_or_updated and is_dynamics365:
+        log("[INFO] Skipping Fabric Data Pipeline creation for Dynamics 365 (not currently supported).")
+    elif created_or_updated:
         pipeline_name = fabric_pipeline_builder.build_pipeline_name(source_system, database_name)
         pipeline_content = fabric_pipeline_builder.build_pipeline_content(
             created_or_updated, target_workspace_id, default_lakehouse_id, artifact_lakehouse_name,
@@ -808,8 +810,8 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
         "tables_info": tables_meta,
         "errors": err_list,
         "logs": logs_list,
-        "generator_script": "DB2_2_Fabric.py",
-        "source_system": "Databricks",
+        "generator_script": generator_script or "fabric_generator_core.py",
+        "source_system": source_system,
         "target": {
             "workspace_id": target_workspace_id,
             "lakehouse_id": default_lakehouse_id,
@@ -822,49 +824,3 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
         "volumes": {"created": volume_results, "errors": volume_errors},
         "warehouse": warehouse_info
     }
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-
-    parser.add_argument(
-        "--json",
-        default=None,
-        help=f"Path to migration_plan.json"
-    )
-
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Skip Azure auth / OneLake writes"
-    )
-
-    parser.add_argument(
-        "--source-system",
-        default=None,
-        help="Source system name used to build the artifact lakehouse name, e.g. 'databricks', 'sqlserver'"
-    )
-
-    parser.add_argument(
-        "--database-name",
-        default=None,
-        help="Source database name used to build the artifact lakehouse name, e.g. 'sales_prod'"
-    )
-
-    args = parser.parse_args()
-
-    json_path = (
-        Path(args.json).resolve()
-        if args.json
-        else None
-    )
-
-    Generator(
-        json_path=json_path,
-        dry_run=args.dry_run,
-        source_system=args.source_system,
-        database_name=args.database_name,
-    )

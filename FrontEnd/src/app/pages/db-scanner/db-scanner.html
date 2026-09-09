@@ -87,6 +87,14 @@ START PART 1
                                 Databricks
                             </option>
 
+                            <option value="dynamics365">
+                                Dynamics 365
+                            </option>
+
+                            <option value="Snowflake">
+                                Snowflake
+                            </option>
+
                             <option value="Oracle">
                                 Oracle
                             </option>
@@ -388,7 +396,7 @@ SCAN STATUS + ACTION BUTTONS
 
                 <i class="bi bi-plug-fill"></i>
 
-                Connect {{source}}
+                Connect {{ getFormatSourceForFilename(source) }}
 
             </h2>
 
@@ -458,10 +466,235 @@ SCAN STATUS + ACTION BUTTONS
                 </ng-container>
 
                 <!-- ===============================================
+                DYNAMICS 365 / DATAVERSE: TEXT INPUTS ONLY
+                No database field - Dataverse authenticates over OAuth2,
+                either via an Azure AD (Entra ID) app registration
+                (client-credentials flow, needs a client secret) or, for
+                free/developer/trial environments with no app registration
+                set up, via the user's own Dynamics 365 sign-in
+                (resource-owner-password flow - no client secret needed).
+                ================================================-->
+
+                <ng-container *ngIf="source === 'dynamics365'">
+
+                    <div class="form-group">
+
+                        <label>Organization URL</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.server"
+                            placeholder="https://yourorg.crm.dynamics.com">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Authentication Method</label>
+
+                        <select [(ngModel)]="dynamicsAuthMode">
+
+                            <option value="secret">App registration (Client Secret)</option>
+
+                            <option value="password">Username &amp; Password (free/developer account)</option>
+
+                        </select>
+
+                    </div>
+
+                    <ng-container *ngIf="dynamicsAuthMode === 'secret'">
+
+                        <div class="form-group">
+
+                            <label>Tenant ID</label>
+
+                            <input
+                                type="text"
+                                [(ngModel)]="connection.tenantId"
+                                placeholder="Azure AD Tenant ID">
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label>Client ID</label>
+
+                            <input
+                                type="text"
+                                [(ngModel)]="connection.clientId"
+                                placeholder="Application (client) ID">
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label>Client Secret</label>
+
+                            <input
+                                type="password"
+                                [(ngModel)]="connection.clientSecret"
+                                placeholder="Client secret value">
+
+                        </div>
+
+                    </ng-container>
+
+                    <ng-container *ngIf="dynamicsAuthMode === 'password'">
+
+                        <div class="form-group">
+
+                            <label>Username</label>
+
+                            <input
+                                type="text"
+                                [(ngModel)]="connection.username"
+                                placeholder="you@yourorg.onmicrosoft.com">
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label>Password</label>
+
+                            <input
+                                type="password"
+                                [(ngModel)]="connection.password"
+                                placeholder="Dynamics 365 account password">
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label>Tenant ID (optional)</label>
+
+                            <input
+                                type="text"
+                                [(ngModel)]="connection.tenantId"
+                                placeholder="Leave blank to auto-detect from username">
+
+                        </div>
+
+                    </ng-container>
+
+                </ng-container>
+
+                <!-- ===============================================
+                SNOWFLAKE: TEXT INPUTS ONLY
+                Snowflake connects via an account identifier + warehouse
+                rather than a host, so there's no "Server" field here - it's
+                derived from the account identifier when connecting. Auth
+                can be either a Programmatic Access Token, PAT (no username
+                or password needed) or classic username + password.
+                ================================================-->
+
+                <ng-container *ngIf="source === 'Snowflake'">
+
+                    <div class="form-group">
+
+                        <label>Account Identifier</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.account"
+                            placeholder="xy12345.us-east-1 or myorg-myaccount">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Database</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.database">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Warehouse</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.warehouse"
+                            placeholder="COMPUTE_WH">
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>Authentication Method</label>
+
+                        <select [(ngModel)]="snowflakeAuthMode" (change)="onSnowflakeAuthModeChange()">
+
+                            <option value="token">Programmatic Access Token (PAT)</option>
+
+                            <option value="password">Username &amp; Password</option>
+
+                        </select>
+
+                    </div>
+
+                    <!-- Username is required in both modes - Snowflake
+                    validates a PAT against the login name it was issued
+                    for, so the token alone isn't enough. -->
+                    <div class="form-group">
+
+                        <label>Username</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.username">
+
+                    </div>
+
+                    <ng-container *ngIf="snowflakeAuthMode === 'token'">
+
+                        <div class="form-group">
+
+                            <label>Programmatic Access Token</label>
+
+                            <input
+                                type="password"
+                                [(ngModel)]="connection.token"
+                                placeholder="Snowflake PAT">
+
+                        </div>
+
+                    </ng-container>
+
+                    <ng-container *ngIf="snowflakeAuthMode === 'password'">
+
+                        <div class="form-group">
+
+                            <label>Password</label>
+
+                            <input
+                                type="password"
+                                [(ngModel)]="connection.password">
+
+                        </div>
+
+                    </ng-container>
+
+                    <div class="form-group">
+
+                        <label>Role (optional)</label>
+
+                        <input
+                            type="text"
+                            [(ngModel)]="connection.role"
+                            placeholder="e.g. SYSADMIN">
+
+                    </div>
+
+                </ng-container>
+
+                <!-- ===============================================
                 OTHER SOURCES
                 ================================================-->
 
-                <ng-container *ngIf="source !== 'Databricks'">
+                <ng-container *ngIf="source !== 'Databricks' && source !== 'dynamics365' && source !== 'Snowflake'">
 
                     <div class="form-group">
 
@@ -875,7 +1108,7 @@ SCAN STATUS + ACTION BUTTONS
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-file-earmark-code-fill"></i> Artifact Script</span>
                         <span class="meta-val" style="color: #6366f1; font-weight: 700;">{{ getActiveGeneratorScript() }}</span>
-                        <span class="meta-sub">{{ isDatabricksSource() ? 'Databricks -> Fabric Pipeline' : 'SQL Server -> Fabric Pipeline' }}</span>
+                        <span class="meta-sub">{{ getActiveSourceDisplayName() }} -> Fabric Pipeline</span>
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-diagram-3-fill"></i> Workspace</span>
@@ -887,7 +1120,7 @@ SCAN STATUS + ACTION BUTTONS
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-file-earmark-text-fill"></i> Assessment Report</span>
-                        <span class="meta-val">{{ fabricArtifactsResult?.target?.report_name || (isDatabricksSource() ? 'databricks_Assessment_Report.docx' : 'sqlserver_Assessment_Report.docx') }}</span>
+                        <span class="meta-val">{{ fabricArtifactsResult?.target?.report_name || getActiveReportDocName() }}</span>
                         <span class="meta-sub">Source Schema Extraction</span>
                     </div>
                     <div class="meta-card">

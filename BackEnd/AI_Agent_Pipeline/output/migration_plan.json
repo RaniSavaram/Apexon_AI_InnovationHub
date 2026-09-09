@@ -227,7 +227,7 @@
           "data_type": "STRING"
         }
       ],
-      "definition": "select * from bfsi_dev.sp_demo.archived_orders\nDependencies:\n- Referenced Objects: bfsi_dev.sp_demo.archived_orders\nUsage:\n- Dependent Objects: None"
+      "definition": "select * from bfsi_dev.sp_demo.archived_orders\nDependencies:\n- Referenced Objects: bfsi_dev.sp_demo.archived_orders\n- Dependent Objects: None\nUsage:\n- Related Stored Procedures: None"
     }
   ],
   "functions": [],
@@ -240,7 +240,7 @@
   "volumes": [
     {
       "schema": "cards",
-      "volume_name": "credit_card_details_ext_vol",
+      "volume_name": "volumes_credit_card_details_ext",
       "volume_type": "Unknown",
       "storage_location": "Unknown"
     }

@@ -40,13 +40,13 @@ instead of connecting directly from this process, this module:
      (fabric_api.run_notebook_job()).
   4. Reads back a JSON result the notebook wrote to a OneLake Files/ path
      (created/errors lists, the same shape sync_views_and_procedures() in
-     DB2_2_Fabric.py already expects) - a job's REST status doesn't expose
+     fabric_generator_core.py already expects) - a job's REST status doesn't expose
      print()/cell output directly, so the notebook writes its result to a
      known location instead of us trying to scrape run output.
 
 Best-effort like fabric_warehouse_sql.py's connection path was: any
 failure here (notebook creation, the run itself, or reading back the
-result) is caught by the caller in DB2_2_Fabric.py and reported as a
+result) is caught by the caller in fabric_generator_core.py and reported as a
 warning/error list rather than raised, so it can never take down a scan
 that otherwise succeeded.
 """
@@ -226,7 +226,7 @@ def sync_views_and_procedures(
     """
     Notebook-based replacement for fabric_warehouse_sql-based direct
     connection sync - see this module's docstring for why. `workspace_id`/
-    `lakehouse_id` are the same target Lakehouse DB2_2_Fabric.py's
+    `lakehouse_id` are the same target Lakehouse fabric_generator_core.py's
     Generator() already resolved for this scan's tables (reused purely as
     a OneLake location to stash the run's result JSON at, not because the
     Warehouse belongs to that Lakehouse - it doesn't; they're separate
@@ -234,7 +234,7 @@ def sync_views_and_procedures(
 
     Returns (created, errors) - same shape as
     fabric_warehouse_sql-based sync_views_and_procedures() in
-    DB2_2_Fabric.py returned, so callers there don't need to change.
+    fabric_generator_core.py returned, so callers there don't need to change.
     """
     created = []
     errors = []

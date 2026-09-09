@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "scan_id": "e5c7c6de-8733-439e-8b49-2bf3de9ca4f2",
-    "generated_at": "2026-09-03T14:19:02.494085Z",
+    "scan_id": "dba71bc0-46fd-47b7-ae57-4d8fe6ae0cf7",
+    "generated_at": "2026-09-09T09:41:16.154549Z",
     "source_platform": "Databricks",
     "target_platform": "Microsoft Fabric (OneLake)",
     "total_tables": 2,
@@ -36,7 +36,7 @@
       "size_mb": 0.2,
       "row_count": 4000,
       "medallion_layer": "Gold",
-      "layer_reason": "sensitive attributes required by BI.",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "card_id",
       "columns": [
         {

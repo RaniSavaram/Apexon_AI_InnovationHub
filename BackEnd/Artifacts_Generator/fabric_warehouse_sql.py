@@ -1,7 +1,7 @@
 """
 Scaffold for creating placeholder Views and Stored Procedures in a Fabric
 Warehouse's SQL analytics endpoint - the Views/Stored-Procedures sibling of
-DB2_2_Fabric.py's Delta-table sync and fabric_pipeline_builder.py's
+fabric_generator_core.py's Delta-table sync and fabric_pipeline_builder.py's
 pipeline scaffold.
 
 Why this is a scaffold, not a finished feature: a Fabric Lakehouse can't

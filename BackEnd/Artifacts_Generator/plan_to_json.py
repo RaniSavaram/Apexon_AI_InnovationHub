@@ -3,7 +3,7 @@ Parses the AI-generated Assessment Report (Assesment Report.docx /
 <source>_Assessment_Report.docx) - and, optionally, the companion AI
 Migration Plan docx (AI_Migration_Plan.docx / <source>_Migration_Plan.docx)
 - into migration_plan.json: the normalized JSON contract that
-DB2_2_Fabric.py (and any future target-specific generator) consumes to
+fabric_generator_core.py (and any future target-specific generator) consumes to
 create Delta tables in Microsoft Fabric.
 
 Output shape
@@ -53,7 +53,7 @@ produced over time:
 This is the same dual-format logic SQL_2_Fabric.py uses, kept in one place
 here so every target generator can share it instead of re-implementing it.
 Views/functions/volumes are additive, separate keys rather than being mixed
-into "tables" so DB2_2_Fabric.py's existing tables-only Delta table sync
+into "tables" so fabric_generator_core.py's existing tables-only Delta table sync
 keeps working unchanged.
 
 Medallion layer comes from SECTION 5's "Medallion Architecture Mapping
@@ -62,7 +62,7 @@ comes from SECTION 7's "Incremental Load Strategy" sentence, which names
 the Medium/Large tables that should use incremental load; every other
 table defaults to Full Load. Both are best-effort: if --migration-plan
 isn't supplied (or the file doesn't have these sections), every table
-just gets medallion_layer=null / load_strategy=null and DB2_2_Fabric.py
+just gets medallion_layer=null / load_strategy=null and fabric_generator_core.py
 falls back to "(no layer assigned)" / "(not specified)".
 
 Usage
@@ -78,7 +78,7 @@ Both docx paths default to the generic "Assesment Report.docx" /
 AI_Agent_Pipeline/output/ after every run (it always refreshes those two
 regardless of source system, for frontend compatibility). --output
 defaults to migration_plan.json in that same folder, which is exactly
-where DB2_2_Fabric.py looks for it by default.
+where fabric_generator_core.py looks for it by default.
 """
 import argparse
 import json
@@ -310,7 +310,7 @@ def build_plan(assessment_path, migration_plan_path=None, source_system=None, da
     # Section 5 carries tables, views, functions, procedures, and volumes
     # side by side (see docx_generator.py's flat 5.N numbering across all
     # five types). They're bucketed into separate output lists here -
-    # rather than all dumped into "tables" - so DB2_2_Fabric.py's existing
+    # rather than all dumped into "tables" - so fabric_generator_core.py's existing
     # tables-only Delta table sync keeps behaving exactly as before;
     # views/functions/procedures/volumes are new, additive keys for
     # whatever consumes them next.

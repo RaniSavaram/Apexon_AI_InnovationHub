@@ -12,15 +12,28 @@ class SnowflakeExtractor(BaseExtractor):
       - account   (extra["account"])   e.g. "xy12345.us-east-1" or "myorg-myaccount"
       - warehouse (extra["warehouse"]) the compute warehouse to run queries on
       - role      (extra["role"])      optional - defaults to the user's default role
+      - token     (extra["token"])     optional - a Snowflake Programmatic Access
+                                        Token (PAT); when set, connects via
+                                        authenticator="PROGRAMMATIC_ACCESS_TOKEN"
+                                        instead of a password. This is NOT the
+                                        generic authenticator="oauth" flow - a PAT
+                                        is validated server-side differently from
+                                        a real OAuth access token, so it must be
+                                        sent with the PAT-specific authenticator.
+                                        Username is still required: Snowflake
+                                        validates the PAT against the login name
+                                        it was issued for, and rejects the token
+                                        as invalid if no user is sent.
 
     Field mapping:
       Creds.get_servername()     -> unused (Snowflake connects via account, not host)
       Creds.get_database_name()  -> Snowflake database
-      Creds.get_username()       -> Snowflake username
-      Creds.get_password()       -> Snowflake password
+      Creds.get_username()       -> Snowflake username (required in both modes)
+      Creds.get_password()       -> Snowflake password (ignored when extra["token"] is set)
       Creds.get_extra("account")   -> required
       Creds.get_extra("warehouse") -> required
       Creds.get_extra("role")      -> optional
+      Creds.get_extra("token")     -> optional - PAT; enables token auth instead of password
 
     Install: pip install snowflake-connector-python
     """
@@ -32,6 +45,7 @@ class SnowflakeExtractor(BaseExtractor):
         self.account = Creds.get_extra("account")
         self.warehouse = Creds.get_extra("warehouse")
         self.role = Creds.get_extra("role")
+        self.token = Creds.get_extra("token")
         self.connection = None
 
     def connect(self):
@@ -41,26 +55,42 @@ class SnowflakeExtractor(BaseExtractor):
         print("Warehouse :", repr(self.warehouse))
         print("User      :", repr(self.username))
         print("Role      :", repr(self.role))
+        print("Auth mode :", "token" if self.token else "password")
 
         if not self.account:
             raise ValueError("Snowflake account identifier is empty (extra['account']).")
         if not self.database:
             raise ValueError("Database name is empty.")
-        if not self.username:
-            raise ValueError("Username is empty.")
-        if self.password is None:
-            raise ValueError("Password is None.")
         if not self.warehouse:
             raise ValueError("Snowflake warehouse is empty (extra['warehouse']).")
+        if not self.username:
+            raise ValueError("Username is empty.")
 
-        connect_kwargs = dict(
-            account=self.account,
-            user=self.username,
-            password=self.password,
-            database=self.database,
-            warehouse=self.warehouse,
-            login_timeout=15,
-        )
+        if self.token:
+            # Snowflake validates a PAT against the login name it was issued
+            # for - omitting `user` here makes the server reject an
+            # otherwise-valid token as invalid.
+            connect_kwargs = dict(
+                account=self.account,
+                user=self.username,
+                authenticator="PROGRAMMATIC_ACCESS_TOKEN",
+                token=self.token,
+                database=self.database,
+                warehouse=self.warehouse,
+                login_timeout=15,
+            )
+        else:
+            if self.password is None:
+                raise ValueError("Password is None.")
+            connect_kwargs = dict(
+                account=self.account,
+                user=self.username,
+                password=self.password,
+                database=self.database,
+                warehouse=self.warehouse,
+                login_timeout=15,
+            )
+
         if self.role:
             connect_kwargs["role"] = self.role
 

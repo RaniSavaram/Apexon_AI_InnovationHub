@@ -1,5 +1,5 @@
 """
-Thin client over the two Azure surfaces DB2_2_Fabric.py (and any future
+Thin client over the two Azure surfaces fabric_generator_core.py (and any future
 target-specific generator) needs to talk to Microsoft Fabric:
 
   - OneLake (ADLS Gen2-compatible) - for the actual Delta table writes,

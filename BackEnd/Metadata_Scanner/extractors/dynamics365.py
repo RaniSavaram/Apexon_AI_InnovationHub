@@ -11,31 +11,51 @@ class Dynamics365Extractor(BaseExtractor):
     Dynamics 365 does NOT expose a raw SQL connection the way the other
     extractors assume - under the hood it's Microsoft Dataverse, and the
     supported way to read metadata is the Dataverse Web API over HTTPS,
-    authenticated with an Azure AD (Entra ID) app registration using the
-    OAuth2 client-credentials flow. There's no username/password here.
+    authenticated against Azure AD (Entra ID) with one of two OAuth2 flows:
+
+    1. Client-credentials flow (needs an app registration): org URL +
+       tenant/client id/secret. Used for production setups that have an
+       Application User and app registration configured.
+    2. Resource-owner-password flow (no app registration or client secret
+       needed): org URL + the user's own Dynamics 365 username/password.
+       This is the practical option for free/developer/trial environments
+       where no app registration exists yet - it authenticates as
+       Microsoft's own well-known multi-tenant Dynamics CRM client, which
+       doesn't require a secret. Note Azure AD blocks this flow for
+       accounts with MFA/Security Defaults/Conditional Access enabled,
+       which is common on some tenants.
 
     "Tables" = Dataverse entities (e.g. "account", "contact", custom
     entities like "new_project"). "Columns" = entity attributes.
 
     Field mapping:
       Creds.get_servername()       -> the org URL, e.g. "https://yourorg.crm.dynamics.com"
-      Creds.get_extra("tenant_id")     -> required, Azure AD tenant ID
-      Creds.get_extra("client_id")     -> required, app registration (client) ID
-      Creds.get_extra("client_secret") -> required, app registration client secret
+      Creds.get_extra("tenant_id")     -> Azure AD tenant ID (required for flow 1, optional for flow 2)
+      Creds.get_extra("client_id")     -> app registration (client) ID (required for flow 1, optional for flow 2)
+      Creds.get_extra("client_secret") -> app registration client secret (required for flow 1 only)
+      Creds.get_username() / get_password() -> Dynamics 365 sign-in (required for flow 2 only)
 
-    The app registration needs an Application User created in Dynamics 365
-    (Settings > Users > Application Users) with a security role granting at
-    least read access, and API permissions for
+    For flow 1, the app registration needs an Application User created in
+    Dynamics 365 (Settings > Users > Application Users) with a security
+    role granting at least read access, and API permissions for
     "Dynamics CRM > user_impersonation" (admin-consented).
 
     Install: pip install requests   (already installed - used elsewhere in the project)
     """
 
+    # Microsoft's well-known, multi-tenant "Dynamics CRM" native app
+    # registration - a public client, so it doesn't require (or accept) a
+    # client secret. Used as the default client_id for the resource-owner-
+    # password flow when the caller hasn't registered their own app.
+    DEFAULT_PUBLIC_CLIENT_ID = "51f81489-12ee-4a9e-aaae-a2591f45987d"
+
     def __init__(self, Creds):
-        self.org_url = (Creds.get_servername() or "").rstrip("/")
-        self.tenant_id = Creds.get_extra("tenant_id")
-        self.client_id = Creds.get_extra("client_id")
-        self.client_secret = Creds.get_extra("client_secret")
+        self.org_url = (Creds.get_servername() or "").strip().rstrip("/")
+        self.tenant_id = (Creds.get_extra("tenant_id") or "").strip()
+        self.client_id = (Creds.get_extra("client_id") or "").strip()
+        self.client_secret = (Creds.get_extra("client_secret") or "").strip()
+        self.username = (Creds.get_username() or "").strip()
+        self.password = Creds.get_password() or ""
         self.access_token = None
 
     def connect(self):
@@ -46,25 +66,65 @@ class Dynamics365Extractor(BaseExtractor):
 
         if not self.org_url:
             raise ValueError("Dynamics 365 org URL is empty (Server field).")
-        if not self.tenant_id:
-            raise ValueError("Tenant ID is empty (extra['tenant_id']).")
-        if not self.client_id:
-            raise ValueError("Client ID is empty (extra['client_id']).")
-        if not self.client_secret:
-            raise ValueError("Client secret is empty (extra['client_secret']).")
+        if "powerapps.com" in self.org_url or "powerplatform.microsoft.com" in self.org_url:
+            # Common mistake: pasting the maker portal / admin center link
+            # (e.g. https://make.powerapps.com/environments/<id>/home)
+            # instead of the actual Dataverse Web API base URL. Azure AD
+            # would otherwise accept the token request and only fail later
+            # with a cryptic AADSTS500011 "resource principal not found".
+            raise ValueError(
+                "Organization URL looks like a Power Apps/Power Platform portal link, not "
+                "the Dataverse environment URL. Use the API base URL instead, e.g. "
+                "'https://yourorg.crm.dynamics.com' - find it in the Power Platform Admin "
+                "Center under the environment's Details ('Environment URL'), or inside the "
+                "Dynamics 365 app under Settings > Customizations > Developer Resources "
+                "('Instance Web API' base URL)."
+            )
+        using_client_secret = bool(self.client_secret)
+        using_username_password = bool(self.username and self.password)
 
-        token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
-        response = requests.post(
-            token_url,
-            data={
+        if not using_client_secret and not using_username_password:
+            raise ValueError(
+                "Provide either a Client Secret (app registration flow) or a "
+                "Username and Password (free/developer account flow) to "
+                "connect to Dynamics 365."
+            )
+
+        if using_client_secret:
+            if not self.tenant_id:
+                raise ValueError("Tenant ID is empty (extra['tenant_id']).")
+            if not self.client_id:
+                raise ValueError("Client ID is empty (extra['client_id']).")
+            token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
+            token_data = {
                 "grant_type": "client_credentials",
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
                 "scope": f"{self.org_url}/.default",
-            },
-            timeout=15,
-        )
-        response.raise_for_status()
+            }
+        else:
+            token_url = f"https://login.microsoftonline.com/{self.tenant_id or 'common'}/oauth2/v2.0/token"
+            token_data = {
+                "grant_type": "password",
+                "client_id": self.client_id or self.DEFAULT_PUBLIC_CLIENT_ID,
+                "username": self.username,
+                "password": self.password,
+                "scope": f"{self.org_url}/.default",
+            }
+
+        response = requests.post(token_url, data=token_data, timeout=15)
+        if not response.ok:
+            # Azure AD puts the actual reason (invalid secret, unknown
+            # tenant, app not found, missing admin consent, etc.) in the
+            # JSON body as error/error_description - raise_for_status()
+            # alone only surfaces the generic "400 Client Error" status
+            # line, which hides that detail from the user.
+            try:
+                error_body = response.json()
+                detail = error_body.get("error_description") or error_body.get("error") or response.text
+            except ValueError:
+                detail = response.text
+            raise ValueError(f"Dynamics 365 authentication failed: {detail}")
         self.access_token = response.json()["access_token"]
 
     def close(self):
@@ -80,7 +140,18 @@ class Dynamics365Extractor(BaseExtractor):
             "OData-Version": "4.0",
         }
         response = requests.get(url, headers=headers, params=params, timeout=30)
-        response.raise_for_status()
+        if not response.ok:
+            # Dataverse puts the actual reason (missing privilege, user not
+            # provisioned in this environment, no license, etc.) in the JSON
+            # body under error.message - raise_for_status() alone only
+            # surfaces the generic "403 Client Error" status line.
+            try:
+                detail = response.json().get("error", {}).get("message") or response.text
+            except ValueError:
+                detail = response.text
+            raise ValueError(
+                f"Dynamics 365 API request to '{path}' failed ({response.status_code}): {detail}"
+            )
         return response.json()
 
     def extract(self, output_file="data/metadata.json"):
@@ -98,23 +169,20 @@ class Dynamics365Extractor(BaseExtractor):
         schema_name = "dataverse"
         schema_map = {schema_name: {"name": schema_name, "tables": []}}
 
-        # List entities (custom entities only, to avoid pulling in the
-        # ~800 built-in system entities on a stock environment). Drop the
-        # IsCustomEntity filter if you want everything.
+        # List entities (custom, unmanaged only - i.e. tables actually
+        # built by the maker, not the ~800 built-in system entities on a
+        # stock environment, and not entities like "aaduser" that ship
+        # pre-flagged IsCustomEntity=true as part of a Microsoft-managed
+        # solution such as the Teams/AAD virtual-entity data source. Drop
+        # the $filter entirely if you want every entity.
         entities_result = self._api_get(
             "EntityDefinitions",
             params={
                 "$select": "LogicalName,EntitySetName,DisplayName",
-                "$filter": "IsCustomEntity eq true",
+                "$filter": "IsCustomEntity eq true and IsManaged eq false",
             },
         )
         entities = entities_result.get("value", [])
-
-        # Same one-table-per-schema sampling used elsewhere - here that
-        # means just the first entity found, since there's only one
-        # pseudo-schema.
-        if entities:
-            entities = [entities[0]]
 
         for entity in entities:
 
@@ -126,9 +194,14 @@ class Dynamics365Extractor(BaseExtractor):
                 "columns": []
             }
 
+            # MaxLength/Precision live only on derived attribute types
+            # (StringAttributeMetadata, DecimalAttributeMetadata, ...), not
+            # on the base AttributeMetadata type that /Attributes returns
+            # polymorphically - selecting them here 400s, so they're left
+            # out and the columns below just get None for those fields.
             attrs_result = self._api_get(
                 f"EntityDefinitions(LogicalName='{logical_name}')/Attributes",
-                params={"$select": "LogicalName,AttributeType,MaxLength,Precision,RequiredLevel"},
+                params={"$select": "LogicalName,AttributeType,RequiredLevel"},
             )
 
             for attr in attrs_result.get("value", []):

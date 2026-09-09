@@ -274,7 +274,7 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     # showed up in the Database Objects Inventory table and the Fabric JSON
     # metadata, both of which read views_df/procedures_df directly, but not
     # in Section 5, which plan_to_json.py actually parses to build
-    # migration_plan.json for DB2_2_Fabric.py's Warehouse sync).
+    # migration_plan.json for fabric_generator_core.py's Warehouse sync).
     def _summarize_secondary_objects(df, object_type, name_field):
         summaries = []
         if df is None or df.empty:

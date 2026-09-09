@@ -1,20 +1,20 @@
 """
 Builds a Fabric Data Pipeline's pipeline-content.json (the Data
 Factory/Fabric pipeline JSON schema: {"properties": {"activities": [...]}})
-from the same table list DB2_2_Fabric.py already syncs into a Lakehouse, so
+from the same table list fabric_generator_core.py already syncs into a Lakehouse, so
 the migration plan produces a visible pipeline in Fabric Studio - not just
 empty Delta tables - representing the plan's Bronze/Silver/Gold execution
 order as one Copy activity per table.
 
 Scope (structural, not yet runnable): each activity's sink is fully wired
 to the real target Lakehouse table (workspace/lakehouse ids, schema, table
-name) since that information is already known once DB2_2_Fabric.py has
+name) since that information is already known once fabric_generator_core.py has
 resolved the target Lakehouse. Each activity's source is deliberately left
 as a placeholder - no source connection is configured anywhere in this
 pipeline yet, so opening the pipeline in Fabric Studio and pointing each
 Copy activity's source at the real source system (Databricks/SQL Server/
 etc.) is expected as a manual follow-up step, not something this script
-does. This mirrors DB2_2_Fabric.py itself, which only creates empty Delta
+does. This mirrors fabric_generator_core.py itself, which only creates empty Delta
 tables (schema, no data) rather than actually moving data.
 """
 import re
@@ -30,8 +30,8 @@ def clean_activity_name(name):
     """
     Fabric/Data Factory activity names must be unique within the pipeline
     and are safest as alphanumerics/underscore/hyphen - mirrors
-    DB2_2_Fabric.py's clean_identifier() but kept local here to avoid a
-    circular import (DB2_2_Fabric.py is the one importing this module).
+    fabric_generator_core.py's clean_identifier() but kept local here to avoid a
+    circular import (fabric_generator_core.py is the one importing this module).
     """
     cleaned = "".join(c if (c.isalnum() or c in "_-") else "_" for c in (name or "").strip())
     return cleaned[:100] or "activity"
@@ -71,28 +71,38 @@ def _lakehouse_sink(workspace_id, lakehouse_id, lakehouse_display_name, schema_n
     }
 
 
-def _placeholder_source(source_system, schema_name, table_name):
+def _placeholder_source(workspace_id, lakehouse_id, lakehouse_display_name, source_system, schema_name, table_name):
     """
     No source connection exists yet for this pipeline, so this activity's
-    source can't be a real, runnable connector block. Left as a clearly
-    labeled placeholder - opening the pipeline in Fabric Studio and
-    pointing this Copy activity's source at the real source_system
+    source can't be a real, runnable connector pointed at source_system.
+    It used to fill in an invented "type" (e.g. "PLACEHOLDER_SOURCE_NOT_
+    CONFIGURED") here, but Fabric's pipeline-definition API schema-
+    validates activity JSON on save and rejects any source.type it
+    doesn't recognize with a 400 "invalid input parameter: Type" error -
+    for every source system, not just whichever one triggered it first.
+
+    So this points at the same Lakehouse table the sink writes to, using
+    the real "LakehouseTableSource" connector (the source-side counterpart
+    of the sink's "LakehouseTableSink" below) - schema-valid, and even
+    runs as a harmless no-op since the table starts empty. Clearly
+    annotated as a placeholder: opening the pipeline in Fabric Studio and
+    repointing this Copy activity's source at the real source_system
     connection for {schema}.{table} is expected as a manual next step.
     """
-    return {
-        "type": "PLACEHOLDER_SOURCE_NOT_CONFIGURED",
-        "datasetSettings": {
-            "annotations": [
-                f"TODO: configure the {source_system or 'source'} connection for "
-                f"{schema_name}.{table_name} before running this pipeline."
-            ],
-        },
-    }
+    source = _lakehouse_sink(workspace_id, lakehouse_id, lakehouse_display_name, schema_name, table_name)
+    source["type"] = "LakehouseTableSource"
+    del source["tableActionOption"]  # sink-only property; a source has no such concept
+    source["datasetSettings"]["annotations"] = [
+        f"TODO: point this Copy activity's source at the real {source_system or 'source'} "
+        f"connection for {schema_name}.{table_name} - currently a self-referencing placeholder "
+        f"(reads the same empty Lakehouse table it writes to)."
+    ]
+    return source
 
 
 def build_pipeline_content(synced_tables, workspace_id, lakehouse_id, lakehouse_display_name, source_system=None):
     """
-    synced_tables: the same list DB2_2_Fabric.py's Generator() returns as
+    synced_tables: the same list fabric_generator_core.py's Generator() returns as
     `processed` - dicts with at least {"schema", "table", "layer",
     "load_strategy"}, i.e. exactly the tables that were actually synced
     into the Lakehouse (skipped/errored tables have no business getting a
@@ -144,7 +154,7 @@ def build_pipeline_content(synced_tables, workspace_id, lakehouse_id, lakehouse_
                     {"name": "Load Strategy", "value": t.get("load_strategy") or "Full Load"},
                 ],
                 "typeProperties": {
-                    "source": _placeholder_source(source_system, schema_name, table_name),
+                    "source": _placeholder_source(workspace_id, lakehouse_id, lakehouse_display_name, source_system, schema_name, table_name),
                     "sink": _lakehouse_sink(workspace_id, lakehouse_id, lakehouse_display_name, schema_name, table_name),
                 },
             })
