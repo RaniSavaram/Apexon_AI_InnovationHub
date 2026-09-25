@@ -641,6 +641,26 @@ BODY
     line-height:1.8;
 }
 
+.logs-window.formatted-logs-window {
+    overflow-y: auto;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #cbd5e1;
+}
+
+.logs-window.formatted-logs-window .terminal-line {
+    min-height: 1.8em;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.log-error, .log-warning-red {
+    color: #ff4d4f !important;
+    font-weight: 700;
+}
+
 .harness1-body{
     display:flex;
     flex-direction:column;
@@ -1471,25 +1491,27 @@ ARTIFACTS LIVE CONSOLE
 }
 
 .log-info {
-    color: #93c5fd;
+    color: #93c5fd !important;
 }
 
 .log-success {
-    color: #4ade80;
+    color: #4ade80 !important;
     font-weight: 600;
 }
 
 .log-warn {
-    color: #fbbf24;
-}
-
-.log-error {
-    color: #f87171;
+    color: #fbbf24 !important;
     font-weight: 600;
 }
 
+.log-error, .log-warning-red {
+    color: #ff4d4f !important;
+    font-weight: 700;
+    text-shadow: 0 0 8px rgba(255, 77, 79, 0.25);
+}
+
 .log-default {
-    color: #cbd5e1;
+    color: #cbd5e1 !important;
 }
 
 .terminal-cursor {

@@ -9,21 +9,7 @@ import requests
 from config import Credentials
 from Metadata_Scanner.extractors.base_extractor import BaseExtractor
 
-# Demo toggle for showing both Harness Layer 1 governance outcomes back to
-# back: True makes the next scan execute a real (harmless, "WHERE 1=0")
-# DELETE probe against one table before extraction finishes, which lands in
-# Unity Catalog's system.query.history and trips the negative-case
-# (DESTRUCTIVE_SQL_DETECTED) path - the scan then gets stopped by the gate
-# in Migrator/views.py. False leaves the scan fully read-only for the
-# positive-case (full scan completes) demo. Flip this one line between the
-# two demo runs - Django's dev-server autoreloader picks up the change on
-# save, no restart needed.
-#
-# NOTE ON ORDER: the probe's DELETE is a real statement, so once it runs it
-# stays in system.query.history for 30 days (see _fetch_destructive_statements
-# below) and will keep failing every subsequent scan of that same catalog
-# regardless of this flag. Demo the positive case FIRST, then flip this to
-# True for the negative case - not the other way around.
+# Demo toggle for showing destructive statement governance negative case
 DEMO_FORCE_DESTRUCTIVE_STATEMENT = False
 
 # Capping a scan to a small, representative sample of objects (rather than

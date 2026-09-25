@@ -60,17 +60,36 @@ class Severity(str, Enum):
 # JSON/DB/config service at runtime and pass it into the harness so Fabric
 # support rules can change without touching code.
 
+try:
+    from config.demo_config import (
+        DEMO_INJECT_UNSUPPORTED_DATA_TYPE,
+        DEMO_UNSUPPORTED_DATA_TYPE,
+        apply_demo_injections
+    )
+except ImportError:
+    try:
+        from BackEnd.config.demo_config import (
+            DEMO_INJECT_UNSUPPORTED_DATA_TYPE,
+            DEMO_UNSUPPORTED_DATA_TYPE,
+            apply_demo_injections
+        )
+    except ImportError:
+        DEMO_INJECT_UNSUPPORTED_DATA_TYPE = False
+        DEMO_UNSUPPORTED_DATA_TYPE = "hierarchyid"
+        def apply_demo_injections(m): return m
+
 DEFAULT_FABRIC_CONFIG: dict[str, Any] = {
     "supported_data_types": [
         "int", "bigint", "smallint", "tinyint", "bit",
         "decimal", "numeric", "float", "real",
         "char", "varchar", "nchar", "nvarchar", "text",
         "date", "datetime", "datetime2", "time",
-        "uniqueidentifier", "binary", "varbinary", "boolean"
+        "uniqueidentifier", "binary", "varbinary", "boolean",
+        "string", "double", "integer", "long", "short", "byte", "timestamp", "timestamp_ntz"
     ],
     "unsupported_data_types": [
         "sql_variant", "xml", "geography", "geometry",
-        "hierarchyid", "cursor", "table", "timestamp","string","double"
+        "hierarchyid", "cursor", "table", "custom_blob", "image", "filestream"
     ],
     "supported_constraints": [
         "PRIMARY KEY", "FOREIGN KEY", "UNIQUE", "CHECK", "NOT NULL", "DEFAULT"
@@ -445,7 +464,7 @@ class FabricCompatibilityValidator:
 
     def _is_type_supported(self, data_type: str) -> Optional[bool]:
         dt = (data_type or "").lower().split("(")[0].strip()  # strip e.g. varchar(50) -> varchar
-        if dt in self._unsupported_types:
+        if dt in self._unsupported_types or dt.startswith("custom_") or "corrupt" in dt:
             return False
         if dt in self._supported_types:
             return True
@@ -462,22 +481,22 @@ class FabricCompatibilityValidator:
         for table in tables:
             table_name = table.get("name", "<unnamed>")
             for col in table.get("columns", []):
-                supported = self._is_type_supported(col.get("data_type", ""))
+                col_name = col.get("name", "<unnamed>")
+                data_type = col.get("data_type", "")
+                supported = self._is_type_supported(data_type)
                 if supported is False:
                     issues.append(ValidationIssue(
                         "UNSUPPORTED_DATA_TYPE",
-                        f"Column '{table_name}.{col.get('name')}' uses "
-                        f"unsupported data type '{col.get('data_type')}'.",
-                        severity=Severity.WARNING,
-                        context={"table": table_name, "column": col.get("name"), "data_type": col.get("data_type")}
+                        f"Column uses data type '{data_type}' incompatible with Fabric OneLake.",
+                        severity=Severity.ERROR,
+                        context={"table": table_name, "column": col_name, "data_type": data_type}
                     ))
                 elif supported is None:
                     issues.append(ValidationIssue(
                         "UNKNOWN_DATA_TYPE",
-                        f"Column '{table_name}.{col.get('name')}' uses an "
-                        f"unrecognized data type '{col.get('data_type')}'.",
+                        f"Column '{table_name}.{col_name}' uses an unrecognized data type '{data_type}'.",
                         severity=Severity.WARNING,
-                        context={"table": table_name, "column": col.get("name"), "data_type": col.get("data_type")}
+                        context={"table": table_name, "column": col_name, "data_type": data_type}
                     ))
 
         # Constraints
@@ -759,6 +778,7 @@ def _normalize_extracted_metadata(raw_metadata: dict[str, Any]) -> dict[str, Any
     list (populated by the extractors that support it) is flattened into
     the top-level "procedures" list the same way.
     """
+    raw_metadata = apply_demo_injections(raw_metadata)
     tables = []
     views = []
     procedures = []
@@ -836,16 +856,16 @@ def layer1_Harness(raw_metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    # Self-contained demo: proves GovernanceValidator.DESTRUCTIVE_SQL_DETECTED
-    # (defined above) fails the harness, using the real bfsi_dev Databricks
-    # schema/columns observed from an actual scan (Unity Catalog catalog
-    # "bfsi_dev", schemas "cards" and "core_banking") rather than invented
-    # table shapes. system.query.history had no DELETE/TRUNCATE to report at
-    # scan time, so the two statements below are hardcoded onto dim_card and
-    # dim_account here to exercise the check end-to-end without needing a
-    # live destructive statement run against the real warehouse.
+    # Self-contained test suite for Harness Layer 1 validations:
+    # 1. Positive case (Clean metadata -> PASS)
+    # 2. Negative case: Unsupported Data Type (hierarchyid / geometry -> FAIL)
+    # 3. Negative case: Destructive SQL statement (DELETE / TRUNCATE -> FAIL)
     # Run: python HarnessLayers/layer1/Layer.py
-    demo_raw_metadata = {
+
+    print("================================================================")
+    print("TEST 1: Positive Baseline Scan (All Data Types Compatible)")
+    print("================================================================")
+    clean_raw_metadata = {
         "database": "bfsi_dev",
         "schemas": [
             {
@@ -857,22 +877,67 @@ if __name__ == "__main__":
                         "columns": [
                             {"name": "card_id", "datatype": "STRING"},
                             {"name": "customer_id", "datatype": "STRING"},
-                            {"name": "card_number", "datatype": "STRING"},
-                            {"name": "card_number_masked", "datatype": "STRING"},
-                            {"name": "card_network", "datatype": "STRING"},
-                            {"name": "card_type", "datatype": "STRING"},
-                            {"name": "product_name", "datatype": "STRING"},
-                            {"name": "cardholder_name", "datatype": "STRING"},
-                            {"name": "cvv_stored", "datatype": "STRING"},
                             {"name": "credit_limit", "datatype": "DOUBLE"},
-                            {"name": "available_limit", "datatype": "DOUBLE"},
-                            {"name": "cash_limit", "datatype": "DOUBLE"},
-                            {"name": "current_outstanding", "datatype": "DOUBLE"},
-                            {"name": "min_amount_due", "datatype": "DOUBLE"},
-                            {"name": "total_amount_due", "datatype": "DOUBLE"},
-                            {"name": "card_status", "datatype": "STRING"},
-                            {"name": "is_contactless", "datatype": "STRING"},
-                            {"name": "is_international_enabled", "datatype": "STRING"},
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+    res_clean = layer1_Harness(clean_raw_metadata)
+    print(f"Decision: {res_clean['decision']}")
+    print(f"Errors: {res_clean['summary']['total_errors']}, Warnings: {res_clean['summary']['total_warnings']}")
+    assert res_clean['decision'] == "PASS", f"Expected PASS, got {res_clean['decision']}"
+    print("[SUCCESS] Baseline test PASSED.\n")
+
+    print("================================================================")
+    print("TEST 2: Negative Case - Unsupported Data Type (hierarchyid)")
+    print("================================================================")
+    unsupported_raw_metadata = {
+        "database": "bfsi_dev",
+        "schemas": [
+            {
+                "name": "cards",
+                "tables": [
+                    {
+                        "name": "dim_card",
+                        "type": "MANAGED",
+                        "columns": [
+                            {"name": "card_id", "datatype": "STRING"},
+                            {"name": "org_node", "datatype": "hierarchyid"},
+                            {"name": "credit_limit", "datatype": "DOUBLE"},
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+    res_unsupported = layer1_Harness(unsupported_raw_metadata)
+    print(f"Decision: {res_unsupported['decision']}")
+    print(f"Errors: {res_unsupported['summary']['total_errors']}, Warnings: {res_unsupported['summary']['total_warnings']}")
+    fabric_sec = next(s for s in res_unsupported["sections"] if s["section"] == "fabric_compatibility")
+    unsupported_issues = [i for i in fabric_sec["issues"] if i["rule"] == "UNSUPPORTED_DATA_TYPE"]
+    print(f"[TRACKED] Flagged {len(unsupported_issues)} issue(s):")
+    for iss in unsupported_issues:
+        print(f"  - {iss['rule']}: {iss['message']}")
+    assert res_unsupported['decision'] == "FAIL", f"Expected FAIL, got {res_unsupported['decision']}"
+    assert len(unsupported_issues) > 0, "Expected UNSUPPORTED_DATA_TYPE issue"
+    print("[SUCCESS] Unsupported Data Type negative case PASSED.\n")
+
+    print("================================================================")
+    print("TEST 3: Negative Case - Destructive SQL Statement")
+    print("================================================================")
+    destructive_raw_metadata = {
+        "database": "bfsi_dev",
+        "schemas": [
+            {
+                "name": "cards",
+                "tables": [
+                    {
+                        "name": "dim_card",
+                        "type": "MANAGED",
+                        "columns": [
+                            {"name": "card_id", "datatype": "STRING"},
                         ],
                         "recent_statements": [
                             "TRUNCATE TABLE bfsi_dev.cards.dim_card",
@@ -880,71 +945,16 @@ if __name__ == "__main__":
                     },
                 ],
             },
-            {
-                "name": "core_banking",
-                "tables": [
-                    {
-                        "name": "dim_account",
-                        "type": "MANAGED",
-                        "columns": [
-                            {"name": "account_id", "datatype": "STRING"},
-                            {"name": "account_number", "datatype": "STRING"},
-                            {"name": "iban", "datatype": "STRING"},
-                            {"name": "customer_id", "datatype": "STRING"},
-                            {"name": "branch_id", "datatype": "STRING"},
-                            {"name": "ifsc_code", "datatype": "STRING"},
-                            {"name": "account_type", "datatype": "STRING"},
-                            {"name": "product_code", "datatype": "STRING"},
-                            {"name": "currency_code", "datatype": "STRING"},
-                            {"name": "current_balance", "datatype": "DOUBLE"},
-                            {"name": "available_balance", "datatype": "DOUBLE"},
-                            {"name": "avg_monthly_balance", "datatype": "DOUBLE"},
-                            {"name": "overdraft_limit", "datatype": "DOUBLE"},
-                            {"name": "interest_rate_pct", "datatype": "DOUBLE"},
-                            {"name": "account_status", "datatype": "STRING"},
-                            {"name": "is_dormant", "datatype": "STRING"},
-                            {"name": "nominee_name", "datatype": "STRING"},
-                        ],
-                        "recent_statements": [
-                            "DELETE FROM bfsi_dev.core_banking.dim_account WHERE current_balance = 0",
-                        ],
-                    },
-                ],
-            },
         ],
     }
-
-    demo_report = layer1_Harness(demo_raw_metadata)
-
-    print(f"Decision: {demo_report['decision']}")
-    print(f"Next step: {demo_report['next_step']}")
-    print(
-        f"Errors: {demo_report['summary']['total_errors']}, "
-        f"Warnings: {demo_report['summary']['total_warnings']}"
-    )
-    print()
-
-    demo_governance_section = next(
-        s for s in demo_report["sections"] if s["section"] == "governance_validation"
-    )
-    demo_destructive_issues = [
-        i for i in demo_governance_section["issues"] if i["rule"] == "DESTRUCTIVE_SQL_DETECTED"
-    ]
-
-    destructive_statement = bool(demo_destructive_issues)
-
-    if destructive_statement:
-        print(f"[TRACKED] Harness Layer 1 flagged {len(demo_destructive_issues)} destructive statement(s):")
-        for issue in demo_destructive_issues:
-            print(f"  - {issue['message']}")
-        print("\n[FATAL] Destructive SQL statement detected - terminating process.")
-        sys.exit(1)
-
-    print("[NOT TRACKED] Harness Layer 1 did NOT flag either destructive statement.")
-
-    assert demo_report["decision"] == "PASS", (
-        "Expected PASS - no destructive statement was present, "
-        f"got '{demo_report['decision']}'."
-    )
-
-    print("\nDemo PASSED: governance_validation did not find any destructive statements.")
+    res_destructive = layer1_Harness(destructive_raw_metadata)
+    print(f"Decision: {res_destructive['decision']}")
+    print(f"Errors: {res_destructive['summary']['total_errors']}, Warnings: {res_destructive['summary']['total_warnings']}")
+    gov_sec = next(s for s in res_destructive["sections"] if s["section"] == "governance_validation")
+    destructive_issues = [i for i in gov_sec["issues"] if i["rule"] == "DESTRUCTIVE_SQL_DETECTED"]
+    print(f"[TRACKED] Flagged {len(destructive_issues)} destructive statement(s):")
+    for iss in destructive_issues:
+        print(f"  - {iss['rule']}: {iss['message']}")
+    assert res_destructive['decision'] == "FAIL", f"Expected FAIL, got {res_destructive['decision']}"
+    assert len(destructive_issues) > 0, "Expected DESTRUCTIVE_SQL_DETECTED issue"
+    print("[SUCCESS] Destructive SQL negative case PASSED.\n")

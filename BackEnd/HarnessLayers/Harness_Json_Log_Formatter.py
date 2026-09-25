@@ -128,8 +128,8 @@ VALIDATION_STEPS_CONFIG = {
         {
             "name": "Checking data type compatibility with Microsoft Fabric", 
             "completed_name": "Checked data type compatibility with Microsoft Fabric",
-            "rules": ["UNSUPPORTED_DATA_TYPE"], 
-            "info_text": "Monitored unsupported types: sql_variant, xml, geography, geometry, hierarchyid, cursor, table, timestamp"
+            "rules": ["UNSUPPORTED_DATA_TYPE", "UNKNOWN_DATA_TYPE"], 
+            "info_text": "Monitored unsupported types: sql_variant, xml, geography, geometry, hierarchyid, cursor, table, custom_blob, image"
         },
         {
             "name": "Checking constraint compatibility with Microsoft Fabric", 
@@ -313,7 +313,7 @@ def format_harness_report(json_data):
             status = "CHECKED" if idx == 0 else "SUCCESS"
             report_lines.append(f"[{status}]: {section_name}")
         else:
-            status = "error"
+            status = "ERROR"
             # Find the error message to explain why it failed
             error_messages = [
                 issue.get("message")
@@ -343,7 +343,7 @@ def format_harness_report(json_data):
 
             # Determine check status indicator for the step
             if any(item[1].get("severity", "").upper() == "ERROR" for item in matching_issues):
-                step_status = "error"
+                step_status = "ERROR"
             elif any(item[1].get("severity", "").upper() == "WARNING" for item in matching_issues):
                 step_status = "WARNING"
             else:
@@ -365,7 +365,7 @@ def format_harness_report(json_data):
                 rule = issue.get("rule", "Unknown Rule")
                 message = issue.get("message", "")
                 severity = issue.get("severity", "WARNING").upper()
-                mapped_severity = "error" if severity == "ERROR" else ("WARNING" if severity == "WARNING" else severity.lower())
+                mapped_severity = "ERROR" if severity == "ERROR" else ("WARNING" if severity == "WARNING" else severity.upper())
                 report_lines.append(f"              - [{mapped_severity}]: Rule {rule}: {message}")
                 printed_issues.add(issue_idx)
 
@@ -395,7 +395,7 @@ def format_harness_report(json_data):
                 rule = issue.get("rule", "Unknown Rule")
                 message = issue.get("message", "")
                 severity = issue.get("severity", "WARNING").upper()
-                mapped_severity = "error" if severity == "ERROR" else ("WARNING" if severity == "WARNING" else severity.lower())
+                mapped_severity = "ERROR" if severity == "ERROR" else ("WARNING" if severity == "WARNING" else severity.upper())
                 report_lines.append(f"        - [{mapped_severity}]: Rule {rule}: {message}")
         report_lines.append("")  # Empty line for spacing
 
@@ -403,7 +403,7 @@ def format_harness_report(json_data):
     summary = data.get("summary", {})
     report_lines.append("-" * 30)
     report_lines.append("REPORT SUMMARY:")
-    report_lines.append(f"Total errors: {summary.get('total_errors', 0)}")
+    report_lines.append(f"Total Errors: {summary.get('total_errors', 0)}")
     report_lines.append(f"Total Warnings: {summary.get('total_warnings', 0)}")
     report_lines.append("=" * 30)
     report_lines.append("\n If you want to continue click on SUBMIT/CONTINUE if u wanna rescan click RETRY extraction\n")

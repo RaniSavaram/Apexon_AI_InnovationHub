@@ -619,13 +619,11 @@ SCAN STATUS + ACTION BUTTONS
                 *ngIf="activeTab=='logs'"
                 class="logs-body">
 
-                <textarea
-                    readonly
-                    class="logs-window">
-
-{{statusMessages.join('\n')}}
-
-                </textarea>
+                <div class="logs-window formatted-logs-window">
+                    <div class="terminal-line" *ngFor="let line of getStatusLines()">
+                        <span [ngClass]="getLogLineClass(line)">{{ line }}</span>
+                    </div>
+                </div>
 
             </div>
 
@@ -649,13 +647,11 @@ SCAN STATUS + ACTION BUTTONS
 
                     </div>
 
-                    <textarea
-                        readonly
-                        class="logs-window">
-
-{{harness1Messages.join('\n')}}
-
-                    </textarea>
+                    <div class="logs-window formatted-logs-window">
+                        <div class="terminal-line" *ngFor="let line of getHarness1Lines()">
+                            <span [ngClass]="getLogLineClass(line)">{{ line }}</span>
+                        </div>
+                    </div>
 
                 </div>
 
@@ -692,13 +688,11 @@ SCAN STATUS + ACTION BUTTONS
                 *ngIf="activeTab=='harness2'"
                 class="logs-body">
 
-                <textarea
-                    readonly
-                    class="logs-window">
-
-{{harness2Messages.join('\n')}}
-
-                </textarea>
+                <div class="logs-window formatted-logs-window">
+                    <div class="terminal-line" *ngFor="let line of getHarness2Lines()">
+                        <span [ngClass]="getHarness2LineClass(line)">{{ line }}</span>
+                    </div>
+                </div>
 
             </div>
 

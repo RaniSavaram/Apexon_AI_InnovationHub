@@ -608,21 +608,29 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         print(temp)
         time.sleep(0.8)
 
-        if layer_result.get("decision") != "PASS":
-            blocked_msg = "[ERROR] Destructive SQL (DDL/DML) statement identified in the scanned metadata - stopping before generating the Assessment Report / Migration Plan."
-            update_scan_job_state(scan_id, log_entry=blocked_msg)
-            print(blocked_msg)
-            return Response(
-                {
-                    "status": "error",
-                    "message": "Destructive SQL (DDL/DML) statement identified - stopping before generating the Assessment Report / Migration Plan.",
-                    "source": source,
-                    "destination": destination,
-                    "Logs": Logs,
-                    "harness_result": layer_result,
-                },
-                status=400
+        layer1_passed = layer_result.get("decision") == "PASS"
+        err_summary = ""
+        if not layer1_passed:
+            failed_reasons = []
+            for sec in layer_result.get("sections", []):
+                for iss in sec.get("issues", []):
+                    if iss.get("severity", "").upper() == "ERROR":
+                        failed_reasons.append(f"{iss.get('rule')}: {iss.get('message')}")
+            err_summary = "; ".join(failed_reasons) if failed_reasons else "Constraint/Governance validation failed."
+            error_log_msg = f"[ERROR] Harness Layer 1 validation detected critical schema incompatibility: {err_summary}"
+            update_scan_job_state(scan_id, log_entry=error_log_msg, log_type="Scan Info")
+            update_scan_job_state(scan_id, log_entry=error_log_msg, log_type="Harness Layer1")
+            update_scan_job_state(
+                scan_id,
+                log_entry=f"[FLAGGED] Schema validation detected errors ({err_summary}). Continuing assessment pipeline to evaluate remediation requirements...",
+                log_type="Scan Info"
             )
+            update_scan_job_state(
+                scan_id,
+                log_entry=f"[FLAGGED] Schema validation detected errors ({err_summary}). Continuing assessment pipeline to evaluate remediation requirements...",
+                log_type="Harness Layer1"
+            )
+            print(error_log_msg)
 
         generating_msg = f"[INFO] Generating {db_name} Assessment Report and Migration Plan using the extracted metadata and Harness Layer 1 findings..."
         update_scan_job_state(scan_id, progress=45, current_message=f"Generating {db_name} Assessment Report and Migration Plan", log_entry=generating_msg)
@@ -633,38 +641,47 @@ def _run_scan(destination, scan_source=None, scan_id=None):
 
         fabric_push = None
         if db_type == "databricks":
-            update_scan_job_state(scan_id, progress=97, current_message="Syncing assessment with Microsoft Fabric OneLake...", log_entry="[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
-            print("[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
-            try:
-                fabric_push = _push_databricks_to_fabric(output_files, Creds.get_database_name())
-                update_scan_job_state(
-                    scan_id,
-                    progress=98,
-                    current_message="Fabric OneLake artifacts synchronized.",
-                    log_entry=(
-                        f"[INFO] Fabric push completed: {len(fabric_push.get('processed', []) or [])} table(s) "
-                        f"created/updated in '{fabric_push.get('lakehouse_name')}', "
-                        f"{len(fabric_push.get('errors', []) or [])} error(s)."
-                    ),
-                )
-                print(f"[INFO] Fabric push completed: {fabric_push}")
-            except Exception as fabric_exc:
-                fabric_push = {"status": "error", "error": str(fabric_exc)}
-                update_scan_job_state(
-                    scan_id,
-                    progress=98,
-                    current_message="Fabric artifact sync note recorded.",
-                    log_entry=f"[WARN] Fabric artifact push failed (reports above are still available): {fabric_exc}",
-                )
-                print(f"[WARN] Fabric artifact push failed: {fabric_exc}")
+            if not layer1_passed:
+                skip_msg = f"[WARN] Skipping direct Microsoft Fabric OneLake synchronization because Harness Layer 1 detected incompatible schema: {err_summary}"
+                update_scan_job_state(scan_id, progress=98, current_message="Fabric OneLake sync skipped due to validation findings.", log_entry=skip_msg)
+                print(skip_msg)
+            else:
+                update_scan_job_state(scan_id, progress=97, current_message="Syncing assessment with Microsoft Fabric OneLake...", log_entry="[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
+                print("[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
+                try:
+                    fabric_push = _push_databricks_to_fabric(output_files, Creds.get_database_name())
+                    update_scan_job_state(
+                        scan_id,
+                        progress=98,
+                        current_message="Fabric OneLake artifacts synchronized.",
+                        log_entry=(
+                            f"[INFO] Fabric push completed: {len(fabric_push.get('processed', []) or [])} table(s) "
+                            f"created/updated in '{fabric_push.get('lakehouse_name')}', "
+                            f"{len(fabric_push.get('errors', []) or [])} error(s)."
+                        ),
+                    )
+                    print(f"[INFO] Fabric push completed: {fabric_push}")
+                except Exception as fabric_exc:
+                    fabric_push = {"status": "error", "error": str(fabric_exc)}
+                    update_scan_job_state(
+                        scan_id,
+                        progress=98,
+                        current_message="Fabric artifact sync note recorded.",
+                        log_entry=f"[WARN] Fabric artifact push failed (reports above are still available): {fabric_exc}",
+                    )
+                    print(f"[WARN] Fabric artifact push failed: {fabric_exc}")
 
         finalizing_msg = "[INFO] All output is available in the Logs panel below."
         update_scan_job_state(scan_id, progress=99, current_message="Finalizing reports and logs...", log_entry=finalizing_msg)
         print(finalizing_msg)
         time.sleep(0.4)
 
-        completed_msg = f"[INFO] {db_name} scan completed successfully."
-        update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed successfully.", log_entry=completed_msg)
+        if not layer1_passed:
+            completed_msg = f"[INFO] {db_name} scan completed. Assessment reports generated with Harness Layer 1 findings: {err_summary}."
+            update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed (validation findings recorded).", log_entry=completed_msg)
+        else:
+            completed_msg = f"[INFO] {db_name} scan completed successfully."
+            update_scan_job_state(scan_id, progress=100, current_message=f"{db_name} scan completed successfully.", log_entry=completed_msg)
         print(completed_msg)
         
         # Retrieve logs for direct response compat

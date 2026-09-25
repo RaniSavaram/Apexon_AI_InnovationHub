@@ -34,6 +34,30 @@ try:
 except AttributeError:
     pass
 
+# ==============================================================================
+# DEMO TOGGLES: Live evaluation of Negative Scenarios (Harness Layer 1 & 2)
+# ==============================================================================
+try:
+    from config.demo_config import (
+        DEMO_INJECT_UNSUPPORTED_DATA_TYPE,
+        DEMO_UNSUPPORTED_DATA_TYPE,
+        DEMO_INJECT_MEDALLION_LEAKAGE,
+        apply_demo_injections
+    )
+except ImportError:
+    try:
+        from BackEnd.config.demo_config import (
+            DEMO_INJECT_UNSUPPORTED_DATA_TYPE,
+            DEMO_UNSUPPORTED_DATA_TYPE,
+            DEMO_INJECT_MEDALLION_LEAKAGE,
+            apply_demo_injections
+        )
+    except ImportError:
+        DEMO_INJECT_UNSUPPORTED_DATA_TYPE = False
+        DEMO_UNSUPPORTED_DATA_TYPE = "hierarchyid"
+        DEMO_INJECT_MEDALLION_LEAKAGE = False
+        def apply_demo_injections(m): return m
+
 
 def _update_progress(scan_id, progress=None, current_message=None, log_entry=None, log_type="Scan Info"):
     try:
@@ -252,6 +276,11 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         col_cnt = len(columns_df[columns_df["TableName"].astype(str).str.lower() == str(t_name).lower()]) if columns_df is not None and not columns_df.empty else 0
         
         summary = orchestrator.run_table_summarizer_agent(t_name, schema_name=s_name, col_cnt=col_cnt, r_cnt=r_cnt, sz_mb=sz_mb)
+
+        # DEMO INJECTION: Simulates generator rule breach on the first table
+        if DEMO_INJECT_MEDALLION_LEAKAGE and idx == 0:
+            summary += "\nThis table belongs in the Silver Medallion layer."
+        
         table_summaries.append(summary)
         
         if harness2:
@@ -292,10 +321,31 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     procedure_summaries = _summarize_secondary_objects(procedures_df, "procedure", "procedure_name")
     volume_summaries = _summarize_secondary_objects(volumes_df, "volume", "volume_name")
 
-    table_audit_steps = (
-        "        * [SUCCESS]: Evaluator checked for AI hallucinations against metadata (0 detected)\n"
-        "        * [SUCCESS]: Evaluator verified agent output schema conformity (Score: 100%)"
-    )
+    # Check if Evaluator flagged any table schema conformity or hallucination issues
+    eval_issues = [
+        issue for te in (harness2.table_evaluations if harness2 else [])
+        for issue in te.get("issues", [])
+    ]
+    conformity_issues = [i for i in eval_issues if i.get("rule") == "OUTPUT_SCHEMA_CONFORMITY"]
+    unsupported_type_issues = [i for i in eval_issues if i.get("rule") == "UNSUPPORTED_DATA_TYPE"]
+    
+    table_audit_lines = [
+        "        * [SUCCESS]: Evaluator checked for AI hallucinations against metadata (0 detected)"
+    ]
+    if conformity_issues:
+        conformity_score = max(50, int(100 - (len(conformity_issues) / max(1, total_tables)) * 100))
+        table_audit_lines.append(f"        * [WARNING]: Evaluator flagged schema conformity issues (Score: {conformity_score}%):")
+        for i in conformity_issues:
+            table_audit_lines.append(f"            - {i['message']}")
+    else:
+        table_audit_lines.append("        * [SUCCESS]: Evaluator verified agent output schema conformity (Score: 100%)")
+
+    if unsupported_type_issues:
+        table_audit_lines.append("        * [ERROR]: Evaluator identified unsupported data types:")
+        for i in unsupported_type_issues:
+            table_audit_lines.append(f"            - [ERROR] {i['message']}")
+
+    table_audit_steps = "\n".join(table_audit_lines)
     _update_progress(scan_id, log_entry=table_audit_steps, log_type="Harness Layer2")
     _update_progress(scan_id, log_entry=table_audit_steps, log_type="Scan Info")
 
@@ -471,16 +521,22 @@ Columns Sample:
         print(f"[WARN] Failed to generate Fabric JSON metadata: {json_err}")
         _update_progress(scan_id, log_entry=f"[WARN] Fabric JSON metadata generation failed: {json_err}", log_type="Scan Info")
 
+    total_err = len([i for i in eval_issues if i.get("severity") == "ERROR"])
+    total_warn = len([i for i in eval_issues if i.get("severity") != "ERROR"])
+    eval_decision = "FAIL" if total_err > 0 else ("PASS WITH WARNINGS" if total_warn > 0 else "PASS")
+    quality_label = "ACTION REQUIRED" if total_err > 0 else ("REVIEW RECOMMENDED" if total_warn > 0 else "HIGH")
+    assessment_status = "FLAGGED WITH SCHEMA ISSUES" if total_err > 0 else "PASSED"
+
     completion_summary = (
         "\n------------------------------\n"
         "REPORT SUMMARY:\n"
-        "Assessment Status: PASSED\n"
+        f"Assessment Status: {assessment_status}\n"
         "Migration Plan Status: GENERATED\n"
-        "Evaluator Decision: PASS\n"
-        "AI Output Quality: HIGH\n"
+        f"Evaluator Decision: {eval_decision}\n"
+        f"AI Output Quality: {quality_label}\n"
         "Hallucination Checks: 0 DETECTED\n"
-        "Total Errors: 0\n"
-        "Total Warnings: 0\n"
+        f"Total Errors: {total_err}\n"
+        f"Total Warnings: {total_warn}\n"
         "Target Platform: Microsoft Fabric OneLake\n"
         "=============================="
     )

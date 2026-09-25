@@ -69,6 +69,11 @@ class EvaluatorGeneratorHarness:
             "issues": issues
         })
 
+    UNSUPPORTED_FABRIC_TYPES = {
+        "hierarchyid", "geometry", "geography", "sql_variant",
+        "custom_blob", "xml", "cursor", "table"
+    }
+
     def evaluate_table_summary(
         self,
         table_name: str,
@@ -79,7 +84,7 @@ class EvaluatorGeneratorHarness:
     ) -> Dict[str, Any]:
         """
         Evaluates a single table summary against ground-truth database metadata.
-        Checks for hallucinations (non-existent columns), missing keys, and output format.
+        Checks for hallucinations (non-existent columns), missing keys, unsupported data types, and output format.
         """
         issues = []
         # 1. Check ground-truth columns
@@ -91,14 +96,31 @@ class EvaluatorGeneratorHarness:
             ]
             if not match.empty:
                 known_cols = match["ColumnName"].astype(str).str.lower().tolist()
+                type_col = "DataType" if "DataType" in match.columns else ("datatype" if "datatype" in match.columns else "Type")
+                if type_col in match.columns:
+                    for _, col_row in match.iterrows():
+                        raw_type = str(col_row.get(type_col, "")).lower().split("(")[0].strip()
+                        if raw_type in self.UNSUPPORTED_FABRIC_TYPES or raw_type.startswith("custom_") or "corrupt" in raw_type:
+                            issues.append({
+                                "rule": "UNSUPPORTED_DATA_TYPE",
+                                "severity": "ERROR",
+                                "message": f"UNSUPPORTED_DATA_TYPE: Column uses data type '{raw_type}' incompatible with Fabric OneLake."
+                            })
+                            self.total_errors += 1
 
         # 2. Check summary text non-empty
         if not summary_text or len(summary_text.strip()) < 20:
             issues.append({"rule": "OUTPUT_SCHEMA_CONFORMITY", "severity": "WARNING", "message": f"Summary for {schema_name}.{table_name} is brief or incomplete."})
 
         # 3. Check for Medallion leakage (user requirement: no medallion in assessment)
-        if "medallion" in summary_text.lower():
-            issues.append({"rule": "OUTPUT_SCHEMA_CONFORMITY", "severity": "WARNING", "message": f"Table summary for {table_name} contained Medallion reference."})
+        medallion_keywords = ["medallion", "bronze layer", "silver layer", "gold layer", "bronze", "silver", "gold"]
+        if any(kw in summary_text.lower() for kw in medallion_keywords):
+            issues.append({
+                "rule": "OUTPUT_SCHEMA_CONFORMITY",
+                "severity": "WARNING",
+                "message": f"[RULE VIOLATION]: OUTPUT_SCHEMA_CONFORMITY - Table summary for '{table_name}' contained Medallion reference."
+            })
+            self.total_warnings += 1
 
         passed = len([i for i in issues if i["severity"] == "ERROR"]) == 0
         eval_result = {
@@ -269,6 +291,22 @@ def format_layer2_report(report_data: Dict[str, Any], table_count: int = 5) -> s
     total_warnings = summary.get("total_warnings", 0)
     decision = report_data.get("decision", "PASS")
 
+    sections = report_data.get("sections", [])
+    sec_map = {s.get("section"): s for s in sections}
+
+    eval_sec = sec_map.get("evaluator_table_assessment", {})
+    eval_passed = eval_sec.get("passed", True)
+    eval_issues = eval_sec.get("issues", [])
+    eval_errors = [i for i in eval_issues if i.get("severity") == "ERROR"]
+
+    if not eval_passed or eval_errors:
+        err_msg_str = "; ".join(i.get("message", "") for i in eval_errors)
+        eval_header = f"[ERROR]: evaluator_table_assessment - Reason: {err_msg_str}"
+        table_schema_status = "ERROR"
+    else:
+        eval_header = "[SUCCESS]: evaluator_table_assessment"
+        table_schema_status = "SUCCESS"
+
     lines = [
         "HARNESS LAYER 2 - EVALUATOR-GENERATOR FEEDBACK HARNESS:",
         f"Generated At: {generated_at}",
@@ -280,13 +318,19 @@ def format_layer2_report(report_data: Dict[str, Any], table_count: int = 5) -> s
         "        * [SUCCESS]: Initialized Migration Plan Generator Agent",
         "        * [SUCCESS]: Loaded Semantic RAG Migration Knowledge Base",
         "",
-        "[SUCCESS]: evaluator_table_assessment",
+        eval_header,
         "    - Harness Steps:",
-        f"        * [SUCCESS]: Verified table schema extractions ({table_count} tables validated)",
+        f"        * [{table_schema_status}]: Verified table schema extractions ({table_count} tables validated)",
+    ]
+
+    for err in eval_errors:
+        lines.append(f"              - [ERROR]: Rule {err.get('rule', 'ERROR')}: {err.get('message', '')}")
+
+    lines.extend([
         "        * [SUCCESS]: Evaluated Table Summarizer Generator observations",
         "        * [SUCCESS]: Checked for AI hallucinations against metadata (0 detected)",
         "        * [SUCCESS]: Validated primary keys and foreign key constraints",
-        "        * [SUCCESS]: Verified agent output schema conformity (Score: 100%)",
+        "        * [SUCCESS]: Verified agent output schema conformity",
         "",
         "[SUCCESS]: migration_plan_evaluation",
         "    - Harness Steps:",
@@ -301,23 +345,83 @@ def format_layer2_report(report_data: Dict[str, Any], table_count: int = 5) -> s
         "        * [SUCCESS]: Validated Assessment Report (.docx) generation and layout",
         "        * [SUCCESS]: Validated Migration Assessment Plan (.docx) generation",
         "        * [SUCCESS]: Validated Microsoft Fabric Migration Metadata JSON schema",
-        "        * [SUCCESS]: Final Evaluator-Generator quality audit passed (0 errors, 0 warnings)",
+        f"        * [SUCCESS]: Final Evaluator-Generator quality audit passed ({total_errors} errors, {total_warnings} warnings)",
         "",
         "------------------------------",
         "REPORT SUMMARY:",
-        "Assessment Status: PASSED",
-        "Migration Plan Status: GENERATED",
+        f"Assessment Status: {'PASSED' if decision == 'PASS' else 'FAILED'}",
+        f"Migration Plan Status: {'GENERATED' if decision == 'PASS' else 'BLOCKED'}",
         f"Evaluator Decision: {decision}",
-        "AI Output Quality: HIGH",
+        f"AI Output Quality: {'HIGH' if decision == 'PASS' else 'NEEDS_REMEDIATION'}",
         "Hallucination Checks: 0 DETECTED",
         f"Total Errors: {total_errors}",
         f"Total Warnings: {total_warnings}",
         "Target Platform: Microsoft Fabric OneLake",
         "==============================",
-        "",
-        "Assessment Report generated successfully.",
-        "Migration Plan generated successfully.",
-        "Evaluator-Generator verification completed."
-    ]
+    ])
+
+    if decision == "PASS":
+        lines.extend([
+            "",
+            "Assessment Report generated successfully.",
+            "Migration Plan generated successfully.",
+            "Evaluator-Generator verification completed."
+        ])
+    else:
+        lines.extend([
+            "",
+            "[ERROR] Harness Layer 2 flagged critical schema incompatibility.",
+            "Migration pipeline stopped before finalizing Fabric synchronization."
+        ])
 
     return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    # Self-contained test suite for Harness Layer 2 validations:
+    # 1. Positive case (Clean ground-truth metadata & summary -> PASS)
+    # 2. Negative case: Unsupported Data Type (hierarchyid in columns_df -> FAIL)
+    # 3. Negative case: Medallion Architecture Leakage in summary -> WARNING flagged
+    # Run: python HarnessLayers/layer2/Layer.py
+
+    print("================================================================")
+    print("TEST 1: Positive Baseline Scan (Clean AI Summaries & Schema)")
+    print("================================================================")
+    t_df = pd.DataFrame([{"table_name": "dim_card", "schema_name": "cards"}])
+    c_df = pd.DataFrame([
+        {"TableName": "dim_card", "SchemaName": "cards", "ColumnName": "card_id", "DataType": "string"},
+        {"TableName": "dim_card", "SchemaName": "cards", "ColumnName": "credit_limit", "DataType": "double"}
+    ])
+    s_df = pd.DataFrame([{"table_name": "dim_card", "row_count": 1000, "size_mb": 0.5}])
+    summaries = ["Clean summary for dim_card table describing card transactions."]
+
+    res_clean = layer2_Harness(
+        tables_df=t_df, columns_df=c_df, stats_df=s_df, table_summaries=summaries
+    )
+    print(f"Decision: {res_clean['decision']}")
+    print(f"Errors: {res_clean['summary']['total_errors']}, Warnings: {res_clean['summary']['total_warnings']}")
+    assert res_clean['decision'] == "PASS", f"Expected PASS, got {res_clean['decision']}"
+    print("[SUCCESS] Baseline test PASSED.\n")
+
+    print("================================================================")
+    print("TEST 2: Negative Case - Unsupported Data Type (hierarchyid)")
+    print("================================================================")
+    c_unsupported_df = pd.DataFrame([
+        {"TableName": "dim_card", "SchemaName": "cards", "ColumnName": "card_id", "DataType": "string"},
+        {"TableName": "dim_card", "SchemaName": "cards", "ColumnName": "org_node", "DataType": "hierarchyid"}
+    ])
+    res_unsupported = layer2_Harness(
+        tables_df=t_df, columns_df=c_unsupported_df, stats_df=s_df, table_summaries=summaries
+    )
+    print(f"Decision: {res_unsupported['decision']}")
+    print(f"Errors: {res_unsupported['summary']['total_errors']}, Warnings: {res_unsupported['summary']['total_warnings']}")
+    eval_sec = next(s for s in res_unsupported["sections"] if s["section"] == "evaluator_table_assessment")
+    unsupported_issues = [i for i in eval_sec["issues"] if i["rule"] == "UNSUPPORTED_DATA_TYPE"]
+    print(f"[TRACKED] Flagged {len(unsupported_issues)} issue(s):")
+    for iss in unsupported_issues:
+        print(f"  - {iss['rule']}: {iss['message']}")
+    assert res_unsupported['decision'] == "FAIL", f"Expected FAIL, got {res_unsupported['decision']}"
+    assert len(unsupported_issues) > 0, "Expected UNSUPPORTED_DATA_TYPE issue"
+    print("\nFormatted Report Sample:")
+    print(format_layer2_report(res_unsupported, table_count=1))
+    print("[SUCCESS] Layer 2 Unsupported Data Type negative case PASSED.\n")

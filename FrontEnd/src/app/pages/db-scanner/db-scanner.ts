@@ -1375,11 +1375,102 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
   getLogLineClass(log: string): string {
     if (!log) return 'log-default';
-    if (log.includes('[SUCCESS]') || log.includes('successfully') || log.includes('PASSED')) return 'log-success';
-    if (log.includes('[ERROR]') || log.includes('[Err]') || log.includes('[FAILED]')) return 'log-error';
-    if (log.includes('[WARN]')) return 'log-warn';
-    if (log.includes('[INFO]')) return 'log-info';
+    const upper = log.toUpperCase();
+    if (
+      upper.includes('[ERROR]') ||
+      upper.includes('[ERR]') ||
+      upper.includes('[FAILED]') ||
+      upper.includes('[TOOL FAILED]') ||
+      upper.includes('ERROR:') ||
+      upper.includes('FAILURE:') ||
+      upper.includes('[FAIL]') ||
+      upper.includes('RULE VIOLATION') ||
+      upper.includes('UNSUPPORTED_DATA_TYPE') ||
+      (upper.includes('TOTAL ERRORS:') && !upper.includes('TOTAL ERRORS: 0') && !upper.includes('TOTAL ERRORS:0')) ||
+      (upper.includes('ERROR') && !upper.includes('0 ERRORS') && !upper.includes('NO ERRORS') && !upper.includes('ERRORS: 0') && !upper.includes('ERRORS:0'))
+    ) {
+      return 'log-error';
+    }
+    if (
+      upper.includes('[FLAGGED]') ||
+      upper.includes('[WARNING]') ||
+      upper.includes('[WARN]') ||
+      (upper.includes('WARNING') && !upper.includes('0 WARNINGS') && !upper.includes('NO WARNINGS') && !upper.includes('WARNINGS: 0'))
+    ) {
+      return 'log-warn';
+    }
+    if (upper.includes('[SUCCESS]') || upper.includes('SUCCESSFULLY') || upper.includes('PASSED')) {
+      return 'log-success';
+    }
+    if (
+      upper.includes('[INFO]') ||
+      upper.includes('[AGENT START]') ||
+      upper.includes('[TOOL CALL]') ||
+      upper.includes('[TOOL COMPLETE]') ||
+      upper.includes('[CHECKED]') ||
+      upper.includes('[ARTIFACT')
+    ) {
+      return 'log-info';
+    }
     return 'log-default';
+  }
+
+  getStatusLines(): string[] {
+    const lines: string[] = [];
+    if (!this.statusMessages || !this.statusMessages.length) {
+      return ['Logs will appear here once the scan starts.'];
+    }
+    for (const msg of this.statusMessages) {
+      if (typeof msg === 'string') {
+        const parts = msg.split('\n');
+        for (const p of parts) {
+          lines.push(p);
+        }
+      } else if (msg != null) {
+        lines.push(String(msg));
+      }
+    }
+    return lines;
+  }
+
+  getHarness1Lines(): string[] {
+    const lines: string[] = [];
+    if (!this.harness1Messages || !this.harness1Messages.length) {
+      return ['Harness Layer 1 information will appear here.'];
+    }
+    for (const msg of this.harness1Messages) {
+      if (typeof msg === 'string') {
+        const parts = msg.split('\n');
+        for (const p of parts) {
+          lines.push(p);
+        }
+      } else if (msg != null) {
+        lines.push(String(msg));
+      }
+    }
+    return lines;
+  }
+
+  getHarness2Lines(): string[] {
+    const lines: string[] = [];
+    if (!this.harness2Messages || !this.harness2Messages.length) {
+      return ['Harness Layer 2 information will appear here.'];
+    }
+    for (const msg of this.harness2Messages) {
+      if (typeof msg === 'string') {
+        const parts = msg.split('\n');
+        for (const p of parts) {
+          lines.push(p);
+        }
+      } else if (msg != null) {
+        lines.push(String(msg));
+      }
+    }
+    return lines;
+  }
+
+  getHarness2LineClass(line: string): string {
+    return this.getLogLineClass(line);
   }
 
   scrollFabricLogsToBottom() {
