@@ -344,32 +344,6 @@ SCAN STATUS + ACTION BUTTONS
 
         </div>
 
-        <!-- Progress -->
-
-        <div
-            class="progress-section"
-            *ngIf="loading">
-
-            <div class="progress-header">
-
-                <span>Progress</span>
-
-                <span>{{getDisplayProgress()}}%</span>
-
-            </div>
-
-            <div class="progress-bar">
-
-                <div
-                    class="progress-fill"
-                    [style.width.%]="progress">
-
-                </div>
-
-            </div>
-
-        </div>
-
         <!-- Demo Dataset Notice -->
         <div class="demo-limit-note">
             <i class="bi bi-info-circle"></i>
@@ -563,6 +537,33 @@ SCAN STATUS + ACTION BUTTONS
                     <i class="bi bi-x-lg"></i>
 
                 </button>
+
+            </div>
+
+            <!-- Scan Status Progress Bar inside Backend Logs Dialog -->
+            <div
+                class="dialog-progress-section"
+                *ngIf="loading">
+
+                <div class="progress-header">
+
+                    <span>
+                        <i class="bi bi-activity"></i> {{scanStatus}}
+                    </span>
+
+                    <span>{{getDisplayProgress()}}%</span>
+
+                </div>
+
+                <div class="progress-bar">
+
+                    <div
+                        class="progress-fill"
+                        [style.width.%]="progress">
+
+                    </div>
+
+                </div>
 
             </div>
 

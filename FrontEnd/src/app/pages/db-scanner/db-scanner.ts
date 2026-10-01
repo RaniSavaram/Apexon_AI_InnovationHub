@@ -751,6 +751,8 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     this.backendResponse = null;
     this.pollErrorCount = 0;
 
+    this.openLogsDialog();
+
     this.progress = 5;
     this.displayProgress = 5;
     this.targetProgress = 5;
