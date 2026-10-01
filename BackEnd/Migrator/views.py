@@ -326,6 +326,55 @@ def serve_generated_document(request, filename):
     return response
 
 
+def _get_connection_log_lines(db_type, creds):
+    lines = []
+    db_type_lower = (db_type or "").lower()
+    server = creds.get_servername()
+    database = creds.get_database_name()
+    username = creds.get_username()
+    extra = creds.get_extra_dict() or {}
+
+    if db_type_lower == "snowflake":
+        account = extra.get("account") or server
+        warehouse = extra.get("warehouse")
+        role = extra.get("role")
+        if account:
+            lines.append(f"Account   : {repr(account)}")
+        if database:
+            lines.append(f"Database  : {repr(database)}")
+        if warehouse:
+            lines.append(f"Warehouse : {repr(warehouse)}")
+        if username:
+            lines.append(f"User      : {repr(username)}")
+        if role:
+            lines.append(f"Role      : {repr(role)}")
+    elif db_type_lower == "databricks":
+        catalog = database
+        http_path = extra.get("http_path")
+        if server:
+            lines.append(f"Server   : {repr(server)}")
+        if catalog:
+            lines.append(f"Catalog  : {repr(catalog)}")
+        if http_path:
+            lines.append(f"HTTP Path: {repr(http_path)}")
+        if username:
+            lines.append(f"User     : {repr(username)}")
+    elif db_type_lower in ("dynamics365", "dynamics 365", "d365"):
+        if server:
+            lines.append(f"Org URL  : {repr(server)}")
+    elif db_type_lower == "sqlite":
+        if database:
+            lines.append(f"Database : {repr(database)}")
+    else:
+        if server:
+            lines.append(f"Server   : {repr(server)}")
+        if database:
+            lines.append(f"Database : {repr(database)}")
+        if username:
+            lines.append(f"User     : {repr(username)}")
+    return lines
+
+
 @api_view(["POST"])
 def connect_database(request):
 
@@ -333,7 +382,7 @@ def connect_database(request):
     reset_Logs()
 
     print("[INFO]: Connect request received")
-    Logs["Scan Info"].append("Connect request received")
+    Logs["Scan Info"].append("[INFO]: Connect request received")
 
     source = request.data.get("source")
     remember_me = str(request.data.get("remember_me", "false")).strip().lower() == "true"
@@ -345,6 +394,8 @@ def connect_database(request):
     Creds.set_extra_dict(request.data.get("extra") or {})
     print("[INFO]: Connection Details recieved")
     Logs["Scan Info"].append("[INFO]: Connection Details recieved")
+    for conn_line in _get_connection_log_lines(source, Creds):
+        Logs["Scan Info"].append(conn_line)
 
     try:
         server = Creds.get_servername()
@@ -584,6 +635,8 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         extracting_msg = f"[INFO] Extracting schema and table metadata from {db_name}..."
         update_scan_job_state(scan_id, progress=18, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=extracting_msg)
         print(extracting_msg)
+        for conn_line in _get_connection_log_lines(db_type, Creds):
+            update_scan_job_state(scan_id, log_entry=conn_line)
         metadata = obj.extract()
         original_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
