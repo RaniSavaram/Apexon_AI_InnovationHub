@@ -4,7 +4,7 @@ import time
 import sys
 import uuid
 import pandas as pd
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 # Import agent definitions from the agents directory
 from agents import TableSummarizerAgent, MigrationGeneratorAgent
@@ -36,7 +36,18 @@ class AzureAIOrchestrator:
     using the Microsoft Azure AI Projects SDK.
     """
     def __init__(self, tables_df, columns_df, stats_df, views_df, procedures_df, dep_df, source_hint=None, functions_df=None, volumes_df=None, scan_id=None):
-        load_dotenv()
+        # Load .env from CWD, BackEnd, and project root with override=True
+        load_dotenv(find_dotenv(usecwd=True), override=True)
+        try:
+            from pathlib import Path
+            curr = Path(__file__).resolve()
+            # Check up to 4 parent levels for .env
+            for p in [curr.parent, curr.parents[1], curr.parents[2], curr.parents[3]]:
+                env_file = p / ".env"
+                if env_file.exists():
+                    load_dotenv(dotenv_path=env_file, override=True)
+        except Exception:
+            pass
         self.endpoint = os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT")
         self.base_agent_name = os.getenv("AZURE_AI_FOUNDRY_AGENT_NAME", "MyAgent")
 
