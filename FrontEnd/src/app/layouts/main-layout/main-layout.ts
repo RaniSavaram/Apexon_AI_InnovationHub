@@ -3,6 +3,7 @@ import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header';
 import { SidebarComponent } from '../../components/sidebar/sidebar';
 import { FooterComponent } from '../../components/footer/footer';
+import { ChatbotComponent } from '../../components/chatbot/chatbot';
 
 @Component({
   selector: 'app-main-layout',
@@ -11,7 +12,8 @@ import { FooterComponent } from '../../components/footer/footer';
     RouterOutlet,
     HeaderComponent,
     SidebarComponent,
-    FooterComponent
+    FooterComponent,
+    ChatbotComponent
   ],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.css'
