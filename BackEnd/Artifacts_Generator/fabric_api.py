@@ -46,9 +46,15 @@ def _build_credential():
     # (the other Windows OS-cache-backed source, earlier in the chain) is
     # excluded too for the same reason. Skipping both leaves Azure CLI -
     # confirmed working (`az account show`) - as the effective source.
+    # process_timeout: the default 10s budget for `az account
+    # get-access-token` is too tight on Windows - a cold `az` start while
+    # the server is busy can exceed it, which surfaces as the generic
+    # "AzureCliCredential: Failed to invoke the Azure CLI" (azure-identity's
+    # catch-all for a subprocess timeout) even though the login is valid.
     return DefaultAzureCredential(
         exclude_shared_token_cache_credential=True,
         exclude_broker_credential=True,
+        process_timeout=60,
     )
 
 
@@ -260,7 +266,7 @@ def _platform_metadata(platform_type, display_name):
     }
 
 
-def create_or_update_item_definition(workspace_id, item_type, display_name, parts, token, platform_type=None):
+def create_or_update_item_definition(workspace_id, item_type, display_name, parts, token, platform_type=None, item_id=None):
     """
     Shared by every item type whose content is created/updated via the
     Fabric item-definition API (Pipelines, Notebooks, and any future
@@ -280,13 +286,21 @@ def create_or_update_item_definition(workspace_id, item_type, display_name, part
     correct for dataPipelines (the only caller before notebooks needed
     this too).
 
+    `item_id`, when given (e.g. a pre-provisioned pipeline pinned via
+    SOURCE_PIPELINE_MAP), skips the by-name lookup entirely and updates
+    that item id directly - trusted as-is, the same way
+    SOURCE_LAKEHOUSE_MAP's ids skip get_or_create_item()'s lookup. A bad
+    id surfaces as a real error from the updateDefinition call rather than
+    silently falling back to a by-name create.
+
     Returns the item's id.
     """
-    existing_id = None
-    for item in list_items(workspace_id, item_type, token):
-        if (item.get("displayName") or "").strip().lower() == display_name.strip().lower():
-            existing_id = item["id"]
-            break
+    existing_id = item_id
+    if existing_id is None:
+        for item in list_items(workspace_id, item_type, token):
+            if (item.get("displayName") or "").strip().lower() == display_name.strip().lower():
+                existing_id = item["id"]
+                break
 
     definition = {"parts": parts + [_definition_part(".platform", _platform_metadata(platform_type or item_type, display_name))]}
 
@@ -320,18 +334,23 @@ def create_or_update_item_definition(workspace_id, item_type, display_name, part
     )
 
 
-def create_or_update_pipeline(workspace_id, display_name, pipeline_content, token):
+def create_or_update_pipeline(workspace_id, display_name, pipeline_content, token, pipeline_id=None):
     """
     Creates (or overwrites, if one with this name already exists) a Fabric
     Data Pipeline item from `pipeline_content` (a pipeline-content.json-
     shaped dict, i.e. {"properties": {"activities": [...]}} - the same
     Data Factory/Fabric pipeline JSON schema the Fabric Studio pipeline
     canvas edits). Returns the pipeline item's id.
+
+    `pipeline_id`, when given (a pre-provisioned pipeline pinned via
+    SOURCE_PIPELINE_MAP), updates that pipeline directly instead of
+    resolving `display_name` via a by-name lookup.
     """
     return create_or_update_item_definition(
         workspace_id, "dataPipelines", display_name,
         [_definition_part("pipeline-content.json", pipeline_content)],
         token,
+        item_id=pipeline_id,
     )
 
 

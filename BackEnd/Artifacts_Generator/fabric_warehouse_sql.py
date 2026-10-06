@@ -212,18 +212,26 @@ def create_placeholder_view(cursor, schema_name, view_name, source_system=None, 
     cursor.execute(sql)
 
 
-def create_placeholder_procedure(cursor, schema_name, procedure_name, source_system=None):
+def create_placeholder_procedure(cursor, schema_name, procedure_name, source_system=None, original_definition=None):
     """
     Creates (or replaces) an empty, no-op stored procedure as a structural
-    placeholder. Unity Catalog's information_schema.routines doesn't
-    expose a procedure body at all, so there is no source logic to embed
-    here even as a comment - only the name/schema were ever known.
+    placeholder, with the real, untranslated source definition (if known -
+    Snowflake exposes one, Unity Catalog doesn't) embedded as a comment
+    inside the body for a person to translate into T-SQL by hand.
     """
     schema_name = ensure_schema(cursor, schema_name)
     procedure_name = clean_sql_identifier(procedure_name)
 
+    comment_lines = [
+        f"    -- Placeholder procedure generated from a {source_system or 'source'} scan; no logic ported.",
+        "    -- The original procedure definition (untranslated - not valid T-SQL as-is) was:",
+    ]
+    for line in (original_definition or "Not available").splitlines() or ["Not available"]:
+        comment_lines.append(f"    -- {line}")
+
     sql = (
-        f"-- Placeholder procedure generated from a {source_system or 'source'} scan; no logic ported.\n"
-        f"CREATE OR ALTER PROCEDURE [{schema_name}].[{procedure_name}] AS\nBEGIN\n    RETURN 0;\nEND;"
+        f"CREATE OR ALTER PROCEDURE [{schema_name}].[{procedure_name}] AS\nBEGIN\n"
+        + "\n".join(comment_lines)
+        + "\n    RETURN 0;\nEND;"
     )
     cursor.execute(sql)

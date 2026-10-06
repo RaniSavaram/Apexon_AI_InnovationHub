@@ -86,8 +86,53 @@ export interface ScanStatus {
     output_files?: {
       assessment_report?: string;
       migration_plan?: string;
+      fabric_migration_metadata?: string;
     };
   };
+}
+
+export interface ErColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  pk: boolean;
+  fk: boolean;
+}
+
+export interface ErTable {
+  id: string;
+  schema: string;
+  name: string;
+  row_count?: number | null;
+  primary_key?: string | null;
+  /** True when the primary key is declared in the source, not guessed. */
+  primary_key_declared: boolean;
+  columns: ErColumn[];
+}
+
+export interface ErRelationship {
+  from: string;
+  /** Comma-separated for a composite foreign key. */
+  from_column: string;
+  to: string;
+  to_column?: string | null;
+  /** Foreign key constraint name, for declared relationships. */
+  name?: string | null;
+  inferred: boolean;
+}
+
+export interface ErDiagramResponse {
+  status: string;
+  file: string;
+  source?: string;
+  database?: string;
+  generated_at?: string;
+  /** Whether the scan could read the source's declared keys at all. */
+  declared_keys_read: boolean;
+  /** Declared foreign keys, or (when there are none) inferred from column names. */
+  relationship_source: 'declared' | 'inferred';
+  tables: ErTable[];
+  relationships: ErRelationship[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -167,6 +212,18 @@ export class Scanner {
    */
   getScanStatus(scanId: string) {
     return this.http.get<ScanStatus>(`${this.api.baseUrl}/scan-status/${scanId}/`);
+  }
+
+  /**
+   * Tables, columns, keys, and relationships for the logs dialog's
+   * "ER Diagrams" tab, built by Django's er_diagram view from a finished
+   * scan's Fabric metadata JSON (output_files.fabric_migration_metadata).
+   * Without a file, Django falls back to the most recent scan's copy.
+   */
+  getErDiagram(file?: string) {
+    return this.http.get<ErDiagramResponse>(`${this.api.baseUrl}/er-diagram/`, {
+      params: file ? { file } : {},
+    });
   }
 
   /**

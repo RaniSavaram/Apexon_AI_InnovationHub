@@ -640,7 +640,10 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
     inventory_rows = []
     if views_df is not None and not views_df.empty:
         for _, row in views_df.iterrows():
-            inventory_rows.append(("View", str(row.get("schema_name", "dbo")), str(row.get("view_name", "None")), "Relational SQL database view"))
+            if str(row.get("is_materialized")).lower() == "true":
+                inventory_rows.append(("Materialized View", str(row.get("schema_name", "dbo")), str(row.get("view_name", "None")), "Precomputed query result; recreated as a live Fabric Warehouse view"))
+            else:
+                inventory_rows.append(("View", str(row.get("schema_name", "dbo")), str(row.get("view_name", "None")), "Relational SQL database view"))
     if procedures_df is not None and not procedures_df.empty:
         for _, row in procedures_df.iterrows():
             inventory_rows.append(("Stored Procedure", str(row.get("schema_name", "dbo")), str(row.get("procedure_name", "None")), "Compiled database stored procedure routine"))
@@ -838,12 +841,28 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
             populate_and_style_cell(details_table.cell(d_idx, 0), prop, is_first_col=True)
             populate_and_style_cell(details_table.cell(d_idx, 1), val)
 
+    def _is_materialized_view(schema_name, view_name):
+        if views_df is None or views_df.empty or "is_materialized" not in views_df.columns:
+            return False
+        match = views_df[
+            (views_df["view_name"].astype(str).str.upper() == str(view_name).upper())
+            & (views_df["schema_name"].astype(str).str.upper() == str(schema_name).upper())
+        ]
+        return not match.empty and str(match.iloc[0]["is_materialized"]).lower() == "true"
+
     for summary in (view_summaries or []):
         v_data = parse_view_summary_string(summary)
         section5_counter += 1
+        is_mv = _is_materialized_view(v_data["schema_name"], v_data["view_name"])
 
         add_custom_heading(doc, f"5.{section5_counter} {v_data['view_name']}", 2, space_before=Pt(12))
-        add_custom_paragraph(doc, f"The view {v_data['schema_name']}.{v_data['view_name']} is mapped to Microsoft Fabric. This is a VIEW object - its logic is defined by a SQL query rather than stored data.")
+        if is_mv:
+            # Still "The view ..." so plan_to_json.py's intro-sentence regex
+            # routes it to views; the Object Type row below carries the
+            # materialized distinction.
+            add_custom_paragraph(doc, f"The view {v_data['schema_name']}.{v_data['view_name']} is mapped to Microsoft Fabric. This is a MATERIALIZED VIEW in the source - Fabric Warehouse has no materialized views, so it is recreated as a standard view that always reads current data instead of a stored copy.")
+        else:
+            add_custom_paragraph(doc, f"The view {v_data['schema_name']}.{v_data['view_name']} is mapped to Microsoft Fabric. This is a VIEW object - its logic is defined by a SQL query rather than stored data.")
 
         p_obs = add_custom_paragraph(doc)
         p_obs.add_run("Observations: ").bold = True
@@ -863,7 +882,7 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
 
         add_custom_paragraph(doc, "Object Details:")
         _add_object_details_table(doc, [
-            ("Object Type", "View"),
+            ("Object Type", "Materialized View" if is_mv else "View"),
             ("Definition", v_data["definition"]),
         ])
 
@@ -878,10 +897,27 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
         p_obs.add_run("Observations: ").bold = True
         p_obs.add_run(fn_data["summary"])
 
+        # Same verbatim lookup from functions_df as procedures below, so the
+        # function body reaches migration_plan.json untouched by the LLM.
+        fn_definition = None
+        fn_arguments = None
+        if functions_df is not None and not functions_df.empty:
+            match = functions_df[
+                (functions_df["function_name"].astype(str).str.upper() == str(fn_data["function_name"]).upper())
+                & (functions_df["schema_name"].astype(str).str.upper() == str(fn_data["schema_name"]).upper())
+            ]
+            if not match.empty:
+                if "definition" in functions_df.columns and isinstance(match.iloc[0]["definition"], str):
+                    fn_definition = match.iloc[0]["definition"]
+                if "arguments" in functions_df.columns and isinstance(match.iloc[0]["arguments"], str):
+                    fn_arguments = match.iloc[0]["arguments"]
+
         add_custom_paragraph(doc, "Object Details:")
         _add_object_details_table(doc, [
             ("Object Type", "Function"),
             ("Return Type", fn_data.get("return_type") or "Unknown"),
+            ("Arguments", fn_arguments or "()"),
+            ("Definition", fn_definition or "Not available"),
         ])
 
     for summary in (procedure_summaries or []):
@@ -895,9 +931,23 @@ def create_table_summary_document(overall_summary, table_summaries, output_path,
         p_obs.add_run("Observations: ").bold = True
         p_obs.add_run(proc_data["summary"])
 
+        # The definition is looked up straight from procedures_df rather
+        # than parsed out of the agent's summary the way a view's is -
+        # the summary is LLM-written, and the procedure body needs to reach
+        # migration_plan.json (and the Fabric Warehouse) verbatim.
+        proc_definition = None
+        if procedures_df is not None and not procedures_df.empty and "definition" in procedures_df.columns:
+            match = procedures_df[
+                (procedures_df["procedure_name"].astype(str).str.upper() == str(proc_data["procedure_name"]).upper())
+                & (procedures_df["schema_name"].astype(str).str.upper() == str(proc_data["schema_name"]).upper())
+            ]
+            if not match.empty and isinstance(match.iloc[0]["definition"], str):
+                proc_definition = match.iloc[0]["definition"]
+
         add_custom_paragraph(doc, "Object Details:")
         _add_object_details_table(doc, [
             ("Object Type", "Stored Procedure"),
+            ("Definition", proc_definition or "Not available"),
         ])
 
     for summary in (volume_summaries or []):

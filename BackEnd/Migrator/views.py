@@ -12,6 +12,7 @@ from rest_framework.response import Response
 
 from config.Credentials import PrivateVariables
 from Migrator.connection_store import save_connection, get_saved_connection, get_saved_connections
+from Migrator.er_diagram import build_er_model
 from Metadata_Scanner.extractors.sqlserver import SQLServerExtractor
 #from Metadata_Scanner.extractors.oracle import OracleExtractor
 #from Metadata_Scanner.extractors.mysql import MySQLExtractor
@@ -61,8 +62,8 @@ def _limit_metadata_tables(metadata):
                 remaining -= len(take)
         return taken_by_schema
 
-    is_view = lambda t: (t.get("type") or "").upper() == "VIEW"
-    is_base_table = lambda t: (t.get("type") or "").upper() != "VIEW"
+    is_view = lambda t: (t.get("type") or "").upper() in ("VIEW", "MATERIALIZED VIEW")
+    is_base_table = lambda t: not is_view(t)
 
     kept_base_tables = _take("tables", is_base_table, budget)
     remaining_budget = budget - sum(len(t) for t in kept_base_tables.values())
@@ -327,6 +328,30 @@ def serve_generated_document(request, filename):
     return response
 
 
+@api_view(["GET"])
+def er_diagram(request):
+    """
+    Entity-relationship model for the UI's "ER Diagrams" tab, built from a
+    finished scan's Fabric metadata JSON (see Migrator/er_diagram.py).
+    ?file= is the "fabric_migration_metadata" name Agents_PipeLine returns
+    in output_files; it defaults to the copy of the most recent scan.
+    """
+    output_dir = (Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output").resolve()
+    filename = request.GET.get("file") or "Fabric_Migration_Metadata.json"
+    file_path = (output_dir / filename).resolve()
+    if file_path.parent != output_dir or not file_path.name.endswith("Fabric_Migration_Metadata.json"):
+        return Response({"status": "error", "message": "Invalid metadata file."}, status=400)
+    if not file_path.is_file():
+        return Response({"status": "error", "message": f"{filename} not found - run a scan first."}, status=404)
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            model = build_er_model(json.load(f))
+    except Exception as exc:
+        return Response({"status": "error", "message": f"Could not build the ER diagram: {exc}"}, status=500)
+    return Response({"status": "success", "file": file_path.name, **model})
+
+
 @api_view(["POST"])
 def connect_database(request):
 
@@ -589,7 +614,11 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         original_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
-        metadata = _limit_metadata_tables(metadata)
+        # SQL Server, Databricks, Dynamics 365, and Snowflake scans get the
+        # full schema - no demo cap. Every other source still gets capped
+        # to MAX_SCAN_TABLES.
+        if db_type not in ("sqlserver", "databricks", "dynamics365", "dynamics 365", "d365", "snowflake"):
+            metadata = _limit_metadata_tables(metadata)
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
@@ -727,11 +756,12 @@ def generate_fabric_artifacts(request):
     """
     Executes one of the per-source BackEnd/Artifacts_Generator/*2_fabric.py
     scripts (databricks2_fabric.py, sqlserver2_fabric.py,
-    dynamics3652_fabric.py) to create Delta tables, Views, Stored
-    Procedures, Volumes, and a Data Pipeline scaffold directly in Microsoft
-    Fabric, based on the selected source's Assessment Report/Migration Plan.
+    dynamics3652_fabric.py, snowflake2_fabric.py) to create Delta tables,
+    Views, Stored Procedures, Volumes, and a Data Pipeline scaffold
+    directly in Microsoft Fabric, based on the selected source's
+    Assessment Report/Migration Plan.
 
-    All three are thin wrappers around the same
+    All four are thin wrappers around the same
     fabric_generator_core.Generator() - see that module's docstring - each
     just pinning source_system and reporting its own filename back as
     generator_script.
@@ -774,6 +804,12 @@ def generate_fabric_artifacts(request):
         elif "dynamics" in source_clean or source_clean == "d365":
             source_display = "Dynamics 365"
             from Artifacts_Generator import dynamics3652_fabric as fabric_script
+            script_name = fabric_script.SCRIPT_NAME
+            print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
+            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
+        elif "snowflake" in source_clean:
+            source_display = "Snowflake"
+            from Artifacts_Generator import snowflake2_fabric as fabric_script
             script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
             result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)

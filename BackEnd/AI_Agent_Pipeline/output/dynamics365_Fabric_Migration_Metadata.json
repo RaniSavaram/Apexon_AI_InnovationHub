@@ -1,15 +1,15 @@
 {
   "metadata": {
-    "scan_id": "51eaf8cf-c2b2-4626-8b93-7ca90d0fd868",
-    "generated_at": "2026-09-08T07:23:31.541787Z",
+    "scan_id": "4003586e-592c-4db7-bcb2-a144e6d6f80d",
+    "generated_at": "2026-09-22T11:41:41.798769Z",
     "source_platform": "Dynamics 365",
     "target_platform": "Microsoft Fabric (OneLake)",
-    "total_tables": 3,
-    "total_columns": 139,
+    "total_tables": 7,
+    "total_columns": 291,
     "total_views": 0,
     "total_procedures": 0,
-    "total_size_mb": 0.18,
-    "total_row_count": 6
+    "total_size_mb": 0.46,
+    "total_row_count": 26
   },
   "source": {
     "database_name": "https://org649ed46f.crm8.dynamics.com",
@@ -35,8 +35,8 @@
       "type": "table",
       "size_mb": 0.06,
       "row_count": 2,
-      "medallion_layer": "Bronze",
-      "layer_reason": "Raw staging or ingestion layer",
+      "medallion_layer": "Silver",
+      "layer_reason": "yes. Rationale",
       "primary_key": "cr459_customerid",
       "columns": [
         {
@@ -1040,6 +1040,1122 @@
         }
       ],
       "dependencies": []
+    },
+    {
+      "name": "cr459_budget",
+      "schema": "dataverse",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 6,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Raw staging or ingestion layer",
+      "primary_key": "cr459_budgetid",
+      "columns": [
+        {
+          "name": "cr459_budgetid",
+          "source_datatype": "Uniqueidentifier",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "cr459_budgetidentifier",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "cr459_columndescription",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "cr459_costcenteridentifier",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "cr459_datatype",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "cr459_keytype",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "cr459_nullablestatus",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "createdby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "createdbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "createdbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "createdon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "createdonbehalfby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "createdonbehalfbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "createdonbehalfbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 14
+        },
+        {
+          "name": "importsequencenumber",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "modifiedby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "modifiedbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "modifiedbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 18
+        },
+        {
+          "name": "modifiedon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "modifiedonbehalfby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "modifiedonbehalfbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "modifiedonbehalfbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 22
+        },
+        {
+          "name": "overriddencreatedon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "ownerid",
+          "source_datatype": "Owner",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 24
+        },
+        {
+          "name": "owneridname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 25
+        },
+        {
+          "name": "owneridtype",
+          "source_datatype": "EntityName",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 26
+        },
+        {
+          "name": "owneridyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 27
+        },
+        {
+          "name": "owningbusinessunit",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 28
+        },
+        {
+          "name": "owningbusinessunitname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 29
+        },
+        {
+          "name": "owningteam",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 30
+        },
+        {
+          "name": "owninguser",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 31
+        },
+        {
+          "name": "statecode",
+          "source_datatype": "State",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 32
+        },
+        {
+          "name": "statecodename",
+          "source_datatype": "Virtual",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 33
+        },
+        {
+          "name": "statuscode",
+          "source_datatype": "Status",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 34
+        },
+        {
+          "name": "statuscodename",
+          "source_datatype": "Virtual",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 35
+        },
+        {
+          "name": "timezoneruleversionnumber",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 36
+        },
+        {
+          "name": "utcconversiontimezonecode",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 37
+        },
+        {
+          "name": "versionnumber",
+          "source_datatype": "BigInt",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 38
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "cr459_budgetlineitem",
+      "schema": "dataverse",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 6,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Raw staging or ingestion layer",
+      "primary_key": "cr459_budgetlineitemid",
+      "columns": [
+        {
+          "name": "cr459_budgetlineitemid",
+          "source_datatype": "Uniqueidentifier",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "cr459_columnname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "cr459_datatype",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "cr459_description",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "cr459_keytype",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "cr459_nullable",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "cr459_tablename",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "createdby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "createdbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "createdbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "createdon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "createdonbehalfby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "createdonbehalfbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "createdonbehalfbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 14
+        },
+        {
+          "name": "importsequencenumber",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "modifiedby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "modifiedbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "modifiedbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 18
+        },
+        {
+          "name": "modifiedon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "modifiedonbehalfby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "modifiedonbehalfbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "modifiedonbehalfbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 22
+        },
+        {
+          "name": "overriddencreatedon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "ownerid",
+          "source_datatype": "Owner",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 24
+        },
+        {
+          "name": "owneridname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 25
+        },
+        {
+          "name": "owneridtype",
+          "source_datatype": "EntityName",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 26
+        },
+        {
+          "name": "owneridyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 27
+        },
+        {
+          "name": "owningbusinessunit",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 28
+        },
+        {
+          "name": "owningbusinessunitname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 29
+        },
+        {
+          "name": "owningteam",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 30
+        },
+        {
+          "name": "owninguser",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 31
+        },
+        {
+          "name": "statecode",
+          "source_datatype": "State",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 32
+        },
+        {
+          "name": "statecodename",
+          "source_datatype": "Virtual",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 33
+        },
+        {
+          "name": "statuscode",
+          "source_datatype": "Status",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 34
+        },
+        {
+          "name": "statuscodename",
+          "source_datatype": "Virtual",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 35
+        },
+        {
+          "name": "timezoneruleversionnumber",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 36
+        },
+        {
+          "name": "utcconversiontimezonecode",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 37
+        },
+        {
+          "name": "versionnumber",
+          "source_datatype": "BigInt",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 38
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "cr459_costcenter",
+      "schema": "dataverse",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 5,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Raw staging or ingestion layer",
+      "primary_key": "cr459_costcenterid",
+      "columns": [
+        {
+          "name": "cr459_columndescription",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "cr459_costcentercode",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "cr459_costcenterid",
+          "source_datatype": "Uniqueidentifier",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "cr459_costcenteridentifier",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "cr459_isnullable",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "cr459_keytype",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "cr459_tablename",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "createdby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "createdbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "createdbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "createdon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "createdonbehalfby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "createdonbehalfbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "createdonbehalfbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 14
+        },
+        {
+          "name": "importsequencenumber",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "modifiedby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "modifiedbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "modifiedbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 18
+        },
+        {
+          "name": "modifiedon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "modifiedonbehalfby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "modifiedonbehalfbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "modifiedonbehalfbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 22
+        },
+        {
+          "name": "overriddencreatedon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "ownerid",
+          "source_datatype": "Owner",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 24
+        },
+        {
+          "name": "owneridname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 25
+        },
+        {
+          "name": "owneridtype",
+          "source_datatype": "EntityName",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 26
+        },
+        {
+          "name": "owneridyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 27
+        },
+        {
+          "name": "owningbusinessunit",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 28
+        },
+        {
+          "name": "owningbusinessunitname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 29
+        },
+        {
+          "name": "owningteam",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 30
+        },
+        {
+          "name": "owninguser",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 31
+        },
+        {
+          "name": "statecode",
+          "source_datatype": "State",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 32
+        },
+        {
+          "name": "statecodename",
+          "source_datatype": "Virtual",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 33
+        },
+        {
+          "name": "statuscode",
+          "source_datatype": "Status",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 34
+        },
+        {
+          "name": "statuscodename",
+          "source_datatype": "Virtual",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 35
+        },
+        {
+          "name": "timezoneruleversionnumber",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 36
+        },
+        {
+          "name": "utcconversiontimezonecode",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 37
+        },
+        {
+          "name": "versionnumber",
+          "source_datatype": "BigInt",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 38
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "cr459_currency",
+      "schema": "dataverse",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 3,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Raw staging or ingestion layer",
+      "primary_key": "cr459_currencyid",
+      "columns": [
+        {
+          "name": "cr459_columnname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "cr459_currencyid",
+          "source_datatype": "Uniqueidentifier",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "cr459_datatype",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "cr459_description",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "cr459_keytype",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "cr459_nullable",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "cr459_tablename",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "createdby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "createdbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "createdbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "createdon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "createdonbehalfby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "createdonbehalfbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "createdonbehalfbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 14
+        },
+        {
+          "name": "importsequencenumber",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "modifiedby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "modifiedbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "modifiedbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 18
+        },
+        {
+          "name": "modifiedon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "modifiedonbehalfby",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "modifiedonbehalfbyname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "modifiedonbehalfbyyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 22
+        },
+        {
+          "name": "overriddencreatedon",
+          "source_datatype": "DateTime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "ownerid",
+          "source_datatype": "Owner",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 24
+        },
+        {
+          "name": "owneridname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 25
+        },
+        {
+          "name": "owneridtype",
+          "source_datatype": "EntityName",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 26
+        },
+        {
+          "name": "owneridyominame",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 27
+        },
+        {
+          "name": "owningbusinessunit",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 28
+        },
+        {
+          "name": "owningbusinessunitname",
+          "source_datatype": "String",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 29
+        },
+        {
+          "name": "owningteam",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 30
+        },
+        {
+          "name": "owninguser",
+          "source_datatype": "Lookup",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 31
+        },
+        {
+          "name": "statecode",
+          "source_datatype": "State",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 32
+        },
+        {
+          "name": "statecodename",
+          "source_datatype": "Virtual",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 33
+        },
+        {
+          "name": "statuscode",
+          "source_datatype": "Status",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 34
+        },
+        {
+          "name": "statuscodename",
+          "source_datatype": "Virtual",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 35
+        },
+        {
+          "name": "timezoneruleversionnumber",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 36
+        },
+        {
+          "name": "utcconversiontimezonecode",
+          "source_datatype": "Integer",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 37
+        },
+        {
+          "name": "versionnumber",
+          "source_datatype": "BigInt",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 38
+        }
+      ],
+      "dependencies": []
     }
   ],
   "relationships": [],
@@ -1047,13 +2163,21 @@
     "migration_sequence": [
       "cr459_customer",
       "cr459_financialproduct",
-      "cr459_insurancepolicy"
+      "cr459_insurancepolicy",
+      "cr459_budget",
+      "cr459_budgetlineitem",
+      "cr459_costcenter",
+      "cr459_currency"
     ],
     "batches": {
       "Batch 1 (Independent Tables)": [
         "cr459_customer",
         "cr459_financialproduct",
-        "cr459_insurancepolicy"
+        "cr459_insurancepolicy",
+        "cr459_budget",
+        "cr459_budgetlineitem",
+        "cr459_costcenter",
+        "cr459_currency"
       ],
       "Batch 2 (Medium Dependency Tables)": [],
       "Batch 3 (Highly Dependent Tables)": [],

@@ -19,7 +19,7 @@ def map_to_fabric_datatype(source_type: str) -> str:
         return "INT"
     if "float" in st or "real" in st or "double" in st:
         return "DOUBLE"
-    if "decimal" in st or "numeric" in st or "money" in st:
+    if st.startswith("number") or "decimal" in st or "numeric" in st or "money" in st:
         return "DECIMAL"
     if "datetime" in st or "timestamp" in st:
         return "TIMESTAMP"
@@ -34,7 +34,7 @@ def map_to_fabric_datatype(source_type: str) -> str:
 
 def generate_fabric_json_metadata(
     tables_df, columns_df, stats_df, dep_df, views_df, procedures_df,
-    agent_writeups, output_path, source_hint="database", scan_id=None
+    agent_writeups, output_path, source_hint="database", scan_id=None, functions_df=None
 ):
     """
     Compiles database scanning dataframes, dependencies, execution sequence levels,
@@ -48,6 +48,7 @@ def generate_fabric_json_metadata(
     total_columns = len(columns_df) if columns_df is not None else 0
     total_views = len(views_df) if views_df is not None else 0
     total_procedures = len(procedures_df) if procedures_df is not None else 0
+    total_functions = len(functions_df) if functions_df is not None else 0
     total_size = round(stats_df["size_mb"].sum(), 4) if stats_df is not None else 0.0
     total_rows = int(stats_df["row_count"].sum()) if stats_df is not None else 0
     distinct_schemas = list(tables_df["schema_name"].unique()) if tables_df is not None else ["dbo"]
@@ -133,7 +134,16 @@ def generate_fabric_json_metadata(
         t_deps = []
         if dep_df is not None and not dep_df.empty:
             t_deps = dep_df[dep_df["parent_table"] == t_name]["referenced_table"].unique().tolist()
-            
+
+        # Keys declared in the source database, when the extractor could read
+        # them (None otherwise) - a declared primary key replaces the guess.
+        declared_pk = row.get("declared_primary_key")
+        declared_fks = row.get("declared_foreign_keys")
+        declared_pk = declared_pk if isinstance(declared_pk, list) else None
+        declared_fks = declared_fks if isinstance(declared_fks, list) else None
+        if declared_pk:
+            pk_col = declared_pk[0]
+
         objects.append({
             "name": t_name,
             "schema": s_name,
@@ -143,6 +153,8 @@ def generate_fabric_json_metadata(
             "medallion_layer": layer,
             "layer_reason": reason,
             "primary_key": pk_col,
+            "declared_primary_key": declared_pk,
+            "declared_foreign_keys": declared_fks,
             "columns": columns,
             "dependencies": t_deps
         })
@@ -154,6 +166,7 @@ def generate_fabric_json_metadata(
             "name": v_name,
             "schema": s_name,
             "type": "view",
+            "is_materialized": str(row.get("is_materialized")).lower() == "true",
             "dependencies": []
         })
         
@@ -164,6 +177,15 @@ def generate_fabric_json_metadata(
             "name": p_name,
             "schema": s_name,
             "type": "procedure",
+            "dependencies": []
+        })
+
+    for _, row in functions_df.iterrows() if functions_df is not None else []:
+        objects.append({
+            "name": row["function_name"],
+            "schema": row["schema_name"],
+            "type": "function",
+            "return_type": row.get("return_type"),
             "dependencies": []
         })
 
@@ -203,6 +225,7 @@ def generate_fabric_json_metadata(
     
     batch_views = [obj["name"] for obj in objects if obj["type"] == "view"]
     batch_procs = [obj["name"] for obj in objects if obj["type"] == "procedure"]
+    batch_funcs = [obj["name"] for obj in objects if obj["type"] == "function"]
     
     large_tables = []
     if stats_df is not None and not stats_df.empty:
@@ -226,6 +249,7 @@ def generate_fabric_json_metadata(
             "total_columns": total_columns,
             "total_views": total_views,
             "total_procedures": total_procedures,
+            "total_functions": total_functions,
             "total_size_mb": total_size,
             "total_row_count": total_rows
         },
@@ -247,7 +271,8 @@ def generate_fabric_json_metadata(
                 "Batch 2 (Medium Dependency Tables)": [],
                 "Batch 3 (Highly Dependent Tables)": dependent_tables,
                 "Batch 4 (Views)": batch_views,
-                "Batch 5 (Stored Procedures)": batch_procs
+                "Batch 5 (Stored Procedures)": batch_procs,
+                "Batch 6 (Functions)": batch_funcs
             },
             "strategies": {
                 "table_execution_logic": "All tables in Batch 1 can be executed in parallel due to independence. Batch 3 tables should be executed sequentially after their dependencies are satisfied.",

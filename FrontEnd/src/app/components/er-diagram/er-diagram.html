@@ -1,0 +1,103 @@
+<div class="er-root">
+
+    @if (!ready()) {
+        <div class="er-message">
+            <i class="bi bi-diagram-3"></i>
+            <p>The ER diagram is generated here once the scan completes.</p>
+        </div>
+    } @else if (loading()) {
+        <div class="er-message">
+            <span class="er-spinner"></span>
+            <p>Generating ER diagram...</p>
+        </div>
+    } @else if (error()) {
+        <div class="er-message er-error">
+            <i class="bi bi-exclamation-triangle"></i>
+            <p>{{ error() }}</p>
+            <button type="button" class="er-btn" (click)="reload()">
+                <i class="bi bi-arrow-repeat"></i>
+                Retry
+            </button>
+        </div>
+    } @else if (model(); as m) {
+        @if (!m.tables.length) {
+            <div class="er-message">
+                <i class="bi bi-diagram-3"></i>
+                <p>No tables were found in this scan, so there is nothing to diagram.</p>
+            </div>
+        } @else {
+            <div class="er-toolbar">
+
+                <div class="er-summary">
+                    <strong>{{ m.source || 'Source' }}{{ m.database ? ' · ' + m.database : '' }}</strong>
+                    <span>{{ visible().tables.length }} tables · {{ visible().relationships.length }} relationships</span>
+                </div>
+
+                <div class="er-controls">
+
+                    <select
+                        aria-label="Schema"
+                        [value]="schema()"
+                        (change)="schema.set($any($event.target).value)">
+                        <option value="all">All schemas</option>
+                        @for (s of schemas(); track s) {
+                            <option [value]="s">{{ s }}</option>
+                        }
+                    </select>
+
+                    <select
+                        aria-label="Columns"
+                        [value]="columnMode()"
+                        (change)="columnMode.set($any($event.target).value)">
+                        <option value="all">All columns</option>
+                        <option value="keys">Key columns only</option>
+                    </select>
+
+                    <div class="er-zoom">
+                        <button type="button" title="Zoom out" aria-label="Zoom out" (click)="zoomBy(1 / 1.25)">
+                            <i class="bi bi-dash-lg"></i>
+                        </button>
+                        <span>{{ zoomPercent() }}%</span>
+                        <button type="button" title="Zoom in" aria-label="Zoom in" (click)="zoomBy(1.25)">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        <button type="button" title="Fit to view" aria-label="Fit to view" (click)="fit()">
+                            <i class="bi bi-arrows-angle-contract"></i>
+                        </button>
+                    </div>
+
+                    <button type="button" class="er-btn" (click)="download()" [disabled]="drawing()">
+                        <i class="bi bi-download"></i>
+                        SVG
+                    </button>
+
+                </div>
+
+            </div>
+
+            <p class="er-note">
+                @if (m.relationship_source === 'declared') {
+                    <span class="er-line"></span>
+                    Relationships are the foreign keys declared in the database.
+                } @else if (m.declared_keys_read) {
+                    <span class="er-dash"></span>
+                    No foreign keys are declared in this database, so relationships are inferred from column names (..._id / ..._key).
+                } @else {
+                    <span class="er-dash"></span>
+                    Declared keys could not be read for this scan, so keys and relationships are inferred from column names (..._id / ..._key).
+                }
+            </p>
+        }
+    }
+
+    <div class="er-stage" [class.er-hidden]="!showCanvas()">
+        <div #canvas class="er-canvas"></div>
+        @if (drawing()) {
+            <div class="er-drawing">
+                <span class="er-spinner"></span>
+                Drawing diagram...
+            </div>
+        }
+    </div>
+
+</div>

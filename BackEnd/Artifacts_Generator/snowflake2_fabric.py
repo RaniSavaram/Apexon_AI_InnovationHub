@@ -1,22 +1,23 @@
 """
-Dynamics 365 (Dataverse) -> Microsoft Fabric artifact generator.
+Snowflake -> Microsoft Fabric artifact generator.
 
 Thin, source-pinned entry point over fabric_generator_core.Generator() - see
-that module's docstring for what actually gets created (Delta tables,
-Volume folders, and best-effort View/Stored Procedure placeholders) from
-migration_plan.json. This file just fixes source_system="dynamics365" and
-reports its own filename back as generator_script, so callers/UI see which
-script actually ran.
+that module's docstring for what actually gets created (Delta tables, a
+Data Pipeline scaffold, Volume folders, and best-effort View/Stored
+Procedure placeholders) from migration_plan.json. This file just fixes
+source_system="snowflake" and reports its own filename back as
+generator_script, so callers/UI see which script actually ran.
 
-Note: Fabric Data Pipeline creation for this source updates a
-pre-provisioned pipeline pinned in fabric_generator_core.SOURCE_PIPELINE_MAP
-(by-id, not by-name get-or-create) - see resolve_artifact_pipeline() and
-its is_dynamics365 handling for why creating a NEW pipeline by name used
-to fail for this source specifically.
+Snowflake has a pre-provisioned Lakehouse in
+fabric_generator_core.SOURCE_LAKEHOUSE_MAP (same as Databricks/SQL Server/
+Dynamics 365): workspace "Fabric Insights" (bae3b540-d044-45e0-8c52-
+3cf4ee3dcb31), lakehouse "Snowflake_Lakehouse" (1fef9fdf-9c8c-47f2-9b08-
+4fa690a8b754). resolve_artifact_lakehouse() uses it directly - no
+get-or-create call needed.
 
 Usage
 -----
-    python dynamics3652_fabric.py [--json path/to/migration_plan.json] \\
+    python snowflake2_fabric.py [--json path/to/migration_plan.json] \\
         [--dry-run] [--database-name sales_prod]
 
 --dry-run skips Azure auth, the Lakehouse get-or-create call, and OneLake
@@ -29,17 +30,17 @@ try:
     from Artifacts_Generator import fabric_generator_core as core
 except ImportError:
     # Fallback for running this script directly (e.g. `python
-    # dynamics3652_fabric.py` from inside Artifacts_Generator/) where
+    # snowflake2_fabric.py` from inside Artifacts_Generator/) where
     # BackEnd isn't on sys.path as a package root the way Django's app
     # loading puts it.
     import fabric_generator_core as core
 
-SOURCE_SYSTEM = "dynamics365"
+SOURCE_SYSTEM = "snowflake"
 SCRIPT_NAME = Path(__file__).name
 
 
 def Generator(json_path=None, dry_run=False, database_name=None, workspace_id=None):
-    """Generate/synchronize Dynamics 365-sourced Fabric artifacts. See
+    """Generate/synchronize Snowflake-sourced Fabric artifacts. See
     fabric_generator_core.Generator() for the full behavior."""
     return core.Generator(
         json_path=json_path,

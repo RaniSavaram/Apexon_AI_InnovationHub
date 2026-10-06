@@ -4,6 +4,7 @@ from pathlib import Path
 import pymssql
 
 from Metadata_Scanner.extractors.base_extractor import BaseExtractor
+from Metadata_Scanner.extractors.declared_keys import read_sqlserver_keys
 
 
 class SynapseExtractor(BaseExtractor):
@@ -165,6 +166,15 @@ class SynapseExtractor(BaseExtractor):
                 schema_map[schema_name]["procedures"].append({"name": proc["ROUTINE_NAME"]})
         except Exception as e:
             print(f"[WARNING] Could not list stored procedures: {e}")
+
+        # Declared primary/foreign keys (see declared_keys.py). Dedicated
+        # pools only have NOT ENFORCED primary keys; serverless pools may
+        # not expose sys.key_constraints at all, which leaves keys unknown.
+        try:
+            pk_tables, fk_count = read_sqlserver_keys(self.connection, schema_map)
+            print(f"[INFO] Declared keys: {pk_tables} table(s) with a primary key, {fk_count} foreign key(s).")
+        except Exception as e:
+            print(f"[WARNING] Could not read declared keys: {e}")
 
         metadata["schemas"] = list(schema_map.values())
 

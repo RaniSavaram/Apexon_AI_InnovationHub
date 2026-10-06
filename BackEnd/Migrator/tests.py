@@ -96,3 +96,117 @@ class FabricJsonGeneratorTests(TestCase):
             
         finally:
             shutil.rmtree(temp_dir)
+
+
+class ErDiagramModelTests(TestCase):
+    def _table(self, schema, name, columns, pk=None):
+        return {
+            "type": "table", "schema": schema, "name": name, "primary_key": pk,
+            "columns": [{"name": c, "source_datatype": "NUMBER(38,0)"} for c in columns],
+        }
+
+    def _links(self, *tables):
+        from Migrator.er_diagram import build_er_model
+        model = build_er_model({"objects": list(tables)})
+        return model, {(r["from"], r["from_column"], r["to"], r["to_column"]) for r in model["relationships"]}
+
+    def test_plural_and_prefixed_table_names(self):
+        _, links = self._links(
+            self._table("SALES", "CUSTOMERS", ["CUSTOMER_ID"], pk="CUSTOMER_ID"),
+            self._table("SALES", "ORDERS", ["ORDER_ID", "CUSTOMER_ID"], pk="ORDER_ID"),
+            self._table("cards", "dim_card", ["card_id"], pk="card_id"),
+            self._table("cards", "fact_sale", ["sale_id", "card_id"], pk="sale_id"),
+        )
+        self.assertEqual(links, {
+            ("SALES.ORDERS", "CUSTOMER_ID", "SALES.CUSTOMERS", "CUSTOMER_ID"),
+            ("cards.fact_sale", "card_id", "cards.dim_card", "card_id"),
+        })
+
+    def test_own_key_is_not_a_reference(self):
+        _, links = self._links(
+            # STG_ORDERS.ORDER_ID names its own table - not a link to ORDERS.
+            self._table("SALES", "ORDERS", ["ORDER_ID"], pk="ORDER_ID"),
+            self._table("SALES", "STG_ORDERS", ["ORDER_ID"], pk="ORDER_ID"),
+            # A key only links to a table keyed the same way.
+            self._table("payments", "fact_upi_payment", ["upi_txn_id"], pk="upi_txn_id"),
+            self._table("payments", "fact_neft_rtgs", ["payment_id"], pk="payment_id"),
+            self._table("crm", "customers", ["customer_id"], pk="customer_id"),
+            self._table("crm", "customer_details", ["customer_id"], pk="customer_id"),
+        )
+        self.assertEqual(links, {("crm.customer_details", "customer_id", "crm.customers", "customer_id")})
+
+    def test_junction_tables_and_least_prefixed_match(self):
+        model, links = self._links(
+            self._table("dbo", "auth_group", ["id", "name"], pk="id"),
+            self._table("dbo", "stg_auth_group", ["id"], pk="id"),
+            self._table("dbo", "auth_permission", ["id", "codename"], pk="id"),
+            self._table("dbo", "auth_user", ["id", "username"], pk="id"),
+            self._table("dbo", "auth_group_permissions", ["id", "group_id", "permission_id"], pk="id"),
+            self._table("dbo", "auth_user_groups", ["id", "user_id", "group_id"], pk="id"),
+        )
+        self.assertEqual(links, {
+            ("dbo.auth_group_permissions", "group_id", "dbo.auth_group", "id"),
+            ("dbo.auth_group_permissions", "permission_id", "dbo.auth_permission", "id"),
+            ("dbo.auth_user_groups", "user_id", "dbo.auth_user", "id"),
+            ("dbo.auth_user_groups", "group_id", "dbo.auth_group", "id"),
+        })
+        permissions = next(t for t in model["tables"] if t["name"] == "auth_group_permissions")
+        flags = {c["name"]: (c["pk"], c["fk"]) for c in permissions["columns"]}
+        self.assertEqual(flags, {"id": (True, False), "group_id": (False, True), "permission_id": (False, True)})
+
+
+class DeclaredKeysTests(TestCase):
+    def test_attach_declared_keys_groups_composite_keys_in_order(self):
+        from Metadata_Scanner.extractors.declared_keys import attach_declared_keys
+        schema_map = {"dbo": {"name": "dbo", "tables": [
+            {"name": "order_lines", "type": "BASE TABLE"},
+            {"name": "orders", "type": "BASE TABLE"},
+            {"name": "v_orders", "type": "VIEW"},
+        ]}}
+        pk_rows = [("dbo", "order_lines", "line_no", 2), ("dbo", "order_lines", "order_id", 1), ("dbo", "orders", "order_id", 1)]
+        fk_rows = [("FK_lines_orders", "dbo", "order_lines", "order_id", "dbo", "orders", "order_id", 1)]
+        self.assertEqual(attach_declared_keys(schema_map, pk_rows, fk_rows), (2, 1))
+        lines, orders, view = schema_map["dbo"]["tables"]
+        self.assertEqual(lines["primary_key"], ["order_id", "line_no"])
+        self.assertEqual(lines["foreign_keys"], [{
+            "name": "FK_lines_orders", "columns": ["order_id"],
+            "ref_schema": "dbo", "ref_table": "orders", "ref_columns": ["order_id"],
+        }])
+        self.assertEqual((orders["primary_key"], orders["foreign_keys"]), (["order_id"], []))
+        self.assertNotIn("primary_key", view)
+
+    def test_er_model_prefers_declared_keys(self):
+        from Migrator.er_diagram import build_er_model
+
+        def table(name, columns, pk, fks):
+            return {"type": "table", "schema": "S", "name": name, "primary_key": columns[0],
+                    "declared_primary_key": pk, "declared_foreign_keys": fks,
+                    "columns": [{"name": c, "source_datatype": "INT"} for c in columns]}
+
+        model = build_er_model({"objects": [
+            table("CUSTOMERS", ["CUSTOMER_ID"], ["CUSTOMER_ID"], []),
+            # BUYER_ID would never be inferred from its name; CUSTOMER_ID would be, but isn't declared.
+            table("ORDERS", ["ORDER_ID", "BUYER_ID", "CUSTOMER_ID"], ["ORDER_ID"], [
+                {"name": "FK_BUYER", "columns": ["BUYER_ID"], "ref_schema": "S", "ref_table": "CUSTOMERS", "ref_columns": ["CUSTOMER_ID"]},
+                {"name": "FK_OUTSIDE_SCAN", "columns": ["ORDER_ID"], "ref_schema": "S", "ref_table": "NOT_SCANNED", "ref_columns": ["ID"]},
+            ]),
+            table("ORDER_LINES", ["ORDER_ID", "LINE_NO"], ["ORDER_ID", "LINE_NO"], []),
+        ]})
+        self.assertEqual((model["declared_keys_read"], model["relationship_source"]), (True, "declared"))
+        self.assertEqual(
+            [(r["from"], r["from_column"], r["to"], r["to_column"], r["inferred"]) for r in model["relationships"]],
+            [("S.ORDERS", "BUYER_ID", "S.CUSTOMERS", "CUSTOMER_ID", False)],
+        )
+        lines = next(t for t in model["tables"] if t["name"] == "ORDER_LINES")
+        self.assertTrue(lines["primary_key_declared"])
+        self.assertEqual([c["pk"] for c in lines["columns"]], [True, True])
+
+    def test_er_model_infers_when_nothing_is_declared(self):
+        from Migrator.er_diagram import build_er_model
+        model = build_er_model({"objects": [
+            {"type": "table", "schema": "S", "name": n, "primary_key": cols[0], "declared_primary_key": [cols[0]],
+             "declared_foreign_keys": [], "columns": [{"name": c} for c in cols]}
+            for n, cols in (("CUSTOMERS", ["CUSTOMER_ID"]), ("ORDERS", ["ORDER_ID", "CUSTOMER_ID"]))
+        ]})
+        self.assertEqual((model["declared_keys_read"], model["relationship_source"]), (True, "inferred"))
+        self.assertEqual([(r["from_column"], r["inferred"]) for r in model["relationships"]], [("CUSTOMER_ID", True)])

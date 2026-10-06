@@ -64,7 +64,7 @@ except ImportError:
 NOTEBOOK_DISPLAY_NAME = "Fabric_Artifact_Warehouse_Sync"
 
 
-def _build_notebook_source(warehouse_connection_string, warehouse_database_name, views, procedures, source_system, output_abfss_path):
+def _build_notebook_source(warehouse_connection_string, warehouse_database_name, views, procedures, source_system, output_abfss_path, functions=None):
     """
     Returns the full "Fabric notebook source" formatted Python string (see
     fabric_api.create_or_update_notebook()'s docstring for the required
@@ -89,13 +89,14 @@ def _build_notebook_source(warehouse_connection_string, warehouse_database_name,
     can never accidentally break out of the generated source.
     """
     payload = base64.b64encode(
-        json.dumps({"views": views, "procedures": procedures}, ensure_ascii=False).encode("utf-8")
+        json.dumps({"views": views, "procedures": procedures, "functions": functions or []}, ensure_ascii=False).encode("utf-8")
     ).decode("ascii")
 
     # Indentation/quoting inside this cell body is plain Python - nothing
     # here is Fabric-templated, so normal Python escaping rules apply.
     cell_body = f'''import base64
 import json
+import re
 import struct
 
 import pyodbc
@@ -103,6 +104,7 @@ import pyodbc
 _payload = json.loads(base64.b64decode("{payload}").decode("utf-8"))
 views = _payload["views"]
 procedures = _payload["procedures"]
+functions = _payload.get("functions", [])
 source_system = {source_system!r}
 warehouse_host = {warehouse_connection_string!r}
 warehouse_database = {warehouse_database_name!r}
@@ -165,10 +167,19 @@ for v in views:
     try:
         clean_schema = ensure_schema(schema_name)
         clean_view = clean_sql_identifier(view_name)
-        comment_lines = [
-            f"-- Placeholder view generated from a {{source_system or 'source'}} scan.",
-            "-- The original view definition (untranslated - not valid T-SQL as-is) was:",
-        ]
+        if v.get("is_materialized"):
+            # Fabric Warehouse has no materialized views - a standard view
+            # always reads current data, so nothing can go stale.
+            comment_lines = [
+                f"-- Placeholder view generated from a {{source_system or 'source'}} MATERIALIZED VIEW.",
+                "-- Fabric Warehouse has no materialized views; this standard view reads current data on every query.",
+                "-- The original materialized view definition (untranslated - not valid T-SQL as-is) was:",
+            ]
+        else:
+            comment_lines = [
+                f"-- Placeholder view generated from a {{source_system or 'source'}} scan.",
+                "-- The original view definition (untranslated - not valid T-SQL as-is) was:",
+            ]
         for line in (v.get("definition") or "Not available").splitlines() or ["Not available"]:
             comment_lines.append(f"-- {{line}}")
         sql = (
@@ -178,7 +189,7 @@ for v in views:
         )
         cursor.execute(sql)
         conn.commit()
-        created.append(f"View {{clean_schema}}.{{clean_view}}")
+        created.append(f"View {{clean_schema}}.{{clean_view}}" + (" (from materialized view)" if v.get("is_materialized") else ""))
     except Exception as exc:
         conn.rollback()
         errors.append({{"object": f"View {{schema_name}}.{{view_name}}", "error": str(exc)}})
@@ -188,9 +199,19 @@ for p in procedures:
     try:
         clean_schema = ensure_schema(schema_name)
         clean_proc = clean_sql_identifier(procedure_name)
+        # Original body goes INSIDE BEGIN/END (not above CREATE the way a
+        # view's does) so it's part of the procedure's stored definition
+        # and shows up when the procedure is opened/scripted in Fabric.
+        comment_lines = [
+            f"    -- Placeholder procedure generated from a {{source_system or 'source'}} scan; no logic ported.",
+            "    -- The original procedure definition (untranslated - not valid T-SQL as-is) was:",
+        ]
+        for line in (p.get("definition") or "Not available").splitlines() or ["Not available"]:
+            comment_lines.append(f"    -- {{line}}")
         sql = (
-            f"-- Placeholder procedure generated from a {{source_system or 'source'}} scan; no logic ported.\\n"
-            f"CREATE OR ALTER PROCEDURE [{{clean_schema}}].[{{clean_proc}}] AS\\nBEGIN\\n    RETURN 0;\\nEND;"
+            f"CREATE OR ALTER PROCEDURE [{{clean_schema}}].[{{clean_proc}}] AS\\nBEGIN\\n"
+            + "\\n".join(comment_lines)
+            + "\\n    RETURN 0;\\nEND;"
         )
         cursor.execute(sql)
         conn.commit()
@@ -198,6 +219,86 @@ for p in procedures:
     except Exception as exc:
         conn.rollback()
         errors.append({{"object": f"Procedure {{schema_name}}.{{procedure_name}}", "error": str(exc)}})
+
+
+def to_tsql_type(source_type):
+    # Best-effort source (Snowflake/Databricks/SQL Server) -> Fabric
+    # Warehouse T-SQL type for a placeholder scalar function's RETURNS
+    # clause. Fabric Warehouse has no NVARCHAR/DATETIME, hence VARCHAR/
+    # DATETIME2 throughout.
+    t = (source_type or "").strip().upper()
+    m = re.match(r"^(NUMBER|DECIMAL|NUMERIC)\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+))?\\s*\\)", t)
+    if m:
+        precision = min(int(m.group(2)), 38)
+        scale = min(int(m.group(3) or 0), precision)
+        return f"DECIMAL({{precision}},{{scale}})"
+    if t.startswith(("NUMBER", "DECIMAL", "NUMERIC")):
+        return "DECIMAL(38,0)"
+    if t.startswith(("BIGINT", "LONG")):
+        return "BIGINT"
+    if t.startswith(("INT", "INTEGER", "SMALLINT", "TINYINT", "BYTEINT", "SHORT")):
+        return "INT"
+    if t.startswith(("FLOAT", "DOUBLE", "REAL")):
+        return "FLOAT"
+    if t.startswith(("BOOLEAN", "BOOL", "BIT")):
+        return "BIT"
+    if t.startswith("DATETIME") or t.startswith("TIMESTAMP"):
+        return "DATETIME2(6)"
+    if t.startswith("DATE"):
+        return "DATE"
+    if t.startswith("TIME"):
+        return "TIME(6)"
+    if t.startswith(("BINARY", "VARBINARY")):
+        return "VARBINARY(8000)"
+    return "VARCHAR(8000)"
+
+
+for fn in functions:
+    schema_name, function_name = fn.get("schema"), fn.get("function_name")
+    try:
+        clean_schema = ensure_schema(schema_name)
+        clean_func = clean_sql_identifier(function_name)
+        return_type = (fn.get("return_type") or "").strip()
+        comment_lines = [
+            f"-- Placeholder function generated from a {{source_system or 'source'}} scan; no logic ported.",
+            f"-- Original signature: {{function_name}}{{fn.get('arguments') or '()'}} RETURNS {{return_type or 'Unknown'}}",
+            "-- The original function definition (untranslated - not valid T-SQL as-is) was:",
+        ]
+        for line in (fn.get("definition") or "Not available").splitlines() or ["Not available"]:
+            comment_lines.append(f"-- {{line}}")
+        comment_block = "\\n".join(comment_lines)
+        # Inline table-valued placeholder: used for UDTFs (RETURNS TABLE)
+        # and as the fallback when the Warehouse rejects a scalar UDF
+        # (scalar UDF support in Fabric Warehouse is still limited).
+        tvf_sql = (
+            comment_block
+            + f"\\nCREATE OR ALTER FUNCTION [{{clean_schema}}].[{{clean_func}}]()\\nRETURNS TABLE\\nAS\\nRETURN "
+            + "(SELECT CAST(NULL AS INT) AS placeholder_column WHERE 1 = 0);"
+        )
+        if return_type.upper().startswith("TABLE"):
+            cursor.execute(tvf_sql)
+            conn.commit()
+            created.append(f"Function {{clean_schema}}.{{clean_func}} (table-valued)")
+        else:
+            scalar_sql = (
+                f"CREATE OR ALTER FUNCTION [{{clean_schema}}].[{{clean_func}}]()\\n"
+                f"RETURNS {{to_tsql_type(return_type)}}\\nAS\\nBEGIN\\n"
+                + "\\n".join("    " + line for line in comment_lines)
+                + "\\n    RETURN NULL;\\nEND;"
+            )
+            try:
+                cursor.execute(scalar_sql)
+                conn.commit()
+                created.append(f"Function {{clean_schema}}.{{clean_func}} (scalar)")
+            except Exception as scalar_exc:
+                conn.rollback()
+                print(f"[WARN] Scalar placeholder for {{clean_schema}}.{{clean_func}} rejected ({{scalar_exc}}); falling back to table-valued.")
+                cursor.execute(tvf_sql)
+                conn.commit()
+                created.append(f"Function {{clean_schema}}.{{clean_func}} (table-valued fallback)")
+    except Exception as exc:
+        conn.rollback()
+        errors.append({{"object": f"Function {{schema_name}}.{{function_name}}", "error": str(exc)}})
 
 conn.close()
 write_result()
@@ -222,6 +323,7 @@ write_result()
 def sync_views_and_procedures(
     views, procedures, source_system, dry_run,
     workspace_id, lakehouse_id, warehouse_connection_string, warehouse_database_name, fabric_token,
+    functions=None,
 ):
     """
     Notebook-based replacement for fabric_warehouse_sql-based direct
@@ -238,17 +340,21 @@ def sync_views_and_procedures(
     """
     created = []
     errors = []
+    functions = functions or []
 
-    if not views and not procedures:
+    if not views and not procedures and not functions:
         return created, errors
 
     if dry_run:
         for v in views:
             print(f"[DRY-RUN] Would create placeholder view {v.get('schema')}.{v.get('view_name')} in Warehouse '{warehouse_connection_string}' (via Fabric Notebook)")
-            created.append(f"View {v.get('schema')}.{v.get('view_name')}")
+            created.append(f"View {v.get('schema')}.{v.get('view_name')}" + (" (from materialized view)" if v.get("is_materialized") else ""))
         for p in procedures:
             print(f"[DRY-RUN] Would create placeholder procedure {p.get('schema')}.{p.get('procedure_name')} in Warehouse '{warehouse_connection_string}' (via Fabric Notebook)")
             created.append(f"Procedure {p.get('schema')}.{p.get('procedure_name')}")
+        for fn in functions:
+            print(f"[DRY-RUN] Would create placeholder function {fn.get('schema')}.{fn.get('function_name')} in Warehouse '{warehouse_connection_string}' (via Fabric Notebook)")
+            created.append(f"Function {fn.get('schema')}.{fn.get('function_name')}")
         return created, errors
 
     run_id = uuid.uuid4().hex
@@ -262,9 +368,9 @@ def sync_views_and_procedures(
     )
 
     try:
-        source = _build_notebook_source(warehouse_connection_string, warehouse_database_name, views, procedures, source_system, output_abfss_path)
+        source = _build_notebook_source(warehouse_connection_string, warehouse_database_name, views, procedures, source_system, output_abfss_path, functions=functions)
         notebook_id = fabric_api.create_or_update_notebook(workspace_id, NOTEBOOK_DISPLAY_NAME, source, fabric_token)
-        print(f"[INFO] Running '{NOTEBOOK_DISPLAY_NAME}' Fabric Notebook (id={notebook_id}) to sync {len(views)} view(s)/{len(procedures)} procedure(s)...")
+        print(f"[INFO] Running '{NOTEBOOK_DISPLAY_NAME}' Fabric Notebook (id={notebook_id}) to sync {len(views)} view(s)/{len(procedures)} procedure(s)/{len(functions)} function(s)...")
         fabric_api.run_notebook_job(workspace_id, notebook_id, fabric_token)
 
         onelake_token = fabric_api.get_onelake_token()
@@ -283,6 +389,6 @@ def sync_views_and_procedures(
         return created, errors
 
     except Exception as exc:
-        print(f"[WARN] Views/Stored Procedures scaffold unavailable: {exc}")
+        print(f"[WARN] Views/Stored Procedures/Functions scaffold unavailable: {exc}")
         errors.append({"object": None, "error": f"Warehouse connection unavailable: {exc}"})
         return created, errors

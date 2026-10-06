@@ -378,8 +378,8 @@ SCAN STATUS + ACTION BUTTONS
 
         </div>
 
-        <!-- Demo Dataset Notice -->
-        <div class="demo-limit-note">
+        <!-- Demo Dataset Notice - SQL Server, Databricks, Dynamics 365, and Snowflake scans pull the full schema now, no cap -->
+        <div class="demo-limit-note" *ngIf="source !== 'sqlserver' && source !== 'Databricks' && source !== 'dynamics365' && source !== 'Snowflake'">
             <i class="bi bi-info-circle"></i>
             <span>* For demo purposes, we have limited the dataset.</span>
         </div>
@@ -835,6 +835,16 @@ SCAN STATUS + ACTION BUTTONS
 
                 <button
 
+                    [class.active]="activeTab=='er'"
+
+                    (click)="activeTab='er'">
+
+                    ER Diagrams
+
+                </button>
+
+                <button
+
                     [class.active]="activeTab=='output'"
 
                     (click)="activeTab='output'"
@@ -932,6 +942,19 @@ SCAN STATUS + ACTION BUTTONS
 {{harness2Messages.join('\n')}}
 
                 </textarea>
+
+            </div>
+
+            <!-- ER Diagrams -->
+
+            <div
+                *ngIf="activeTab=='er'"
+                class="logs-body">
+
+                <app-er-diagram
+                    [ready]="scanCompleted"
+                    [metadataFile]="erMetadataFile">
+                </app-er-diagram>
 
             </div>
 
@@ -1128,7 +1151,7 @@ SCAN STATUS + ACTION BUTTONS
                     </div>
                     <div class="meta-card">
                         <span class="meta-label"><i class="bi bi-file-earmark-text-fill"></i> Assessment Report</span>
-                        <span class="meta-val">{{ fabricArtifactsResult?.target?.report_name || getActiveReportDocName() }}</span>
+                        <span class="meta-val">{{ getActiveReportDocName() }}</span>
                         <span class="meta-sub">Source Schema Extraction</span>
                     </div>
                     <div class="meta-card">

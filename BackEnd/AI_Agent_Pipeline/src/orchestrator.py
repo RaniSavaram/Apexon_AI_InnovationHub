@@ -154,6 +154,8 @@ class AzureAIOrchestrator:
             credential=DefaultAzureCredential(
                 exclude_shared_token_cache_credential=True,
                 exclude_broker_credential=True,
+                # Same `az` timeout headroom as fabric_api.py's credential.
+                process_timeout=60,
             )
         )
         self.client_type = "projects"

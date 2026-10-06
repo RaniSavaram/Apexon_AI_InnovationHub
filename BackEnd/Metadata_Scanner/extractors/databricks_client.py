@@ -8,6 +8,7 @@ import databricks.sql as databricks_sql
 import requests
 from config import Credentials
 from Metadata_Scanner.extractors.base_extractor import BaseExtractor
+from Metadata_Scanner.extractors.declared_keys import attach_declared_keys
 
 # Demo toggle for showing both Harness Layer 1 governance outcomes back to
 # back: True makes the next scan execute a real (harmless, "WHERE 1=0")
@@ -437,6 +438,50 @@ class DatabricksExtractor(BaseExtractor):
             _log_object_fetch_warning(f"Could not list volumes in catalog '{self.catalog}': {e}")
         return volumes_by_schema
 
+    def _fetch_declared_keys(self, schema_map):
+        """
+        Unity Catalog's informational PRIMARY KEY / FOREIGN KEY constraints
+        (not enforced, but declared for modelling) from information_schema,
+        attached per table by declared_keys.attach_declared_keys(). A foreign
+        key's columns pair up with the referenced key's columns through
+        position_in_unique_constraint.
+        """
+        info = f"{self.catalog}.information_schema"
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(f"""
+                SELECT kcu.table_schema, kcu.table_name, kcu.column_name, kcu.ordinal_position
+                FROM {info}.table_constraints tc
+                JOIN {info}.key_column_usage kcu
+                  ON kcu.constraint_catalog = tc.constraint_catalog
+                 AND kcu.constraint_schema = tc.constraint_schema
+                 AND kcu.constraint_name = tc.constraint_name
+                WHERE tc.constraint_type = 'PRIMARY KEY'
+            """)
+            pk_rows = [tuple(r) for r in cursor.fetchall()]
+            cursor.execute(f"""
+                SELECT rc.constraint_name, fk.table_schema, fk.table_name, fk.column_name,
+                       pk.table_schema, pk.table_name, pk.column_name, fk.ordinal_position
+                FROM {info}.referential_constraints rc
+                JOIN {info}.key_column_usage fk
+                  ON fk.constraint_catalog = rc.constraint_catalog
+                 AND fk.constraint_schema = rc.constraint_schema
+                 AND fk.constraint_name = rc.constraint_name
+                JOIN {info}.key_column_usage pk
+                  ON pk.constraint_catalog = rc.unique_constraint_catalog
+                 AND pk.constraint_schema = rc.unique_constraint_schema
+                 AND pk.constraint_name = rc.unique_constraint_name
+                 AND pk.ordinal_position = fk.position_in_unique_constraint
+            """)
+            fk_rows = [tuple(r) for r in cursor.fetchall()]
+            pk_tables, fk_count = attach_declared_keys(schema_map, pk_rows, fk_rows)
+            self._log_scan_info(
+                f"[INFO] Declared keys in catalog '{self.catalog}': "
+                f"{pk_tables} table(s) with a primary key, {fk_count} foreign key(s)."
+            )
+        except Exception as e:
+            _log_object_fetch_warning(f"Could not read declared keys in catalog '{self.catalog}': {e}")
+
     def extract(self, output_file="data/metadata.json"):
 
         self.connect()
@@ -601,6 +646,8 @@ class DatabricksExtractor(BaseExtractor):
 
         for schema_name, volumes in volumes_by_schema.items():
             _ensure_schema(schema_name)["volumes"] = volumes
+
+        self._fetch_declared_keys(schema_map)
 
         metadata["schemas"] = list(schema_map.values())
 

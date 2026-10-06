@@ -93,12 +93,77 @@ SOURCE_LAKEHOUSE_MAP = {
     "dynamics365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "efa4494d-ab51-4902-85cb-6fb074d9201d"),
     "dynamics 365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "efa4494d-ab51-4902-85cb-6fb074d9201d"),
     "d365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "efa4494d-ab51-4902-85cb-6fb074d9201d"),
+    # Verified accessible: workspace "Fabric Insights" (bae3b540-...), lakehouse "Snowflake_Lakehouse".
+    "snowflake": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "1fef9fdf-9c8c-47f2-9b08-4fa690a8b754"),
 }
 
 # Only used when a Medallion layer should live in its own, separately
 # managed Lakehouse (overrides SOURCE_LAKEHOUSE_MAP/dynamic resolution for
 # just that layer). {"Bronze": ("<workspace_id>", "<lakehouse_id>"), ...}
 LAYER_LAKEHOUSE_MAP = {}
+
+# Pre-provisioned Fabric Data Pipeline, one per source system - mirrors
+# SOURCE_LAKEHOUSE_MAP above but for the pipeline item created in
+# resolve_artifact_pipeline() below. Any source system NOT listed here
+# falls back to create_or_update_pipeline()'s by-name get-or-create
+# behavior (see fabric_api.create_or_update_item_definition).
+SOURCE_PIPELINE_MAP = {
+    # Verified accessible: workspace "Fabric Insights" (bae3b540-...), Data Pipeline for Databricks.
+    "databricks": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "669f6675-fd34-42db-bcee-015a3bf38b14"),
+    # Verified accessible: workspace "Fabric Insights" (bae3b540-...), Data Pipeline for Snowflake.
+    "snowflake": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "0d0c5694-854d-41ed-94b4-3fbc86f30b61"),
+    # Verified accessible: workspace "Fabric Insights" (bae3b540-...), Data Pipeline for SQL Server.
+    "sqlserver": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "d811fe81-1ef0-4925-afcb-bde6a5a41769"),
+    "sql server": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "d811fe81-1ef0-4925-afcb-bde6a5a41769"),
+    # Verified accessible: workspace "Fabric Insights" (bae3b540-...), Data Pipeline for Dynamics 365.
+    "dynamics365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "5708a7b7-7bc5-4cad-afac-40601724481d"),
+    "dynamics 365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "5708a7b7-7bc5-4cad-afac-40601724481d"),
+    "d365": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "5708a7b7-7bc5-4cad-afac-40601724481d"),
+}
+
+
+# Fabric displayName of each pre-provisioned item above, keyed by item id.
+# Only a fallback for dry runs (no Fabric token) or a failed lookup - the
+# name reported to the UI is otherwise read live from Fabric in
+# resolve_item_display_name(), so it always matches what Fabric shows.
+KNOWN_ITEM_DISPLAY_NAMES = {
+    "bc94c085-a651-46a6-96a1-0c1183ef78f9": "Databricks_Lakehouse",
+    "87ddccfe-cfa3-47d6-92ab-b638ce379319": "SQL_Lakehouse",
+    "efa4494d-ab51-4902-85cb-6fb074d9201d": "Dynamics365_Lakehouse",
+    "1fef9fdf-9c8c-47f2-9b08-4fa690a8b754": "Snowflake_Lakehouse",
+    "86838e7d-486e-42c0-b548-77576d20c358": "Snowflake_Warehouse",
+}
+
+
+def resolve_item_display_name(workspace_id, item_type, item_id, fabric_token, fallback=None):
+    """
+    Returns the real Fabric displayName of a pre-provisioned item, so the
+    name shown in the UI is exactly the one in Fabric. Falls back to
+    KNOWN_ITEM_DISPLAY_NAMES (then `fallback`) on a dry run or if the
+    lookup fails.
+    """
+    known = KNOWN_ITEM_DISPLAY_NAMES.get(item_id) or fallback or item_id
+    if not fabric_token:
+        return known
+    try:
+        return fabric_api.get_item(workspace_id, item_type, item_id, fabric_token).get("displayName") or known
+    except Exception as exc:
+        print(f"[WARN] Could not read displayName of {item_type}/{item_id}: {exc} - using '{known}'.")
+        return known
+
+
+def resolve_artifact_pipeline(source_system, default_workspace_id):
+    """
+    Returns (workspace_id, pipeline_id). pipeline_id is None when
+    source_system isn't in SOURCE_PIPELINE_MAP, meaning the caller should
+    fall back to create_or_update_pipeline()'s by-name get-or-create.
+    """
+    src_key = (source_system or "").strip().lower()
+    if src_key in SOURCE_PIPELINE_MAP:
+        ws, pl = SOURCE_PIPELINE_MAP[src_key]
+        print(f"[INFO] '{source_system}' has a pre-provisioned Data Pipeline - using it directly (id={pl}).")
+        return ws, pl
+    return default_workspace_id, None
 
 # Fixed Fabric Warehouse SQL analytics endpoint that already exists in the
 # target workspace. Every placeholder View/Stored Procedure this script
@@ -116,6 +181,48 @@ LAYER_LAKEHOUSE_MAP = {}
 # hostname itself is this specific Warehouse's own connectionString.
 FIXED_WAREHOUSE_CONNECTION_STRING = "3uikuylfb6eebabim5tojwqhty-ic26hose2dqeldcsht2o4polge.datawarehouse.fabric.microsoft.com"
 FIXED_WAREHOUSE_DATABASE_NAME = "Databricks_SQL_Warehouse"
+
+# Pre-provisioned Fabric Warehouse, one per source system - mirrors
+# SOURCE_LAKEHOUSE_MAP/SOURCE_PIPELINE_MAP above but for the Warehouse that
+# receives this source's Views/Stored Procedures. Any source system NOT
+# listed here falls back to the shared FIXED_WAREHOUSE_* endpoint above.
+# Only the item id is pinned: the Warehouse's displayName (which MUST be
+# the connection's initial Database=, see above) and connectionString are
+# read live from the Fabric REST API in resolve_artifact_warehouse(), so
+# the name used always matches what Fabric actually has for that item.
+SOURCE_WAREHOUSE_MAP = {
+    # Verified accessible: workspace "Fabric Insights" (bae3b540-...), warehouse "Snowflake_Warehouse".
+    "snowflake": ("bae3b540-d044-45e0-8c52-3cf4ee3dcb31", "86838e7d-486e-42c0-b548-77576d20c358"),
+}
+
+
+def resolve_artifact_warehouse(source_system, fabric_token, dry_run):
+    """
+    Returns (connection_string, database_name) for the Fabric Warehouse
+    this source's Views/Stored Procedures go into. For a source in
+    SOURCE_WAREHOUSE_MAP, both come from the Warehouse item itself
+    (properties.connectionString / displayName); otherwise - or on a dry
+    run, where no Fabric token is acquired - the shared FIXED_WAREHOUSE_*
+    endpoint is used. A lookup failure raises rather than silently falling
+    back, so a mapped source's objects never land in another source's
+    Warehouse.
+    """
+    src_key = (source_system or "").strip().lower()
+    if src_key not in SOURCE_WAREHOUSE_MAP:
+        return FIXED_WAREHOUSE_CONNECTION_STRING, FIXED_WAREHOUSE_DATABASE_NAME
+
+    ws, wh = SOURCE_WAREHOUSE_MAP[src_key]
+    if dry_run or not fabric_token:
+        print(f"[DRY-RUN] '{source_system}' has a pre-provisioned Warehouse (id={wh}) - name/endpoint not looked up.")
+        return FIXED_WAREHOUSE_CONNECTION_STRING, resolve_item_display_name(ws, "warehouses", wh, None)
+
+    item = fabric_api.get_item(ws, "warehouses", wh, fabric_token)
+    connection_string = (item.get("properties") or {}).get("connectionString")
+    database_name = item.get("displayName")
+    if not connection_string or not database_name:
+        raise RuntimeError(f"Warehouse {wh} in workspace {ws} is missing a connectionString/displayName: {item}")
+    print(f"[INFO] '{source_system}' has a pre-provisioned Warehouse - using '{database_name}' (id={wh}).")
+    return connection_string, database_name
 
 
 def get_or_create_lakehouse(workspace_id, display_name, token):
@@ -152,8 +259,9 @@ def resolve_artifact_lakehouse(source_system, database_name, default_workspace_i
 
     if src_key in SOURCE_LAKEHOUSE_MAP:
         ws, lh = SOURCE_LAKEHOUSE_MAP[src_key]
-        print(f"[INFO] '{source_system}' has a pre-provisioned Lakehouse - using it directly (id={lh}).")
-        return ws, lh, f"{src_key} (pre-provisioned)"
+        name = resolve_item_display_name(ws, "lakehouses", lh, fabric_token)
+        print(f"[INFO] '{source_system}' has a pre-provisioned Lakehouse - using '{name}' (id={lh}).")
+        return ws, lh, name
 
     display_name = build_artifact_lakehouse_name(source_system, database_name)
     if dry_run:
@@ -185,12 +293,17 @@ def map_arrow_type(dt_raw):
         return pa.int16()
     if dt in ("int", "integer"):
         return pa.int32()
-    if "decimal" in dt or "numeric" in dt or "money" in dt:
+    # Snowflake's NUMBER(p,s) is its only fixed-point type (INT/BIGINT are
+    # NUMBER(38,0)), so it maps to a decimal like DECIMAL/NUMERIC - never an
+    # int64, which can't hold its full 38 digits.
+    if dt == "number" or dt.startswith("number(") or "decimal" in dt or "numeric" in dt or "money" in dt:
         if "(" in dt and ")" in dt:
             inner = dt.split("(", 1)[1].split(")", 1)[0]
             try:
-                p_str, s_str = [x.strip() for x in inner.split(",")]
-                return pa.decimal128(int(p_str), int(s_str))
+                parts = [x.strip() for x in inner.split(",")]
+                precision = min(int(parts[0]), 38)
+                scale = min(int(parts[1]) if len(parts) > 1 else 0, precision)
+                return pa.decimal128(precision, scale)
             except Exception:
                 pass
         return pa.decimal128(38, 10)
@@ -347,11 +460,13 @@ def sync_volumes(volumes, target_workspace_id, default_lakehouse_id, onelake_tok
     return created, errors
 
 
-def sync_views_and_procedures(views, procedures, source_system, dry_run, target_workspace_id, default_lakehouse_id, fabric_token):
+def sync_views_and_procedures(views, procedures, source_system, dry_run, target_workspace_id, default_lakehouse_id, fabric_token,
+                              warehouse_connection_string=FIXED_WAREHOUSE_CONNECTION_STRING,
+                              warehouse_database_name=FIXED_WAREHOUSE_DATABASE_NAME, functions=None):
     """
     Best-effort scaffold: creates a structurally-valid but functionally
-    empty placeholder for each view/procedure in the fixed Fabric Warehouse
-    (FIXED_WAREHOUSE_CONNECTION_STRING above) - see
+    empty placeholder for each view/procedure/function in the given Fabric Warehouse
+    (see resolve_artifact_warehouse() above) - see
     fabric_warehouse_sql.py's module docstring for why these are
     placeholders (empty body, original SQL as a comment where one was
     captured) rather than real, runnable objects: the source SQL - where
@@ -388,7 +503,8 @@ def sync_views_and_procedures(views, procedures, source_system, dry_run, target_
     return fabric_notebook_warehouse_sql.sync_views_and_procedures(
         views, procedures, source_system, dry_run,
         target_workspace_id, default_lakehouse_id,
-        FIXED_WAREHOUSE_CONNECTION_STRING, FIXED_WAREHOUSE_DATABASE_NAME, fabric_token,
+        warehouse_connection_string, warehouse_database_name, fabric_token,
+        functions=functions,
     )
 
 
@@ -503,6 +619,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     tables = plan.get("tables", [])
     views = plan.get("views", [])
     procedures = plan.get("procedures", [])
+    functions = plan.get("functions", [])
     volumes = plan.get("volumes", [])
 
     # source_system/database_name aren't always passed explicitly - fall
@@ -518,6 +635,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     log("==================================================")
     log(f"[INFO] JSON: {json_path}")
     log(f"[INFO] Tables found: {len(tables)}")
+    log(f"[INFO] Views/Procedures/Functions found: {len(views)}/{len(procedures)}/{len(functions)}")
     log(f"[INFO] Dry run: {dry_run}")
     log(f"[INFO] Source system: {source_system}")
 
@@ -685,21 +803,31 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     # no source connection is configured here, so this is a structural
     # scaffold to open in Fabric Studio and wire up, not yet a pipeline
     # that can be run end to end.
-    # Dynamics 365 / Dataverse: pipeline creation is skipped outright here -
-    # Fabric's pipeline-definition API rejects this scaffold's Copy activity
-    # JSON with a 400 "invalid input parameter: Type" error specifically for
-    # this source (see fabric_pipeline_builder.py's _placeholder_source -
-    # even the real LakehouseTableSource-based placeholder wasn't accepted),
-    # so rather than surface a hard failure on every Dynamics 365 run, the
-    # Lakehouse tables/volumes/warehouse objects still get created and this
-    # step is just left out for now.
+    # Dynamics 365 / Dataverse: creating a NEW pipeline item via the
+    # definition API used to fail outright here - Fabric's pipeline-
+    # definition API rejected this scaffold's Copy activity JSON with a
+    # 400 "invalid input parameter: Type" error specifically on item
+    # *creation* for this source (see fabric_pipeline_builder.py's
+    # _placeholder_source - even the real LakehouseTableSource-based
+    # placeholder wasn't accepted). Now that Dynamics 365 has a
+    # pre-provisioned pipeline pinned in SOURCE_PIPELINE_MAP, every run
+    # takes the update-by-id path (see create_or_update_item_definition's
+    # item_id param) and never hits that create call, so the skip below
+    # only fires if the map entry is ever removed.
     is_dynamics365 = (source_system or "").strip().lower() in ("dynamics365", "dynamics 365", "d365")
+    pipeline_workspace_id, pinned_pipeline_id = resolve_artifact_pipeline(source_system, target_workspace_id)
 
     pipeline_info = None
-    if created_or_updated and is_dynamics365:
-        log("[INFO] Skipping Fabric Data Pipeline creation for Dynamics 365 (not currently supported).")
+    if created_or_updated and is_dynamics365 and pinned_pipeline_id is None:
+        log("[INFO] Skipping Fabric Data Pipeline creation for Dynamics 365 (no pre-provisioned pipeline pinned).")
     elif created_or_updated:
         pipeline_name = fabric_pipeline_builder.build_pipeline_name(source_system, database_name)
+        if pinned_pipeline_id:
+            # Pre-provisioned pipeline: report (and write into .platform)
+            # its real Fabric name, not the generated "<src>_<db>_pipeline".
+            pipeline_name = resolve_item_display_name(
+                pipeline_workspace_id, "dataPipelines", pinned_pipeline_id, fabric_token, fallback=pipeline_name
+            )
         pipeline_content = fabric_pipeline_builder.build_pipeline_content(
             created_or_updated, target_workspace_id, default_lakehouse_id, artifact_lakehouse_name,
             source_system=source_system
@@ -708,11 +836,12 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
 
         if dry_run:
             log(f"[DRY-RUN] Would create/update Fabric Data Pipeline '{pipeline_name}' with {activity_count} Copy activities.")
-            pipeline_info = {"name": pipeline_name, "id": None, "activities": activity_count, "dry_run": True}
+            pipeline_info = {"name": pipeline_name, "id": pinned_pipeline_id, "activities": activity_count, "dry_run": True}
         else:
             try:
                 pipeline_id = fabric_api.create_or_update_pipeline(
-                    target_workspace_id, pipeline_name, pipeline_content, fabric_token
+                    pipeline_workspace_id, pipeline_name, pipeline_content, fabric_token,
+                    pipeline_id=pinned_pipeline_id,
                 )
                 log(
                     f"[INFO] Fabric Data Pipeline '{pipeline_name}' ready (id={pipeline_id}, {activity_count} Copy activities). "
@@ -736,18 +865,26 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
         )
         errors.extend({"table": None, "error": f"Volume {e['volume']}: {e['error']}"} for e in volume_errors)
 
-    # Views/Stored Procedures: best-effort placeholder scaffold in the one
+    # Views/Stored Procedures/Functions: best-effort placeholder scaffold in the one
     # fixed, shared Fabric Warehouse (see FIXED_WAREHOUSE_CONNECTION_STRING
     # above and sync_views_and_procedures() for exactly what "placeholder"
     # means and why this can't be a full Delta-table-style sync the way
     # Tables/Volumes are).
     warehouse_info = None
-    if views or procedures:
-        wh_created, wh_errors = sync_views_and_procedures(
-            views, procedures, source_system, dry_run, target_workspace_id, default_lakehouse_id, fabric_token
-        )
+    if views or procedures or functions:
+        try:
+            wh_conn, wh_db = resolve_artifact_warehouse(source_system, fabric_token, dry_run)
+            log(f"[INFO] Target warehouse: {wh_db} ({wh_conn})")
+            wh_created, wh_errors = sync_views_and_procedures(
+                views, procedures, source_system, dry_run, target_workspace_id, default_lakehouse_id, fabric_token,
+                warehouse_connection_string=wh_conn, warehouse_database_name=wh_db,
+                functions=functions,
+            )
+        except Exception as exc:
+            wh_db = None
+            wh_created, wh_errors = [], [{"object": None, "error": f"Warehouse lookup failed: {exc}"}]
         warehouse_info = {
-            "name": FIXED_WAREHOUSE_CONNECTION_STRING,
+            "name": wh_db or FIXED_WAREHOUSE_DATABASE_NAME,
             "created": wh_created,
             "errors": wh_errors,
             "dry_run": dry_run,

@@ -331,17 +331,21 @@ def build_plan(assessment_path, migration_plan_path=None, source_system=None, da
                 "view_name": name,
                 "columns": t["columns"],
                 "definition": details.get("Definition"),
+                "is_materialized": details.get("Object Type") == "Materialized View",
             })
         elif obj_type == "function":
             functions_out.append({
                 "schema": schema,
                 "function_name": name,
                 "return_type": details.get("Return Type"),
+                "arguments": details.get("Arguments"),
+                "definition": details.get("Definition"),
             })
         elif obj_type == "procedure":
             procedures_out.append({
                 "schema": schema,
                 "procedure_name": name,
+                "definition": details.get("Definition"),
             })
         elif obj_type == "volume":
             volumes_out.append({

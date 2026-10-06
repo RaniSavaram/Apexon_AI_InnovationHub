@@ -252,19 +252,40 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         col_cnt = len(columns_df[columns_df["TableName"].astype(str).str.lower() == str(t_name).lower()]) if columns_df is not None and not columns_df.empty else 0
         
         summary = orchestrator.run_table_summarizer_agent(t_name, schema_name=s_name, col_cnt=col_cnt, r_cnt=r_cnt, sz_mb=sz_mb)
+
+        # Manual test hook for Harness Layer 2's phantom-column hallucination
+        # check (see HarnessLayers/layer2/Layer.py's _find_hallucinated_columns()).
+        # Set HALLUCINATION_TEST_INJECT=1 to inject a fake column reference
+        # into the first table's summary and watch the Evaluator flag it
+        # end-to-end in the real Generator-Evaluator Feedback Layer UI tab.
+        # Off by default - never fires unless explicitly enabled.
+        if idx == 0 and os.environ.get("HALLUCINATION_TEST_INJECT", "").strip().lower() in ("1", "true", "yes"):
+            summary += (
+                " It also appears to store the `ssn` column, which may "
+                "contain sensitive PII."
+            )
+
         table_summaries.append(summary)
         
         if harness2:
             try:
                 harness2.evaluate_table_summary(t_name, s_name, summary, columns_df=columns_df, stats_df=stats_df)
-            except Exception:
-                pass
-        
+            except Exception as h2_eval_err:
+                # Not swallowed silently: an evaluation that fails to even
+                # run must still surface somewhere, otherwise this table
+                # disappears from the report with no trace and Layer 2
+                # would still claim a clean PASS. finalize_table_evaluations()'s
+                # expected_table_count check below catches the resulting
+                # gap and turns it into a visible TABLE_COVERAGE_INCOMPLETE error.
+                warn_msg = f"[WARN] Harness Layer 2 evaluation failed for {s_name}.{t_name}: {h2_eval_err}"
+                print(warn_msg)
+                _update_progress(scan_id, log_entry=warn_msg, log_type="Harness Layer2")
+
     if harness2:
         try:
-            harness2.finalize_table_evaluations()
-        except Exception:
-            pass
+            harness2.finalize_table_evaluations(expected_table_count=len(tables_df))
+        except Exception as h2_final_err:
+            print(f"[WARN] Harness Layer 2 finalize failed: {h2_final_err}")
 
     # Secondary objects (Views, Functions, Stored Procedures, Volumes) get
     # the same AI-generated observations summary as tables, via
@@ -292,10 +313,49 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
     procedure_summaries = _summarize_secondary_objects(procedures_df, "procedure", "procedure_name")
     volume_summaries = _summarize_secondary_objects(volumes_df, "volume", "volume_name")
 
-    table_audit_steps = (
-        "        * [SUCCESS]: Evaluator checked for AI hallucinations against metadata (0 detected)\n"
-        "        * [SUCCESS]: Evaluator verified agent output schema conformity (Score: 100%)"
+    # Count real findings from harness2.evaluate_table_summary()/
+    # finalize_table_evaluations() above instead of hardcoding "0 detected"
+    # regardless of what was found.
+    def _messages_for(rule):
+        out = []
+        if harness2:
+            for te in harness2.table_evaluations:
+                out.extend(issue["message"] for issue in te.get("issues", []) if issue.get("rule") == rule)
+        return out
+
+    hallucination_messages = _messages_for("NO_HALLUCINATED_COLUMNS")
+    missing_column_messages = _messages_for("MISSING_COLUMNS_IN_SUMMARY")
+    count_mismatch_messages = _messages_for("COLUMN_COUNT_MISMATCH")
+    unverifiable_messages = _messages_for("COLUMNS_SECTION_UNVERIFIABLE")
+    # TABLE_COVERAGE_INCOMPLETE lives on the evaluator_table_assessment
+    # section itself (added in finalize_table_evaluations()), not on any
+    # single table's evaluation, so it isn't picked up by _messages_for().
+    coverage_messages = []
+    if harness2:
+        for section in harness2.sections:
+            if section.get("section") == "evaluator_table_assessment":
+                coverage_messages = [
+                    i["message"] for i in section.get("issues", [])
+                    if i.get("rule") == "TABLE_COVERAGE_INCOMPLETE"
+                ]
+
+    hallucination_status = "FAILED" if hallucination_messages else "SUCCESS"
+    column_accuracy_status = "FAILED" if (missing_column_messages or count_mismatch_messages or coverage_messages) else "SUCCESS"
+    audit_lines = [
+        f"        * [{hallucination_status}]: Evaluator checked for AI hallucinations against metadata ({len(hallucination_messages)} detected)"
+    ]
+    audit_lines.extend(f"            - {msg}" for msg in hallucination_messages)
+    audit_lines.append(
+        f"        * [{column_accuracy_status}]: Evaluator diffed each table's reported Columns list against ground-truth metadata "
+        f"({len(missing_column_messages)} omission(s), {len(count_mismatch_messages)} count mismatch(es), "
+        f"{len(unverifiable_messages)} unverifiable, {len(coverage_messages)} coverage gap(s))"
     )
+    audit_lines.extend(f"            - {msg}" for msg in missing_column_messages)
+    audit_lines.extend(f"            - {msg}" for msg in count_mismatch_messages)
+    audit_lines.extend(f"            - {msg}" for msg in unverifiable_messages)
+    audit_lines.extend(f"            - {msg}" for msg in coverage_messages)
+    audit_lines.append("        * [SUCCESS]: Evaluator verified agent output schema conformity (Score: 100%)")
+    table_audit_steps = "\n".join(audit_lines)
     _update_progress(scan_id, log_entry=table_audit_steps, log_type="Harness Layer2")
     _update_progress(scan_id, log_entry=table_audit_steps, log_type="Scan Info")
 
@@ -459,11 +519,16 @@ Columns Sample:
             agent_writeups=agent_writeups,
             output_path=fabric_json_path,
             source_hint=source_hint,
-            scan_id=scan_id
+            scan_id=scan_id,
+            functions_df=functions_df
         )
+        audit_errors = harness2.total_errors if harness2 else 0
+        audit_warnings = harness2.total_warnings if harness2 else 0
+        audit_status = "SUCCESS" if audit_errors == 0 else "FAILED"
         msg_json = (
             "        * [SUCCESS]: Generated Microsoft Fabric Migration Metadata JSON\n"
-            "        * [SUCCESS]: Final Evaluator-Generator quality audit passed (0 errors, 0 warnings)"
+            f"        * [{audit_status}]: Final Evaluator-Generator quality audit "
+            f"{'passed' if audit_errors == 0 else 'FAILED'} ({audit_errors} errors, {audit_warnings} warnings)"
         )
         _update_progress(scan_id, log_entry=msg_json, log_type="Harness Layer2")
         _update_progress(scan_id, log_entry=msg_json, log_type="Scan Info")
@@ -471,16 +536,30 @@ Columns Sample:
         print(f"[WARN] Failed to generate Fabric JSON metadata: {json_err}")
         _update_progress(scan_id, log_entry=f"[WARN] Fabric JSON metadata generation failed: {json_err}", log_type="Scan Info")
 
+    # Pull real totals/decision off harness2 instead of hardcoding a PASS
+    # regardless of what evaluate_table_summary()/evaluate_migration_plan()
+    # actually found above (hallucination_messages was computed earlier,
+    # right after the table-summary loop).
+    if harness2:
+        eval_total_errors = harness2.total_errors
+        eval_total_warnings = harness2.total_warnings
+        eval_decision = "FAIL" if eval_total_errors > 0 else "PASS"
+    else:
+        eval_total_errors = 0
+        eval_total_warnings = 0
+        eval_decision = "PASS"
+    eval_hallucination_count = len(hallucination_messages)
+
     completion_summary = (
         "\n------------------------------\n"
         "REPORT SUMMARY:\n"
         "Assessment Status: PASSED\n"
         "Migration Plan Status: GENERATED\n"
-        "Evaluator Decision: PASS\n"
-        "AI Output Quality: HIGH\n"
-        "Hallucination Checks: 0 DETECTED\n"
-        "Total Errors: 0\n"
-        "Total Warnings: 0\n"
+        f"Evaluator Decision: {eval_decision}\n"
+        f"AI Output Quality: {'HIGH' if eval_hallucination_count == 0 else 'DEGRADED'}\n"
+        f"Hallucination Checks: {eval_hallucination_count} DETECTED\n"
+        f"Total Errors: {eval_total_errors}\n"
+        f"Total Warnings: {eval_total_warnings}\n"
         "Target Platform: Microsoft Fabric OneLake\n"
         "=============================="
     )

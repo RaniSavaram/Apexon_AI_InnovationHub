@@ -3,13 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
 import { Scanner, SavedConnectionProfile, ConnectionDetails } from '../../services/scanner/scanner';
+import { ErDiagram } from '../../components/er-diagram/er-diagram';
 
 @Component({
   selector: 'app-db-scanner',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule
+    FormsModule,
+    ErDiagram
   ],
   templateUrl: './db-scanner.html',
   styleUrl: './db-scanner.css'
@@ -62,7 +64,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
   artifactsTab: 'overview' | 'tables' | 'logs' = 'overview';
   fabricArtifactsResult: any = null;
 
-  activeTab: 'logs' | 'harness1' | 'harness2' | 'output' = 'logs';
+  activeTab: 'logs' | 'harness1' | 'harness2' | 'er' | 'output' = 'logs';
 
   lastScanSource = '';
 
@@ -91,6 +93,9 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
   metadataReportDownloadName = 'Metadata Report.docx';
 
   migrationPlanDownloadName = 'Migration Plan.docx';
+
+  /** Fabric metadata JSON of the completed scan - the ER Diagrams tab is built from it. */
+  erMetadataFile?: string;
 
   get safeMetadataUrl() {
     return this.sanitizer.bypassSecurityTrustUrl(this.metadataFile);
@@ -479,6 +484,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     this.scanCompleted = false;
     this.scanFailed = false;
     this.fabricArtifactsResult = null;
+    this.erMetadataFile = undefined;
 
     this.showScanCompletedDialog = false;
 
@@ -896,6 +902,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     this.scanCompleted = false;
     this.scanFailed = false;
     this.fabricArtifactsResult = null;
+    this.erMetadataFile = undefined;
 
     this.showScanCompletedDialog = false;
     const activeDb = this.getFormatSourceForFilename(this.source);
@@ -1080,6 +1087,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
       if (outputFiles?.migration_plan) {
         this.migrationFile = `/output/${encodeURIComponent(outputFiles.migration_plan)}?t=${Date.now()}`;
       }
+      this.erMetadataFile = outputFiles?.fabric_migration_metadata;
 
       const selectedSource = this.lastScanSource || this.source || 'Database';
       const formattedSource = this.getFormatSourceForFilename(selectedSource);
@@ -1296,36 +1304,47 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
     return src.includes('dynamics') || src === 'd365';
   }
 
+  isSnowflakeSource(): boolean {
+    const src = (this.source || this.lastScanSource || '').toLowerCase();
+    return src.includes('snowflake');
+  }
+
   getActiveSourceDisplayName(): string {
     if (this.isDatabricksSource()) return 'Databricks';
     if (this.isDynamics365Source()) return 'Dynamics 365';
+    if (this.isSnowflakeSource()) return 'Snowflake';
     return 'SQL Server';
   }
 
   getActiveReportDocName(): string {
     if (this.isDatabricksSource()) return 'databricks_Assessment_Report.docx';
     if (this.isDynamics365Source()) return 'dynamics365_Assessment_Report.docx';
+    if (this.isSnowflakeSource()) return 'snowflake_Assessment_Report.docx';
     return 'sqlserver_Assessment_Report.docx';
   }
 
-  // Matches fabric_generator_core.py's SOURCE_LAKEHOUSE_MAP - each source
-  // has its own pre-provisioned Fabric Lakehouse, used as-is instead of
-  // dynamically creating a "<source>_<database>" one.
+  // Matches fabric_generator_core.py's SOURCE_LAKEHOUSE_MAP - every source
+  // has its own pre-provisioned Fabric Lakehouse. Only used before a
+  // generation result is back; after that getLakehouseName() shows the
+  // real displayName the backend read from Fabric.
   getActiveTargetLakehouse(): string {
     if (this.isDatabricksSource()) return 'Databricks_Lakehouse';
     if (this.isDynamics365Source()) return 'Dynamics365_Lakehouse';
+    if (this.isSnowflakeSource()) return 'Snowflake_Lakehouse';
     return 'SQL_Lakehouse';
   }
 
   // Each source routes through its own thin *2_fabric.py entry point
-  // (databricks2_fabric.py / sqlserver2_fabric.py / dynamics3652_fabric.py)
-  // - all backed by the same fabric_generator_core.Generator(), only the
-  // filename (and therefore which pre-provisioned Lakehouse it resolves)
-  // differs. This is the filename expected for the *currently selected*
-  // source, independent of whatever a stale cached result says.
+  // (databricks2_fabric.py / sqlserver2_fabric.py / dynamics3652_fabric.py /
+  // snowflake2_fabric.py) - all backed by the same
+  // fabric_generator_core.Generator(), only the filename (and therefore
+  // which pre-provisioned Lakehouse it resolves) differs. This is the
+  // filename expected for the *currently selected* source, independent of
+  // whatever a stale cached result says.
   private getExpectedGeneratorScript(): string {
     if (this.isDatabricksSource()) return 'databricks2_fabric.py';
     if (this.isDynamics365Source()) return 'dynamics3652_fabric.py';
+    if (this.isSnowflakeSource()) return 'snowflake2_fabric.py';
     return 'sqlserver2_fabric.py';
   }
 
@@ -1485,18 +1504,26 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
   // Matches fabric_generator_core.py's SOURCE_LAKEHOUSE_MAP - each source
   // has its own pre-provisioned Fabric Lakehouse (same "Fabric Insights"
-  // workspace, different lakehouse id per source).
+  // workspace, fixed id per source). Prefers the id from the generation
+  // result once one is back.
   getLakehouseUrl(): string {
-    const lakehouseId = this.isDatabricksSource()
+    const realLakehouseId = this.fabricArtifactsResult?.target?.lakehouse_id;
+    const lakehouseId = realLakehouseId && !String(realLakehouseId).startsWith('<')
+      ? realLakehouseId
+      : this.isDatabricksSource()
       ? 'bc94c085-a651-46a6-96a1-0c1183ef78f9'
       : this.isDynamics365Source()
       ? 'efa4494d-ab51-4902-85cb-6fb074d9201d'
+      : this.isSnowflakeSource()
+      ? '1fef9fdf-9c8c-47f2-9b08-4fa690a8b754'
       : '87ddccfe-cfa3-47d6-92ab-b638ce379319';
     return `https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/${lakehouseId}?experience=fabric-developer`;
   }
 
   getLakehouseName(): string {
-    return this.getActiveTargetLakehouse();
+    // The backend reads the Lakehouse's real displayName from Fabric -
+    // show exactly that once a generation result is back.
+    return this.fabricArtifactsResult?.lakehouse_name || this.getActiveTargetLakehouse();
   }
 
   getWorkspaceUrl(): string {

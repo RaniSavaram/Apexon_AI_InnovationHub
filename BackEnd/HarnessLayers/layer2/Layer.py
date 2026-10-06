@@ -19,9 +19,127 @@ Pipeline position:
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any, Optional, Dict, List
 import pandas as pd
+
+# Matches an identifier-looking token wrapped in backticks or quotes, e.g.
+# `ssn`, "user_token_hash", 'CustomerEmail' - the way a Table Summarizer
+# Generator's prose typically calls out a specific column name. Bare
+# mentions with no quoting/backticks are intentionally NOT matched: without
+# them there's no reliable way to tell "the ssn column" (a real claim about
+# a field) apart from ordinary prose, and that ambiguity would make this
+# check too noisy to trust.
+_QUOTED_IDENTIFIER_PATTERN = re.compile(r"[`'\"]([A-Za-z_][A-Za-z0-9_]*)[`'\"]")
+
+
+def _find_hallucinated_columns(summary_text: str, known_cols: List[str]) -> List[str]:
+    """
+    Returns the distinct quoted/backticked identifiers in `summary_text`
+    that look like column references but aren't in `known_cols`
+    (ground-truth column names for this table, already lowercased).
+
+    Only runs when known_cols is non-empty - with no ground truth to check
+    against, "is this column real" can't be answered, so nothing is flagged
+    rather than risking a false positive on every table.
+
+    NOTE: this only sees identifiers quoted/backticked inline in prose
+    (e.g. "the `ssn` column"). The Table Summarizer Agent's structured
+    "- Columns:\n  * <name> (<type>)" bullet list - the exact list that
+    ends up rendered as the per-table Column/Data Type/Key table in the
+    Assessment Report (docx_generator.create_table_summary_document) - is
+    NOT quoted, so this function can't see it at all. See
+    _parse_claimed_columns() below for the check that covers that list.
+    """
+    if not summary_text or not known_cols:
+        return []
+
+    known_set = set(known_cols)
+    seen = set()
+    hallucinated = []
+    for match in _QUOTED_IDENTIFIER_PATTERN.finditer(summary_text):
+        candidate = match.group(1)
+        key = candidate.lower()
+        if key in known_set or key in seen:
+            continue
+        seen.add(key)
+        hallucinated.append(candidate)
+    return hallucinated
+
+
+# The Table Summarizer Agent's required output format (see agents/
+# table_summarizer.py) is a fixed set of "Label:" lines with a "- Columns:"
+# bullet block in between. Any of these prefixes ends the columns block -
+# mirrors docx_generator.parse_table_summary_string()'s field boundaries
+# exactly, since that parser is what actually turns this same text into
+# the Assessment Report's per-table tables and this check has to agree
+# with it about where the columns list starts/ends. Duplicated here
+# (rather than imported) so Layer 2 stays a standalone module with no
+# dependency on the AI_Agent_Pipeline/docx stack - see
+# test_hallucination_demo.py, which runs this harness with nothing but
+# pandas.
+_SUMMARY_FIELD_PREFIXES = (
+    "table name:", "schema:", "- row count:", "- size (mb):",
+    "- size category:", "- table type:", "- total columns:",
+    "- primary keys:", "- foreign keys:", "- referenced tables:",
+    "- dependent tables:", "- related views:", "- related stored procedures:",
+    "summary:",
+)
+
+
+def _safe_int(value: Any) -> Optional[int]:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_claimed_columns(summary_text: str):
+    """
+    Extracts the column list and the claimed "- Total Columns: <n>" count
+    from the Generator's structured output - the same text
+    docx_generator.parse_table_summary_string() parses to build the
+    Assessment Report's per-table Column/Data Type/Key table. Comparing
+    this against ground-truth `columns_df` (see evaluate_table_summary()
+    below) is what catches a dropped/renamed/fabricated column in that
+    rendered table - something _find_hallucinated_columns() structurally
+    cannot see, since these bullet lines aren't backtick-quoted.
+
+    Returns (claimed_columns: list[str], total_columns_claimed:
+    Optional[int]). claimed_columns is empty when no "- Columns:" block
+    was found at all (e.g. the agent didn't follow the required format).
+    """
+    claimed_columns: List[str] = []
+    total_columns_claimed: Optional[int] = None
+    in_columns = False
+
+    for raw_line in (summary_text or "").split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+        low = line.lower()
+
+        if low.startswith("- total columns:"):
+            total_columns_claimed = _safe_int(line.split(":", 1)[1])
+            in_columns = False
+            continue
+
+        if low.startswith("- columns:") or low == "columns:":
+            in_columns = True
+            continue
+
+        if low.startswith(_SUMMARY_FIELD_PREFIXES):
+            in_columns = False
+            continue
+
+        if in_columns and line[:1] in ("•", "*", "-"):
+            col_part = line[1:].strip()
+            col_name = col_part.split("(", 1)[0].strip() if "(" in col_part else col_part
+            if col_name:
+                claimed_columns.append(col_name.lower())
+
+    return claimed_columns, total_columns_claimed
 
 
 class EvaluatorGeneratorHarness:
@@ -100,7 +218,80 @@ class EvaluatorGeneratorHarness:
         if "medallion" in summary_text.lower():
             issues.append({"rule": "OUTPUT_SCHEMA_CONFORMITY", "severity": "WARNING", "message": f"Table summary for {table_name} contained Medallion reference."})
 
+        # 4. Hallucination check: does the summary reference a column that
+        # doesn't exist in the ground-truth metadata for this table?
+        for phantom_col in _find_hallucinated_columns(summary_text, known_cols):
+            issues.append({
+                "rule": "NO_HALLUCINATED_COLUMNS",
+                "severity": "ERROR",
+                "message": (
+                    f"[HALLUCINATION DETECTED]: Column '{phantom_col}' mentioned in summary "
+                    f"does not exist in ground-truth metadata."
+                )
+            })
+
+        # 5. Structural column-list check: diff the Generator's own
+        # "- Columns:" bullet list - the exact list rendered into the
+        # Assessment Report's per-table Column/Data Type/Key table - against
+        # ground truth. Catches fabricated columns bullet-listed (not just
+        # quoted in prose, which check #4 above already covers), real
+        # columns silently dropped from the list, and a stated
+        # "Total Columns" count that disagrees with the real count - none
+        # of which the quoted-identifier scan above can see.
+        if known_cols:
+            known_set = set(known_cols)
+            claimed_cols, total_claimed = _parse_claimed_columns(summary_text)
+
+            if not claimed_cols:
+                issues.append({
+                    "rule": "COLUMNS_SECTION_UNVERIFIABLE",
+                    "severity": "WARNING",
+                    "message": (
+                        f"Summary for {schema_name}.{table_name} has no parseable "
+                        f"'- Columns:' list - column-level accuracy could not be "
+                        f"verified against ground truth."
+                    )
+                })
+            else:
+                claimed_set = set(claimed_cols)
+
+                for phantom_col in sorted(claimed_set - known_set):
+                    issues.append({
+                        "rule": "NO_HALLUCINATED_COLUMNS",
+                        "severity": "ERROR",
+                        "message": (
+                            f"[HALLUCINATION DETECTED]: Column '{phantom_col}' listed in "
+                            f"the summary's Columns section does not exist in "
+                            f"ground-truth metadata."
+                        )
+                    })
+
+                dropped_cols = sorted(known_set - claimed_set)
+                if dropped_cols:
+                    issues.append({
+                        "rule": "MISSING_COLUMNS_IN_SUMMARY",
+                        "severity": "WARNING",
+                        "message": (
+                            f"Summary for {schema_name}.{table_name} omitted "
+                            f"{len(dropped_cols)} real column(s) from its Columns "
+                            f"list: {', '.join(dropped_cols)}."
+                        )
+                    })
+
+            if total_claimed is not None and total_claimed != len(known_cols):
+                issues.append({
+                    "rule": "COLUMN_COUNT_MISMATCH",
+                    "severity": "WARNING",
+                    "message": (
+                        f"Summary for {schema_name}.{table_name} claims "
+                        f"{total_claimed} total column(s) but ground truth has "
+                        f"{len(known_cols)}."
+                    )
+                })
+
         passed = len([i for i in issues if i["severity"] == "ERROR"]) == 0
+        self.total_errors += len([i for i in issues if i["severity"] == "ERROR"])
+        self.total_warnings += len([i for i in issues if i["severity"] == "WARNING"])
         eval_result = {
             "table_name": table_name,
             "schema_name": schema_name,
@@ -111,11 +302,35 @@ class EvaluatorGeneratorHarness:
         self.table_evaluations.append(eval_result)
         return eval_result
 
-    def finalize_table_evaluations(self):
-        """Compiles all individual table assessments into the evaluator_table_assessment section."""
+    def finalize_table_evaluations(self, expected_table_count: Optional[int] = None):
+        """
+        Compiles all individual table assessments into the
+        evaluator_table_assessment section.
+
+        expected_table_count, when given (the real ground-truth table
+        count, e.g. len(tables_df)), is compared against how many tables
+        actually got an evaluate_table_summary() call recorded. A mismatch
+        means a table was silently skipped - e.g. its Table Summarizer
+        Agent call raised and the caller swallowed the exception - which
+        would otherwise vanish with no trace: the skipped table gets no
+        entry anywhere in this report, and Layer 2 would still report an
+        overall PASS.
+        """
         all_issues = []
         for te in self.table_evaluations:
             all_issues.extend(te.get("issues", []))
+
+        if expected_table_count is not None and len(self.table_evaluations) != expected_table_count:
+            all_issues.append({
+                "rule": "TABLE_COVERAGE_INCOMPLETE",
+                "severity": "ERROR",
+                "message": (
+                    f"Only {len(self.table_evaluations)} of {expected_table_count} "
+                    f"table(s) were evaluated - one or more tables were silently "
+                    f"skipped and never checked against ground truth."
+                )
+            })
+            self.total_errors += 1
 
         passed = len([i for i in all_issues if i.get("severity") == "ERROR"]) == 0
         self.sections.append({
@@ -239,7 +454,9 @@ def layer2_Harness(
             s_name = str(r.get("schema_name", "dbo"))
             summary = table_summaries[idx] if table_summaries and idx < len(table_summaries) else ""
             harness.evaluate_table_summary(t_name, s_name, summary, columns_df=columns_df, stats_df=stats_df)
-    harness.finalize_table_evaluations()
+    harness.finalize_table_evaluations(
+        expected_table_count=len(tables_df) if tables_df is not None else None
+    )
 
     # 3. Migration plan check
     harness.evaluate_migration_plan(
@@ -269,6 +486,20 @@ def format_layer2_report(report_data: Dict[str, Any], table_count: int = 5) -> s
     total_warnings = summary.get("total_warnings", 0)
     decision = report_data.get("decision", "PASS")
 
+    # Pull the real hallucination findings out of evaluator_table_assessment
+    # (populated by evaluate_table_summary()'s NO_HALLUCINATED_COLUMNS
+    # issues) instead of hardcoding "0 detected" regardless of what was
+    # actually found.
+    table_section = next(
+        (s for s in report_data.get("sections", []) if s.get("section") == "evaluator_table_assessment"),
+        {}
+    )
+    table_issues = table_section.get("issues", [])
+    hallucination_issues = [i for i in table_issues if i.get("rule") == "NO_HALLUCINATED_COLUMNS"]
+    hallucination_count = len(hallucination_issues)
+    table_section_status = "SUCCESS" if table_section.get("passed", True) else "FAILED"
+    hallucination_status = "FAILED" if hallucination_count else "SUCCESS"
+
     lines = [
         "HARNESS LAYER 2 - EVALUATOR-GENERATOR FEEDBACK HARNESS:",
         f"Generated At: {generated_at}",
@@ -280,11 +511,12 @@ def format_layer2_report(report_data: Dict[str, Any], table_count: int = 5) -> s
         "        * [SUCCESS]: Initialized Migration Plan Generator Agent",
         "        * [SUCCESS]: Loaded Semantic RAG Migration Knowledge Base",
         "",
-        "[SUCCESS]: evaluator_table_assessment",
+        f"[{table_section_status}]: evaluator_table_assessment",
         "    - Harness Steps:",
         f"        * [SUCCESS]: Verified table schema extractions ({table_count} tables validated)",
         "        * [SUCCESS]: Evaluated Table Summarizer Generator observations",
-        "        * [SUCCESS]: Checked for AI hallucinations against metadata (0 detected)",
+        f"        * [{hallucination_status}]: Checked for AI hallucinations against metadata ({hallucination_count} detected)",
+        *[f"            - {issue.get('message')}" for issue in hallucination_issues],
         "        * [SUCCESS]: Validated primary keys and foreign key constraints",
         "        * [SUCCESS]: Verified agent output schema conformity (Score: 100%)",
         "",
@@ -308,8 +540,8 @@ def format_layer2_report(report_data: Dict[str, Any], table_count: int = 5) -> s
         "Assessment Status: PASSED",
         "Migration Plan Status: GENERATED",
         f"Evaluator Decision: {decision}",
-        "AI Output Quality: HIGH",
-        "Hallucination Checks: 0 DETECTED",
+        "AI Output Quality: HIGH" if not hallucination_count else "AI Output Quality: DEGRADED",
+        f"Hallucination Checks: {hallucination_count} DETECTED",
         f"Total Errors: {total_errors}",
         f"Total Warnings: {total_warnings}",
         "Target Platform: Microsoft Fabric OneLake",
