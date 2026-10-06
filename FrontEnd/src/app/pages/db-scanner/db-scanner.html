@@ -785,7 +785,7 @@ SCAN STATUS + ACTION BUTTONS
 
                 <h2>
 
-                    Backend Information
+                    <i class="bi bi-terminal-fill"></i> Live Execution & Assessment Console
 
                 </h2>
 
@@ -796,6 +796,33 @@ SCAN STATUS + ACTION BUTTONS
                     <i class="bi bi-x-lg"></i>
 
                 </button>
+
+            </div>
+
+            <!-- Scan Status Progress Bar inside Backend Logs Dialog -->
+            <div
+                class="dialog-progress-section"
+                *ngIf="loading">
+
+                <div class="progress-header">
+
+                    <span>
+                        <i class="bi bi-activity"></i> {{scanStatus}}
+                    </span>
+
+                    <span>{{getDisplayProgress()}}%</span>
+
+                </div>
+
+                <div class="progress-bar">
+
+                    <div
+                        class="progress-fill"
+                        [style.width.%]="progress">
+
+                    </div>
+
+                </div>
 
             </div>
 

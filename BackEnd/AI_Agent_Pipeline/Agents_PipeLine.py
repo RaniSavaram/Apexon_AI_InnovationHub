@@ -22,11 +22,8 @@ from Logs import Logs
 try:
     from HarnessLayers.layer2.Layer import EvaluatorGeneratorHarness, format_layer2_report
 except ImportError:
-    try:
-        from layer2.Layer import EvaluatorGeneratorHarness, format_layer2_report
-    except ImportError:
-        EvaluatorGeneratorHarness = None
-        format_layer2_report = None
+    EvaluatorGeneratorHarness = None
+    format_layer2_report = None
 
 # Reconfigure stdout to use UTF-8 just in case
 try:

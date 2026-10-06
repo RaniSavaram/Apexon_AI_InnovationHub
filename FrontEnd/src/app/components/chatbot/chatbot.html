@@ -1,0 +1,361 @@
+<div class="chatbot-wrapper">
+
+  <!-- Chatbot Floating Button (Bottom Right) -->
+  <button 
+    type="button"
+    class="chatbot-fab" 
+    [class.active]="isOpen" 
+    (click)="toggleChat($event)" 
+    aria-label="Toggle AI Chatbot"
+    title="Chat with Apexon AI Assistant">
+    
+    <div class="fab-pulse-ring" *ngIf="!isOpen"></div>
+
+    <!-- Closed Icon: Robot with Stars -->
+    <i class="bi bi-robot fab-icon" *ngIf="!isOpen"></i>
+
+    <!-- Open/Active Icon: Close X -->
+    <i class="bi bi-x-lg fab-icon" *ngIf="isOpen"></i>
+
+    <!-- Unread Badge -->
+    <span class="unread-badge" *ngIf="!isOpen && hasUnreadNotification">
+      <span class="badge-dot"></span>
+    </span>
+
+    <!-- Floating Tooltip on Hover -->
+    <span class="fab-tooltip" *ngIf="!isOpen">
+      <span class="tooltip-title">AI Assistant</span>
+      <span class="tooltip-sub">Ask or Run DB Scan</span>
+    </span>
+  </button>
+
+  <!-- Chatbot Panel / Window (Rendered cleanly when open) -->
+  <div class="chatbot-window" *ngIf="isOpen">
+
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="header-left">
+        <div class="bot-avatar-container">
+          <div class="bot-avatar">
+            <i class="bi bi-robot"></i>
+          </div>
+          <span class="status-indicator online"></span>
+        </div>
+        <div class="header-info">
+          <div class="bot-title">Apexon AI Assistant</div>
+          <div class="bot-status">
+            <span class="pulse-dot"></span>
+            Innovation Hub Copilot • Online
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" class="header-btn" (click)="clearChat($event)" title="Restart Conversation">
+          <i class="bi bi-arrow-counterclockwise"></i>
+        </button>
+        <button type="button" class="header-btn" (click)="closeChat($event)" title="Minimize Chat">
+          <i class="bi bi-chevron-down"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Prompts Bar -->
+    <div class="quick-prompts-bar">
+      <div class="quick-prompts-title">
+        <i class="bi bi-stars icon-sparkle"></i>
+        <span>Quick Accelerators</span>
+      </div>
+      <div class="quick-prompts-list">
+        <button 
+          type="button"
+          *ngFor="let prompt of quickPrompts" 
+          class="prompt-chip" 
+          (click)="selectPrompt(prompt.query)">
+          <i [class]="prompt.icon + ' chip-icon'"></i>
+          <span>{{ prompt.label }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Messages Body -->
+    <div class="chat-body" #chatBody>
+      
+      <div 
+        *ngFor="let msg of messages" 
+        class="message-row" 
+        [class.user-row]="msg.sender === 'user'" 
+        [class.bot-row]="msg.sender === 'bot'">
+
+        <!-- Bot Avatar -->
+        <div class="msg-avatar" *ngIf="msg.sender === 'bot'">
+          <i class="bi bi-robot"></i>
+        </div>
+
+        <div class="msg-content-wrapper">
+          <!-- Bubble Text -->
+          <div class="msg-bubble" [innerHTML]="msg.formattedText || msg.text"></div>
+
+          <!-- INLINE DB SCAN CREDENTIALS FORM (Zero credentials caching) -->
+          <div class="db-form-card" *ngIf="msg.type === 'db-form' && showDbScanForm">
+            <div class="form-header">
+              <i class="bi bi-shield-lock-fill form-icon"></i>
+              <span>Enter Database Credentials</span>
+            </div>
+
+            <!-- Source Database Selector -->
+            <div class="form-group">
+              <label><i class="bi bi-database"></i> Source Database Engine</label>
+              <select [(ngModel)]="activeScanSource" (change)="onSourceChanged()" class="form-select">
+                <option *ngFor="let src of databaseSources" [value]="src">{{ src }}</option>
+              </select>
+            </div>
+
+            <!-- Server / Host -->
+            <div class="form-group">
+              <label>Server / Host <span class="req">*</span></label>
+              <input 
+                type="text" 
+                [(ngModel)]="dbConnection.server" 
+                placeholder="e.g. localhost,1433 or server.database.windows.net" 
+                class="form-input" 
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Database / Catalog -->
+            <div class="form-group">
+              <label>Database / Catalog <span class="req">*</span></label>
+              <input 
+                type="text" 
+                [(ngModel)]="dbConnection.database" 
+                placeholder="e.g. AdventureWorksDW or Catalog Name" 
+                class="form-input" 
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Username (not required for Databricks token-only) -->
+            <div class="form-group" *ngIf="activeScanSource !== 'Databricks'">
+              <label>Username <span class="req">*</span></label>
+              <input 
+                type="text" 
+                [(ngModel)]="dbConnection.username" 
+                placeholder="e.g. sa or sqladmin" 
+                class="form-input" 
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Password / Token -->
+            <div class="form-group">
+              <label>{{ activeScanSource === 'Databricks' ? 'Personal Access Token (PAT)' : 'Password' }} <span class="req">*</span></label>
+              <div class="password-field">
+                <input 
+                  [type]="showPassword ? 'text' : 'password'" 
+                  [(ngModel)]="dbConnection.password" 
+                  placeholder="Enter password or token" 
+                  class="form-input" 
+                  autocomplete="new-password"
+                />
+                <button type="button" class="eye-btn" (click)="showPassword = !showPassword">
+                  <i [class]="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Databricks HTTP Path -->
+            <div class="form-group" *ngIf="activeScanSource === 'Databricks'">
+              <label>HTTP Path <span class="req">*</span></label>
+              <input 
+                type="text" 
+                [(ngModel)]="dbConnection.httpPath" 
+                placeholder="/sql/1.0/warehouses/xxxxxxx" 
+                class="form-input" 
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Form Action Buttons -->
+            <div class="form-actions">
+              <button 
+                type="button" 
+                class="btn-submit" 
+                (click)="submitAndStartScan()" 
+                [disabled]="isDbConnecting">
+                <i class="bi bi-lightning-charge-fill"></i>
+                <span>{{ isDbConnecting ? 'Verifying...' : 'Connect & Start Scan' }}</span>
+              </button>
+              <button 
+                type="button" 
+                class="btn-cancel" 
+                (click)="cancelDbScanForm()"
+                [disabled]="isDbConnecting">
+                <span>Cancel</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- INTERACTIVE LIVE SCAN PROGRESS & METRICS WIDGET -->
+          <div class="db-progress-card" *ngIf="msg.type === 'db-progress' && isDbScanning">
+            
+            <div class="progress-card-header">
+              <div class="progress-title">
+                <span class="spinner-border spinner-border-sm text-info"></span>
+                <span>{{ activeScanSource }} Assessment</span>
+              </div>
+              <span class="progress-badge">{{ dbDisplayProgress }}%</span>
+            </div>
+
+            <!-- Animated Progress Bar Track -->
+            <div class="custom-progress-track">
+              <div class="custom-progress-bar" [style.width.%]="dbDisplayProgress"></div>
+            </div>
+
+            <!-- Status Message -->
+            <div class="progress-status-text">
+              <i class="bi bi-arrow-repeat spin-icon"></i>
+              <span>{{ dbScanStatusMessage }}</span>
+            </div>
+
+            <!-- Progress Widget Tabs -->
+            <div class="progress-tabs">
+              <button 
+                type="button" 
+                class="prog-tab" 
+                [class.active]="activeProgressTab === 'progress'"
+                (click)="activeProgressTab = 'progress'">
+                <i class="bi bi-activity"></i> Status
+              </button>
+              <button 
+                type="button" 
+                class="prog-tab" 
+                [class.active]="activeProgressTab === 'logs'"
+                (click)="activeProgressTab = 'logs'">
+                <i class="bi bi-terminal"></i> Live Logs ({{ dbScanLogs.length }})
+              </button>
+              <button 
+                type="button" 
+                class="prog-tab" 
+                [class.active]="activeProgressTab === 'tokens'"
+                (click)="activeProgressTab = 'tokens'">
+                <i class="bi bi-cpu"></i> Tokenomics
+              </button>
+            </div>
+
+            <!-- Tab Content: Live Logs -->
+            <div class="prog-tab-body logs-tab-body" *ngIf="activeProgressTab === 'logs'">
+              <div class="mini-terminal">
+                <div class="terminal-row" *ngFor="let log of dbScanLogs">
+                  <span class="terminal-prefix">&gt;</span> {{ log }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab Content: Tokenomics -->
+            <div class="prog-tab-body" *ngIf="activeProgressTab === 'tokens'">
+              <div class="token-mini-grid">
+                <div class="token-mini-card">
+                  <span class="t-label">Total Tokens</span>
+                  <span class="t-val">{{ dbTokenInfo.total | number }}</span>
+                </div>
+                <div class="token-mini-card">
+                  <span class="t-label">Prompt</span>
+                  <span class="t-val">{{ dbTokenInfo.prompt | number }}</span>
+                </div>
+                <div class="token-mini-card">
+                  <span class="t-label">Completion</span>
+                  <span class="t-val">{{ dbTokenInfo.completion | number }}</span>
+                </div>
+                <div class="token-mini-card">
+                  <span class="t-label">Est. Cost</span>
+                  <span class="t-val text-cost">{{ dbTokenInfo.cost }}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Direct Action Buttons (e.g. Navigation or Artifact Triggers) -->
+          <div class="msg-actions" *ngIf="msg.actions && msg.actions.length > 0">
+            <button 
+              type="button"
+              *ngFor="let act of msg.actions" 
+              class="action-btn" 
+              [class.primary-action]="act.variant === 'primary'"
+              [class.danger-action]="act.variant === 'danger'"
+              [disabled]="isGeneratingArtifacts"
+              (click)="handleAction(act)">
+              <i [class]="act.icon + ' action-icon'" *ngIf="act.icon"></i>
+              <span>{{ act.label }}</span>
+              <i class="bi bi-chevron-right chevron-icon"></i>
+            </button>
+          </div>
+
+          <!-- Interactive Chips -->
+          <div class="msg-chips" *ngIf="msg.chips && msg.chips.length > 0">
+            <button 
+              type="button"
+              *ngFor="let chip of msg.chips" 
+              class="followup-chip" 
+              (click)="selectPrompt(chip)">
+              {{ chip }}
+            </button>
+          </div>
+
+          <!-- Timestamp -->
+          <div class="msg-time">
+            {{ msg.timestamp | date:'shortTime' }}
+          </div>
+        </div>
+
+        <!-- User Avatar -->
+        <div class="msg-avatar user-avatar" *ngIf="msg.sender === 'user'">
+          <i class="bi bi-person-fill"></i>
+        </div>
+
+      </div>
+
+      <!-- Typing / Processing Indicator -->
+      <div class="message-row bot-row typing-row" *ngIf="isTyping || isDbConnecting || isGeneratingArtifacts">
+        <div class="msg-avatar">
+          <i class="bi bi-robot"></i>
+        </div>
+        <div class="typing-bubble">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="typing-label" *ngIf="isDbConnecting">Verifying database connection...</span>
+          <span class="typing-label" *ngIf="isGeneratingArtifacts">Generating Microsoft Fabric artifacts...</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Chat Input Footer -->
+    <div class="chat-footer">
+      <form class="chat-input-form" (ngSubmit)="sendMessage()">
+        <input 
+          type="text" 
+          [(ngModel)]="userInput" 
+          name="userChatMessage" 
+          (keydown.enter)="onEnterPress($event)"
+          placeholder="Ask a question or type 'start new db scan'..." 
+          class="chat-input" 
+          autocomplete="off" 
+          [disabled]="isTyping || isDbConnecting || isGeneratingArtifacts"
+        />
+
+        <button 
+          type="submit" 
+          class="send-btn" 
+          [disabled]="!userInput.trim() || isTyping || isDbConnecting || isGeneratingArtifacts" 
+          title="Send message">
+          <i class="bi bi-send-fill"></i>
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+</div>
