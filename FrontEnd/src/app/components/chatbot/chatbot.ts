@@ -54,8 +54,7 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
   quickPrompts: QuickPrompt[] = [
     {
       label: 'Start New DB Scan',
-      route: '/dbscanner',
-      queryParams: { source: 'sqlserver', connect: '1' },
+      query: 'Start New DB Scan',
       icon: 'bi bi-play-circle-fill'
     },
     {
@@ -95,7 +94,9 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
   ) {}
 
   ngOnInit(): void {
-    this.restoreSession();
+    // Refresh / initialize fresh chat session on page load
+    this.clearSessionStorage();
+    this.initWelcomeMessage();
   }
 
   ngOnDestroy(): void {}
@@ -152,7 +153,7 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private initWelcomeMessage(): void {
-    const rawText = `👋 **Welcome to the Azure Powered AI Innovation Hub Assistant!**\n\nI can help you explore enterprise Proof of Concepts (POCs), architecture, migration accelerators, and AI solutions.\n\n🚀 You can also **Start a New Database Assessment & Migration Scan** directly using our dedicated Database Scanner!`;
+    const rawText = `👋 **Welcome to the Azure Powered AI Innovation Hub Assistant!**\n\nI can help you explore enterprise Proof of Concepts (POCs), architecture, migration accelerators, and AI solutions.\n\nSelect a quick accelerator below or ask me any question!`;
     this.messages = [{
       id: 'welcome-' + Date.now(),
       sender: 'bot',
@@ -160,24 +161,54 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
       formattedText: this.formatMarkdown(rawText),
       timestamp: new Date(),
       actions: [
-        { label: '🚀 Open Database Scanner', route: '/dbscanner', queryParams: { source: 'sqlserver', connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
-        { label: '🏥 Explore Medication Adherence', route: '/medication', icon: 'bi bi-capsule', variant: 'secondary' },
-        { label: '📊 Explore BI Migrator', route: '/bimigrator', icon: 'bi bi-bar-chart-line-fill', variant: 'secondary' }
+        { label: '🚀 Start New DB Scan', prompt: 'Start New DB Scan', icon: 'bi bi-play-circle-fill', variant: 'primary' },
+        { label: '📊 Explain ER Diagrams', prompt: 'Explain the ER diagrams and schema relationships', icon: 'bi bi-diagram-3-fill', variant: 'secondary' },
+        { label: '🏥 Medication Adherence POC', route: '/medication', icon: 'bi bi-capsule', variant: 'secondary' },
+        { label: '📈 BI Modernization Accelerator', route: '/bimigrator', icon: 'bi bi-bar-chart-line-fill', variant: 'secondary' }
       ],
       chips: [
         'Start New DB Scan',
         'Scan SQL Server',
         'Scan Databricks',
-        'Database Scanner Overview',
+        'Scan Snowflake',
+        'Explain ER Diagrams',
+        'Medication Adherence POC',
         'BI Migrator Details'
       ]
     }];
-    this.saveSessionHistory();
   }
 
   onEnterPress(event: Event): void {
     event.preventDefault();
     this.sendMessage();
+  }
+
+  isGeneralScanRequest(lower: string): boolean {
+    const q = lower.trim();
+    return q === 'start new db scan' ||
+           q === 'start db scan' ||
+           q === 'run db scan' ||
+           q === 'run scan' ||
+           q === 'new scan' ||
+           q === 'start scan' ||
+           q === 'scan database' ||
+           q === 'database scan' ||
+           q === 'start database scan' ||
+           q === 'db scan' ||
+           q === 'start new scan';
+  }
+
+  getSpecificScanSource(lower: string): string | null {
+    if (lower.includes('sql server') || lower.includes('mssql') || lower.includes('sqlserver')) return 'sqlserver';
+    if (lower.includes('databricks')) return 'Databricks';
+    if (lower.includes('snowflake')) return 'Snowflake';
+    if (lower.includes('synapse') || lower.includes('azure synapse')) return 'Synapse';
+    if (lower.includes('dynamics 365') || lower.includes('dynamics') || lower.includes('dataverse') || lower.includes('d365')) return 'dynamics365';
+    if (lower.includes('oracle')) return 'Oracle';
+    if (lower.includes('mysql')) return 'MySQL';
+    if (lower.includes('postgres') || lower.includes('postgresql')) return 'PostgreSQL';
+    if (lower.includes('sqlite')) return 'SQLite';
+    return null;
   }
 
   isErDiagramQuery(lower: string): boolean {
@@ -196,6 +227,35 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
            lower.includes('keys and relationships') || 
            lower.includes('schema model') || 
            lower.includes('er model');
+  }
+
+  buildStartScanPromptResponse(): ChatMessage {
+    const text = `🚀 **Start Database Assessment & Migration Scan**\n\nWhich database source would you like to scan and assess for Microsoft Fabric migration?\n\nPlease select your database source below to open its connection modal:`;
+    return {
+      id: 'bot-' + Date.now(),
+      sender: 'bot',
+      text: text,
+      formattedText: this.formatMarkdown(text),
+      timestamp: new Date(),
+      actions: [
+        { label: '🗄️ SQL Server', route: '/dbscanner', queryParams: { source: 'sqlserver', connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
+        { label: '🧱 Databricks', route: '/dbscanner', queryParams: { source: 'Databricks', connect: '1' }, icon: 'bi bi-layers', variant: 'primary' },
+        { label: '❄️ Snowflake', route: '/dbscanner', queryParams: { source: 'Snowflake', connect: '1' }, icon: 'bi bi-snow', variant: 'primary' },
+        { label: '⚡ Azure Synapse', route: '/dbscanner', queryParams: { source: 'Synapse', connect: '1' }, icon: 'bi bi-cloud-arrow-up-fill', variant: 'secondary' },
+        { label: '💼 Dynamics 365 / Dataverse', route: '/dbscanner', queryParams: { source: 'dynamics365', connect: '1' }, icon: 'bi bi-briefcase-fill', variant: 'secondary' },
+        { label: '🔴 Oracle Database', route: '/dbscanner', queryParams: { source: 'Oracle', connect: '1' }, icon: 'bi bi-database', variant: 'secondary' },
+        { label: '🐬 MySQL', route: '/dbscanner', queryParams: { source: 'MySQL', connect: '1' }, icon: 'bi bi-hdd-network', variant: 'secondary' },
+        { label: '🐘 PostgreSQL', route: '/dbscanner', queryParams: { source: 'PostgreSQL', connect: '1' }, icon: 'bi bi-hdd-stack', variant: 'secondary' }
+      ],
+      chips: [
+        'Scan SQL Server',
+        'Scan Databricks',
+        'Scan Snowflake',
+        'Scan Azure Synapse',
+        'Scan Dynamics 365',
+        'Explain ER Diagrams'
+      ]
+    };
   }
 
   buildErModelResponse(model: ErDiagramResponse | null, query: string, activeSource?: string): ChatMessage {
@@ -241,7 +301,7 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
         timestamp: new Date(),
         actions: [
           { label: `📊 View ${sourceDb} ER Diagrams in Scanner`, route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-diagram-3-fill', variant: 'primary' },
-          { label: '🚀 Start New DB Scan', route: '/dbscanner', queryParams: { source: 'sqlserver', connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'secondary' }
+          { label: '🚀 Start New DB Scan', prompt: 'Start New DB Scan', icon: 'bi bi-database-fill-gear', variant: 'secondary' }
         ],
         chips: ['Explain Primary & Foreign Keys', 'Fabric Delta Lake Mapping', 'Start New DB Scan', 'Database Scanner Overview']
       };
@@ -260,10 +320,10 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
       formattedText: this.formatMarkdown(text),
       timestamp: new Date(),
       actions: [
-        { label: '🚀 Scan SQL Server to Generate ER Diagram', route: '/dbscanner', queryParams: { source: 'sqlserver', connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
-        { label: '⚡ Scan Databricks', route: '/dbscanner', queryParams: { source: 'Databricks', connect: '1' }, icon: 'bi bi-layers', variant: 'secondary' },
+        { label: '🗄️ Scan SQL Server', route: '/dbscanner', queryParams: { source: 'sqlserver', connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
+        { label: '🧱 Scan Databricks', route: '/dbscanner', queryParams: { source: 'Databricks', connect: '1' }, icon: 'bi bi-layers', variant: 'secondary' },
         { label: '❄️ Scan Snowflake', route: '/dbscanner', queryParams: { source: 'Snowflake', connect: '1' }, icon: 'bi bi-snow', variant: 'secondary' },
-        { label: '☁️ Scan Azure Synapse', route: '/dbscanner', queryParams: { source: 'Synapse', connect: '1' }, icon: 'bi bi-cloud-arrow-up-fill', variant: 'secondary' }
+        { label: '⚡ Scan Azure Synapse', route: '/dbscanner', queryParams: { source: 'Synapse', connect: '1' }, icon: 'bi bi-cloud-arrow-up-fill', variant: 'secondary' }
       ],
       chips: ['Start New DB Scan', 'Scan SQL Server', 'Scan Databricks', 'Scan Snowflake', 'Explain Primary & Foreign Keys', 'Fabric Delta Lake Mapping']
     };
@@ -273,23 +333,15 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
     const textToSend = (customText ?? this.userInput).trim();
     if (!textToSend || this.isTyping) return;
 
-    // Proactively navigate background screen to DB Scanner if user typed a scan request
     const lower = textToSend.toLowerCase();
-    if (lower.includes('start new db scan') || lower.includes('start db scan') || lower.includes('run db scan') || lower.includes('run scan')) {
-      this.router.navigate(['/dbscanner'], { queryParams: { source: 'sqlserver', connect: '1' } });
-    } else if (lower.includes('scan sql server') || lower.includes('sql server scan')) {
-      this.router.navigate(['/dbscanner'], { queryParams: { source: 'sqlserver', connect: '1' } });
-    } else if (lower.includes('scan databricks') || lower.includes('databricks scan')) {
-      this.router.navigate(['/dbscanner'], { queryParams: { source: 'Databricks', connect: '1' } });
-    } else if (lower.includes('scan snowflake') || lower.includes('snowflake scan')) {
-      this.router.navigate(['/dbscanner'], { queryParams: { source: 'Snowflake', connect: '1' } });
-    } else if (lower.includes('scan synapse') || lower.includes('synapse scan')) {
-      this.router.navigate(['/dbscanner'], { queryParams: { source: 'Synapse', connect: '1' } });
-    } else if (lower.includes('dynamics 365') || lower.includes('scan dynamics')) {
-      this.router.navigate(['/dbscanner'], { queryParams: { source: 'dynamics365', connect: '1' } });
+
+    // 1. If it's a specific scan request (e.g., 'scan databricks', 'scan sql server', etc.), navigate to dbscanner with that source
+    const specificSource = this.getSpecificScanSource(lower);
+    if (specificSource && (lower.includes('scan') || lower.includes('connect'))) {
+      this.router.navigate(['/dbscanner'], { queryParams: { source: specificSource, connect: '1' } });
     }
 
-    // Add user message with immutable array update
+    // Add user message
     const userMsg: ChatMessage = {
       id: 'user-' + Date.now(),
       sender: 'user',
@@ -301,11 +353,26 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.userInput = '';
     this.isTyping = true;
     this.shouldScroll = true;
-    this.saveSessionHistory();
     this.cdr.detectChanges();
     this.scrollToBottom();
 
-    // Check if query is asking to explain ER diagrams
+    // 2. Check if query is a general start scan request (asking to start a scan without specifying engine)
+    if (this.isGeneralScanRequest(lower)) {
+      const responseDelay = Math.min(300 + textToSend.length * 4, 600);
+      setTimeout(() => {
+        this.ngZone.run(() => {
+          const botResponse = this.buildStartScanPromptResponse();
+          this.messages = [...this.messages, botResponse];
+          this.isTyping = false;
+          this.shouldScroll = true;
+          this.cdr.detectChanges();
+          this.scrollToBottom();
+        });
+      }, responseDelay);
+      return;
+    }
+
+    // 3. Check if query is asking to explain ER diagrams
     if (this.isErDiagramQuery(lower)) {
       const activeScan = this.scanner.getCompletedScan();
       if (activeScan && activeScan.metadataFile) {
@@ -316,7 +383,6 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
               this.messages = [...this.messages, botResponse];
               this.isTyping = false;
               this.shouldScroll = true;
-              this.saveSessionHistory();
               this.cdr.detectChanges();
               this.scrollToBottom();
             });
@@ -327,7 +393,6 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
               this.messages = [...this.messages, botResponse];
               this.isTyping = false;
               this.shouldScroll = true;
-              this.saveSessionHistory();
               this.cdr.detectChanges();
               this.scrollToBottom();
             });
@@ -344,7 +409,6 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
           this.messages = [...this.messages, botResponse];
           this.isTyping = false;
           this.shouldScroll = true;
-          this.saveSessionHistory();
           this.cdr.detectChanges();
           this.scrollToBottom();
         });
@@ -352,7 +416,7 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
       return;
     }
 
-    // Natural bot response delay for other queries
+    // 4. Natural bot response delay for other queries
     const responseDelay = Math.min(400 + textToSend.length * 5, 800);
     setTimeout(() => {
       this.ngZone.run(() => {
@@ -360,7 +424,6 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.messages = [...this.messages, botResponse];
         this.isTyping = false;
         this.shouldScroll = true;
-        this.saveSessionHistory();
         this.cdr.detectChanges();
         this.scrollToBottom();
       });
@@ -384,54 +447,31 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   onQuickPromptClick(prompt: QuickPrompt): void {
-    if (prompt.route) {
-      this.router.navigate([prompt.route], { queryParams: prompt.queryParams });
-      this.saveSessionState();
-
-      const sourceName = prompt.queryParams?.['source'] ? this.formatSourceName(prompt.queryParams['source']) : 'Database';
-      const text = `🚀 **Database Scanner Launched**\n\nI have navigated to the **Database Scanner** on your screen and opened the **${sourceName} Connection Modal**.\n\n• **Step 1:** Enter or confirm your database credentials in the on-screen popup.\n• **Step 2:** Click **Connect** — your assessment scan will start **immediately** upon successful verification.\n• **Step 3:** The **Live Execution & Assessment Console** will open right away to stream real-time logs, AI agent pipeline analysis, and generate Word reports.\n\n*I will remain open right here to explain progress and answer questions!*`;
-
-      this.messages = [
-        ...this.messages,
-        {
-          id: 'user-' + Date.now(),
-          sender: 'user',
-          text: prompt.label,
-          formattedText: prompt.label,
-          timestamp: new Date()
-        },
-        {
-          id: 'bot-' + (Date.now() + 1),
-          sender: 'bot',
-          text: text,
-          formattedText: this.formatMarkdown(text),
-          timestamp: new Date(),
-          chips: ['Scan SQL Server', 'Scan Databricks', 'Scan Snowflake', 'Database Scanner Overview']
-        }
-      ];
-      this.shouldScroll = true;
-      this.saveSessionHistory();
-      this.cdr.detectChanges();
-    } else if (prompt.query) {
+    if (prompt.query) {
       this.sendMessage(prompt.query);
+    } else if (prompt.route) {
+      this.handleAction({
+        label: prompt.label,
+        route: prompt.route,
+        queryParams: prompt.queryParams,
+        icon: prompt.icon
+      });
     }
   }
 
   selectPrompt(query: string): void {
     const qLower = query.trim().toLowerCase();
-    let targetSource: string | null = null;
-    if (qLower === 'start new db scan' || qLower === 'start db scan' || qLower === 'run db scan') targetSource = 'sqlserver';
-    else if (qLower === 'scan sql server') targetSource = 'sqlserver';
-    else if (qLower === 'scan databricks') targetSource = 'Databricks';
-    else if (qLower === 'scan snowflake') targetSource = 'Snowflake';
-    else if (qLower === 'scan azure synapse' || qLower === 'scan synapse') targetSource = 'Synapse';
-    else if (qLower === 'scan dynamics 365' || qLower === 'scan dynamics') targetSource = 'dynamics365';
 
-    if (targetSource) {
-      this.router.navigate(['/dbscanner'], { queryParams: { source: targetSource, connect: '1' } });
-      this.saveSessionState();
-      const sourceName = this.formatSourceName(targetSource);
-      const text = `🚀 **Database Scanner Launched for ${sourceName}**\n\nI have navigated to the **Database Scanner** on the screen and opened the **${sourceName} Connection Modal**.\n\n• **Step 1:** Enter or confirm your ${sourceName} connection credentials in the on-screen dialog.\n• **Step 2:** Click **Connect** — your assessment scan will start immediately upon successful credentials validation.\n• **Step 3:** The **Live Execution & Assessment Console** will automatically stream real-time logs, AI tokenomics, ER Diagrams, and Word reports.\n\n*I will stay open here so you can explore other features or ask questions while your scan executes.*`;
+    if (this.isGeneralScanRequest(qLower)) {
+      this.sendMessage(query);
+      return;
+    }
+
+    const specificSource = this.getSpecificScanSource(qLower);
+    if (specificSource && (qLower.includes('scan') || qLower.includes('connect'))) {
+      this.router.navigate(['/dbscanner'], { queryParams: { source: specificSource, connect: '1' } });
+      const sourceName = this.formatSourceName(specificSource);
+      const text = `🚀 **Database Scanner Launched for ${sourceName}**\n\nI have loaded the **Database Scanner** with the **${sourceName} Connection Dialog** on your screen.\n\n• **Step 1:** Enter or confirm your ${sourceName} connection credentials.\n• **Step 2:** Click **Connect** — your assessment scan will start immediately upon successful credentials validation.\n• **Step 3:** The **Live Execution & Assessment Console** will stream real-time logs, AI tokenomics, ER Diagrams, and Word reports.\n\n*The chatbot will remain open here to assist you during the scan.*`;
       
       this.messages = [
         ...this.messages,
@@ -452,7 +492,6 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
       ];
       this.shouldScroll = true;
-      this.saveSessionHistory();
       this.cdr.detectChanges();
       return;
     }
@@ -461,13 +500,25 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   handleAction(action: ChatAction): void {
+    if (action.actionKey === 'start_db_scan') {
+      this.sendMessage('Start New DB Scan');
+      return;
+    }
+
+    if (action.prompt) {
+      this.sendMessage(action.prompt);
+      return;
+    }
+
     if (action.route) {
       this.router.navigate([action.route], { queryParams: action.queryParams });
-      this.saveSessionState();
 
       if (action.route === '/dbscanner') {
-        const src = action.queryParams?.['source'] ? this.formatSourceName(action.queryParams['source']) : 'Database';
-        const text = `🚀 **Database Scanner Opened on Screen**\n\nI have loaded the **Database Scanner** with the **${src}** credentials popup on your screen.\n\n• **Step 1:** Enter or confirm your credentials in the dialog.\n• **Step 2:** Click **Connect** — your assessment scan starts immediately upon authentication.\n• **Step 3:** The **Live Execution & Assessment Console** will open right away to stream real-time logs and generate AI migration reports.\n\n*The chatbot will remain open here for any questions during the scan.*`;
+        const src = action.queryParams?.['source'] ? this.formatSourceName(action.queryParams['source']) : null;
+        const text = src 
+          ? `🚀 **Database Scanner Launched for ${src}**\n\nI have loaded the **Database Scanner** with the **${src} Connection Modal** on your screen.\n\n• **Step 1:** Enter or confirm your credentials in the dialog.\n• **Step 2:** Click **Connect** — your assessment scan starts immediately upon authentication.\n• **Step 3:** The **Live Execution & Assessment Console** will stream real-time logs and generate AI migration reports.\n\n*The chatbot will remain open here for any questions.*`
+          : `🚀 **Database Scanner Opened**\n\nI have loaded the **Database Scanner** on your screen. You can select your database source to begin a cloud assessment scan.`;
+
         this.messages = [
           ...this.messages,
           {
@@ -480,7 +531,6 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
           }
         ];
         this.shouldScroll = true;
-        this.saveSessionHistory();
         this.cdr.detectChanges();
       } else if (action.route === '/medication') {
         const text = `🏥 **Medication Adherence POC Opened**\n\nI have loaded the **AI-Driven Medication Adherence Intelligence** dashboard on your screen. You can explore patient adherence risk scoring, clinician recommendations, and population analytics.`;
@@ -496,7 +546,6 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
           }
         ];
         this.shouldScroll = true;
-        this.saveSessionHistory();
         this.cdr.detectChanges();
       } else if (action.route === '/bimigrator') {
         const text = `📊 **BI Migrator POC Opened**\n\nI have loaded the **BI Modernization Accelerator** on your screen. You can upload legacy Tableau, Cognos, or Qlik reports to convert into Power BI DAX and Microsoft Fabric Lakehouse bindings.`;
@@ -512,11 +561,8 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
           }
         ];
         this.shouldScroll = true;
-        this.saveSessionHistory();
         this.cdr.detectChanges();
       }
-    } else if (action.prompt) {
-      this.sendMessage(action.prompt);
     }
   }
 
@@ -527,7 +573,12 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
   private generateBotResponse(query: string): ChatMessage {
     const lower = query.toLowerCase();
 
-    // 1. Specific Database Engine Scans
+    // 1. General Database Scan Request
+    if (this.isGeneralScanRequest(lower) || lower.includes('start scan') || lower.includes('scan database') || lower.includes('run scan')) {
+      return this.buildStartScanPromptResponse();
+    }
+
+    // 2. Specific Database Engine Scans
     if (lower.includes('scan sql server') || lower.includes('sql server scan') || lower.includes('mssql')) {
       const text = `🗄️ **SQL Server Assessment & Migration to Microsoft Fabric**\n\nTo scan a Microsoft SQL Server database:\n1. Click below to launch the **Database Scanner**.\n2. Enter your SQL Server host, database, and credentials in the native connection console.\n3. The **Live Execution & Assessment Console** will automatically stream extraction, constraint validation, and generate migration reports.`;
       return {
@@ -608,25 +659,6 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
       };
     }
 
-    // 2. Start General DB Scan
-    if (lower.includes('start new db scan') || lower.includes('start db scan') || lower.includes('start scan') || lower.includes('new scan') || lower.includes('run scan') || lower.includes('scan database')) {
-      const text = `🚀 **Start Database Assessment & Migration Scan**\n\nTo run an assessment scan, please utilize our dedicated **Database Scanner** console:\n\n• **Connection Console:** Choose from SQL Server, Databricks, Snowflake, Synapse, Dynamics 365, Oracle, or MySQL.\n• **Live Execution & Assessment Console:** Watch live terminal logs, tokenomics, and 5-tab diagnostics.\n• **AI Agent Pipeline:** Automatically generates \`Assessment Report.docx\`, \`AI_Migration_Plan.docx\`, and interactive ER Diagrams.\n• **Fabric Artifact Generation:** One-click deployment of Delta tables and Lakehouse structures.`;
-      return {
-        id: 'bot-' + Date.now(),
-        sender: 'bot',
-        text: text,
-        formattedText: this.formatMarkdown(text),
-        timestamp: new Date(),
-        actions: [
-          { label: '🚀 Open Database Scanner', route: '/dbscanner', queryParams: { source: 'sqlserver', connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
-          { label: '⚡ Connect SQL Server', route: '/dbscanner', queryParams: { source: 'sqlserver', connect: '1' }, icon: 'bi bi-database', variant: 'secondary' },
-          { label: '⚡ Connect Databricks', route: '/dbscanner', queryParams: { source: 'Databricks', connect: '1' }, icon: 'bi bi-layers', variant: 'secondary' },
-          { label: '⚡ Connect Snowflake', route: '/dbscanner', queryParams: { source: 'Snowflake', connect: '1' }, icon: 'bi bi-snow', variant: 'secondary' }
-        ],
-        chips: ['Scan SQL Server', 'Scan Databricks', 'Scan Snowflake', 'Scan Azure Synapse', 'Scan Dynamics 365']
-      };
-    }
-
     // 3. Medication Adherence
     if (lower.includes('medication') || lower.includes('adherence') || lower.includes('healthcare') || lower.includes('patient') || lower.includes('capsule')) {
       const text = `🏥 **AI-Driven Medication Adherence Intelligence**\n\nThis healthcare POC delivers predictive clinical intelligence:\n\n• **Predictive Adherence Scoring:** Identifies patients at risk of therapy gaps using machine learning.\n• **Intervention Recommendations:** Provides clinician-tailored intervention pathways.\n• **Population Health Analytics:** Interactive dashboards for clinical teams across demographics.\n\nExplore the interactive dashboard below:`;
@@ -675,9 +707,9 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
         timestamp: new Date(),
         actions: [
           { label: '📊 View ER Diagrams in Scanner', route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-diagram-3-fill', variant: 'primary' },
-          { label: '🚀 Start New DB Scan', route: '/dbscanner', queryParams: { source: 'sqlserver', connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'secondary' }
+          { label: '🚀 Start New DB Scan', prompt: 'Start New DB Scan', icon: 'bi bi-database-fill-gear', variant: 'secondary' }
         ],
-        chips: ['Explain the ER diagram', 'Fabric Delta Lake Mapping', 'Start New DB Scan', 'Database Scanner Overview']
+        chips: ['Explain ER Diagrams', 'Fabric Delta Lake Mapping', 'Start New DB Scan', 'Database Scanner Overview']
       };
     }
 
@@ -694,7 +726,7 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
           { label: '📊 View ER Diagrams in Scanner', route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-diagram-3-fill', variant: 'primary' },
           { label: '🚀 Open Database Scanner', route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'secondary' }
         ],
-        chips: ['Explain the ER diagram', 'Explain Primary & Foreign Keys', 'Start New DB Scan', 'Microsoft Fabric Info']
+        chips: ['Explain ER Diagrams', 'Explain Primary & Foreign Keys', 'Start New DB Scan', 'Microsoft Fabric Info']
       };
     }
 
@@ -711,7 +743,7 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
           { label: '🚀 Open Database Scanner', route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
           { label: 'Explore BI Migrator', route: '/bimigrator', icon: 'bi bi-bar-chart-line-fill' }
         ],
-        chips: ['Start New DB Scan', 'Explain the ER diagram', 'Medication Adherence', 'What is BI Migrator?']
+        chips: ['Start New DB Scan', 'Explain ER Diagrams', 'Medication Adherence', 'What is BI Migrator?']
       };
     }
 
@@ -728,7 +760,7 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
           { label: '🚀 Launch Database Scanner', route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
           { label: '📊 View ER Diagrams', route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-diagram-3-fill' }
         ],
-        chips: ['Start New DB Scan', 'Explain the ER diagram', 'Scan SQL Server', 'Scan Databricks']
+        chips: ['Start New DB Scan', 'Explain ER Diagrams', 'Scan SQL Server', 'Scan Databricks']
       };
     }
 
@@ -742,11 +774,11 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
         formattedText: this.formatMarkdown(text),
         timestamp: new Date(),
         actions: [
-          { label: '🚀 Start New DB Scan', route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
+          { label: '🚀 Start New DB Scan', prompt: 'Start New DB Scan', icon: 'bi bi-database-fill-gear', variant: 'primary' },
           { label: '📊 Explain ER Diagrams', prompt: 'Explain the ER diagrams and schema relationships', icon: 'bi bi-diagram-3-fill' },
           { label: '🏥 Medication Adherence', route: '/medication', icon: 'bi bi-capsule' }
         ],
-        chips: ['Start New DB Scan', 'Explain the ER diagram', 'Scan SQL Server', 'Scan Databricks', 'Medication Adherence POC', 'BI Migrator Overview']
+        chips: ['Start New DB Scan', 'Explain ER Diagrams', 'Scan SQL Server', 'Scan Databricks', 'Medication Adherence POC', 'BI Migrator Overview']
       };
     }
 
@@ -759,7 +791,7 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
       formattedText: this.formatMarkdown(text),
       timestamp: new Date(),
       actions: [
-        { label: '🚀 Launch Database Scanner', route: '/dbscanner', queryParams: { connect: '1' }, icon: 'bi bi-database-fill-gear', variant: 'primary' },
+        { label: '🚀 Start New DB Scan', prompt: 'Start New DB Scan', icon: 'bi bi-database-fill-gear', variant: 'primary' },
         { label: 'Go to BI Migrator', route: '/bimigrator', icon: 'bi bi-bar-chart-line-fill' },
         { label: 'Go to Medication Adherence', route: '/medication', icon: 'bi bi-capsule' }
       ],
@@ -789,63 +821,11 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   // =========================================================================
-  // SESSION STORAGE MANAGEMENT (CHAT HISTORY ONLY - ZERO CREDENTIALS STORED)
+  // STATE MANAGEMENT (FRESH STATE ON REFRESH - ZERO CREDENTIALS STORED)
   // =========================================================================
 
   private isBrowser(): boolean {
     return typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
-  }
-
-  private restoreSession(): void {
-    if (!this.isBrowser()) {
-      this.initWelcomeMessage();
-      return;
-    }
-
-    try {
-      const savedHistory = window.sessionStorage.getItem(SESSION_HISTORY_KEY);
-      if (savedHistory) {
-        const parsed = JSON.parse(savedHistory);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          this.messages = parsed.map((m: any) => ({
-            id: m.id || ('msg-' + Math.random()),
-            sender: m.sender || 'bot',
-            text: m.text || '',
-            formattedText: m.formattedText || this.formatMarkdown(m.text || ''),
-            timestamp: new Date(m.timestamp),
-            actions: m.actions,
-            chips: m.chips
-          }));
-        } else {
-          this.initWelcomeMessage();
-        }
-      } else {
-        this.initWelcomeMessage();
-      }
-
-      const savedState = window.sessionStorage.getItem(SESSION_STATE_KEY);
-      if (savedState) {
-        const state = JSON.parse(savedState);
-        this.isOpen = !!state.isOpen;
-        this.hasUnreadNotification = state.hasUnreadNotification !== undefined ? state.hasUnreadNotification : true;
-      }
-
-      if (this.isOpen) {
-        this.shouldScroll = true;
-      }
-    } catch (err) {
-      console.warn('Could not restore chat session:', err);
-      this.initWelcomeMessage();
-    }
-  }
-
-  private saveSessionHistory(): void {
-    if (!this.isBrowser()) return;
-    try {
-      window.sessionStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(this.messages));
-    } catch (err) {
-      console.warn('Could not save chat history to session:', err);
-    }
   }
 
   private saveSessionState(): void {
@@ -865,8 +845,9 @@ export class ChatbotComponent implements OnInit, OnDestroy, AfterViewChecked {
     try {
       window.sessionStorage.removeItem(SESSION_HISTORY_KEY);
       window.sessionStorage.removeItem(SESSION_STATE_KEY);
+      window.sessionStorage.removeItem('apexon_active_scan');
     } catch (err) {
-      console.warn('Could not clear chat session:', err);
+      console.warn('Could not clear session storage:', err);
     }
   }
 }
