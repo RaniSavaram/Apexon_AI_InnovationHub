@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+
 from .metadataProcessor import (
     collect_metadata,
     metadata_to_dataframes,

@@ -684,19 +684,51 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         for conn_line in _get_connection_log_lines(db_clean, Creds):
             update_scan_job_state(scan_id, log_entry=conn_line)
         metadata = obj.extract()
-        original_table_count = sum(
-            len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
-        )
+
+        def _count_schema_objects(meta):
+            schemas = meta.get("schemas", [])
+            t_cnt = sum(
+                1 for s in schemas for t in s.get("tables", [])
+                if (t.get("type") or "").upper() not in ("VIEW", "MATERIALIZED VIEW")
+            )
+            v_cnt = sum(
+                1 for s in schemas for t in s.get("tables", [])
+                if (t.get("type") or "").upper() in ("VIEW", "MATERIALIZED VIEW")
+            )
+            p_cnt = sum(len(s.get("procedures", [])) for s in schemas)
+            f_cnt = sum(len(s.get("functions", [])) for s in schemas)
+            return t_cnt, v_cnt, p_cnt, f_cnt
+
+        orig_tables, orig_views, orig_procs, orig_funcs = _count_schema_objects(metadata)
+
         # SQL Server, Databricks, Dynamics 365, and Snowflake scans get the
         # full schema - no demo cap. Every other source still gets capped
         # to MAX_SCAN_TABLES.
         if db_clean not in ("sqlserver", "mssql", "databricks", "dynamics365", "dynamics 365", "d365", "snowflake"):
             metadata = _limit_metadata_tables(metadata)
-        selected_table_count = sum(
-            len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
-        )
-        update_scan_job_state(scan_id, progress=26, current_message=f"Analyzing {selected_table_count} tables from {db_name}...", log_entry="[INFO] Analyzing extracted schemas and tables")
-        update_scan_job_state(scan_id, progress=32, current_message=f"{db_name} metadata extracted ({selected_table_count} tables)", log_entry=f"[INFO] Selected {selected_table_count} of {original_table_count} available tables for this scan.")
+
+        selected_tables, selected_views, selected_procs, selected_funcs = _count_schema_objects(metadata)
+
+        def _format_summary(t, v, p, f):
+            parts = [f"{t} table{'s' if t != 1 else ''}"]
+            if v > 0:
+                parts.append(f"{v} view{'s' if v != 1 else ''}")
+            if p > 0:
+                parts.append(f"{p} stored procedure{'s' if p != 1 else ''}")
+            if f > 0:
+                parts.append(f"{f} function{'s' if f != 1 else ''}")
+            return ", ".join(parts)
+
+        selected_summary = _format_summary(selected_tables, selected_views, selected_procs, selected_funcs)
+
+        if (orig_tables, orig_views, orig_procs, orig_funcs) != (selected_tables, selected_views, selected_procs, selected_funcs):
+            orig_summary = _format_summary(orig_tables, orig_views, orig_procs, orig_funcs)
+            selection_log = f"[INFO] Selected {selected_summary} for this scan (out of {orig_summary} available)."
+        else:
+            selection_log = f"[INFO] Extracted {selected_summary} from {db_name}."
+
+        update_scan_job_state(scan_id, progress=26, current_message=f"Analyzing {selected_summary} from {db_name}...", log_entry="[INFO] Analyzing extracted schemas and objects")
+        update_scan_job_state(scan_id, progress=32, current_message=f"{db_name} metadata extracted ({selected_summary})", log_entry=selection_log)
         time.sleep(0.5)
 
         harness_start_msg = f"[INFO] {db_name} metadata extracted. Running Harness Layer 1 validation..."
