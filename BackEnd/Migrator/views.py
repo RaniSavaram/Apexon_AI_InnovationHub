@@ -352,6 +352,55 @@ def er_diagram(request):
     return Response({"status": "success", "file": file_path.name, **model})
 
 
+def _get_connection_log_lines(db_type, creds):
+    lines = []
+    db_type_lower = (db_type or "").lower().replace(" ", "").replace("_", "")
+    server = creds.get_servername()
+    database = creds.get_database_name()
+    username = creds.get_username()
+    extra = creds.get_extra_dict() or {}
+
+    if db_type_lower == "snowflake":
+        account = extra.get("account") or server
+        warehouse = extra.get("warehouse")
+        role = extra.get("role")
+        if account:
+            lines.append(f"Account   : {repr(account)}")
+        if database:
+            lines.append(f"Database  : {repr(database)}")
+        if warehouse:
+            lines.append(f"Warehouse : {repr(warehouse)}")
+        if username:
+            lines.append(f"User      : {repr(username)}")
+        if role:
+            lines.append(f"Role      : {repr(role)}")
+    elif db_type_lower == "databricks":
+        catalog = database
+        http_path = extra.get("http_path")
+        if server:
+            lines.append(f"Server   : {repr(server)}")
+        if catalog:
+            lines.append(f"Catalog  : {repr(catalog)}")
+        if http_path:
+            lines.append(f"HTTP Path: {repr(http_path)}")
+        if username:
+            lines.append(f"User     : {repr(username)}")
+    elif db_type_lower in ("dynamics365", "dynamics 365", "d365", "dynamics"):
+        if server:
+            lines.append(f"Org URL  : {repr(server)}")
+    elif db_type_lower == "sqlite":
+        if database:
+            lines.append(f"Database : {repr(database)}")
+    else:
+        if server:
+            lines.append(f"Server   : {repr(server)}")
+        if database:
+            lines.append(f"Database : {repr(database)}")
+        if username:
+            lines.append(f"User     : {repr(username)}")
+    return lines
+
+
 @api_view(["POST"])
 def connect_database(request):
 
@@ -362,6 +411,7 @@ def connect_database(request):
     Logs["Scan Info"].append("[INFO]: Connect request received")
 
     source = request.data.get("source")
+    clean_source = (source or "").strip().lower().replace(" ", "").replace("_", "")
     remember_me = str(request.data.get("remember_me", "false")).strip().lower() == "true"
     Creds.set_servername(request.data.get("server"))
     Creds.set_database_name(request.data.get("database"))
@@ -383,14 +433,14 @@ def connect_database(request):
         #   - Dynamics 365: needs the org URL (in `server`) + tenant/client
         #     id/secret in `extra` - no `database`/username/password
         #   - Everything else: needs both server and database
-        if source == "sqlite":
+        if clean_source == "sqlite":
             if not database:
                 Logs["Scan Info"].append("[Err]: Database file path is required.")
                 return Response(
                     {"status": "error", "message": "Database file path is required."},
                     status=400
                 )
-        elif source in ("dynamics365", "dynamics 365", "d365"):
+        elif clean_source in ("dynamics365", "dynamics 365", "d365", "dynamics"):
             if not server:
                 Logs["Scan Info"].append("[Err]: Org URL is required.")
                 return Response(
@@ -404,12 +454,12 @@ def connect_database(request):
                 status=400
             )
 
-        db_type = (source or "").lower()
+        db_type = clean_source
 
-        if db_type == "sqlserver":
+        if db_type in ("sqlserver", "mssql"):
             test_extractor = SQLServerExtractor(Creds)
 
-        elif db_type == "synapse":
+        elif db_type in ("synapse", "azuresynapse"):
             test_extractor = SynapseExtractor(Creds)
 
         elif db_type == "snowflake":
@@ -418,7 +468,7 @@ def connect_database(request):
         elif db_type == "databricks":
             test_extractor = DatabricksExtractor(Creds)
 
-        elif db_type in ("dynamics365", "dynamics 365", "d365"):
+        elif db_type in ("dynamics365", "dynamics 365", "d365", "dynamics"):
             test_extractor = Dynamics365Extractor(Creds)
 
         elif db_type == "sqlite":
@@ -514,6 +564,19 @@ def Db_Scanner(request):
     destination = request.data.get("destination")
     req_source = request.data.get("source") or source
 
+    if request.data.get("server"):
+        Creds.set_servername(request.data.get("server"))
+    if request.data.get("database"):
+        Creds.set_database_name(request.data.get("database"))
+    if request.data.get("username"):
+        Creds.set_username(request.data.get("username"))
+    if request.data.get("password"):
+        Creds.set_password(request.data.get("password"))
+    if request.data.get("port"):
+        Creds.set_port(request.data.get("port"))
+    if request.data.get("extra"):
+        Creds.set_extra_dict(request.data.get("extra"))
+
     with scan_jobs_lock:
         scan_jobs[scan_id] = {
             "status": "Running",
@@ -541,17 +604,24 @@ def Db_Scanner(request):
 def get_db_display_name(source_slug):
     mapping = {
         "sqlserver": "SQL Server",
+        "mssql": "SQL Server",
         "oracle": "Oracle",
         "mysql": "MySQL",
         "postgres": "PostgreSQL",
+        "postgresql": "PostgreSQL",
         "sqlite": "SQLite",
         "synapse": "Azure Synapse",
+        "azuresynapse": "Azure Synapse",
         "snowflake": "Snowflake",
         "databricks": "Databricks",
         "dynamics365": "Dynamics 365",
-        "sap": "SAP HANA"
+        "d365": "Dynamics 365",
+        "dynamics": "Dynamics 365",
+        "sap": "SAP HANA",
+        "saphana": "SAP HANA"
     }
-    return mapping.get(str(source_slug).lower(), "Database")
+    clean = str(source_slug or "").strip().lower().replace(" ", "").replace("_", "")
+    return mapping.get(clean, str(source_slug) or "Database")
 
 
 def _run_scan(destination, scan_source=None, scan_id=None):
@@ -568,27 +638,26 @@ def _run_scan(destination, scan_source=None, scan_id=None):
             status=400
         )
     
-    db_name = get_db_display_name(scan_source or source)
+    db_clean = (scan_source or source or "").strip().lower().replace(" ", "").replace("_", "")
+    db_name = get_db_display_name(db_clean)
     scan_started_msg = f"[INFO] {db_name} scan started for database '{Creds.get_database_name()}'."
     update_scan_job_state(scan_id, progress=5, current_message=f"Starting {db_name} scan...", log_entry=scan_started_msg)
     print(scan_started_msg)
     time.sleep(0.5)
 
-    db_type = (scan_source or source or "").lower()
-
-    if db_type == "sqlserver":
+    if db_clean in ("sqlserver", "mssql"):
         obj = SQLServerExtractor(Creds)
 
-    elif db_type == "synapse":
+    elif db_clean in ("synapse", "azuresynapse"):
         obj = SynapseExtractor(Creds)
 
-    elif db_type == "snowflake":
+    elif db_clean == "snowflake":
         obj = SnowflakeExtractor(Creds)
 
-    elif db_type == "databricks":
+    elif db_clean == "databricks":
         obj = DatabricksExtractor(Creds)
 
-    elif db_type in ("dynamics365", "dynamics 365", "d365"):
+    elif db_clean in ("dynamics365", "dynamics 365", "d365", "dynamics"):
         obj = Dynamics365Extractor(Creds)
 
     else:
@@ -612,7 +681,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         extracting_msg = f"[INFO] Extracting schema and table metadata from {db_name}..."
         update_scan_job_state(scan_id, progress=18, current_message=f"Extracting {db_name} schema and table metadata...", log_entry=extracting_msg)
         print(extracting_msg)
-        for conn_line in _get_connection_log_lines(db_type, Creds):
+        for conn_line in _get_connection_log_lines(db_clean, Creds):
             update_scan_job_state(scan_id, log_entry=conn_line)
         metadata = obj.extract()
         original_table_count = sum(
@@ -621,7 +690,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         # SQL Server, Databricks, Dynamics 365, and Snowflake scans get the
         # full schema - no demo cap. Every other source still gets capped
         # to MAX_SCAN_TABLES.
-        if db_type not in ("sqlserver", "databricks", "dynamics365", "dynamics 365", "d365", "snowflake"):
+        if db_clean not in ("sqlserver", "mssql", "databricks", "dynamics365", "dynamics 365", "d365", "snowflake"):
             metadata = _limit_metadata_tables(metadata)
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
@@ -666,7 +735,7 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         output_files = Agents_PipeLine(metadata, source_hint=(scan_source or source), scan_id=scan_id)
 
         fabric_push = None
-        if db_type == "databricks":
+        if db_clean == "databricks":
             update_scan_job_state(scan_id, progress=97, current_message="Syncing assessment with Microsoft Fabric OneLake...", log_entry="[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
             print("[INFO] Databricks source - auto-pushing assessment to Microsoft Fabric...")
             try:
