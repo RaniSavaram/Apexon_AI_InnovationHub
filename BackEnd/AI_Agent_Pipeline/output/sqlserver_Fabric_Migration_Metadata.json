@@ -1,20 +1,24 @@
 {
   "metadata": {
-    "scan_id": "873289c8-39f0-4181-b277-c7e77b43403f",
-    "generated_at": "2026-09-08T10:10:47.046674Z",
+    "scan_id": "3e2b6c9f-0a26-4d12-be8f-d69a7a4040eb",
+    "generated_at": "2026-10-05T06:50:01.740390Z",
     "source_platform": "SQL Server",
     "target_platform": "Microsoft Fabric (OneLake)",
-    "total_tables": 5,
-    "total_columns": 23,
-    "total_views": 0,
-    "total_procedures": 1,
-    "total_size_mb": 0.53,
-    "total_row_count": 25
+    "total_tables": 68,
+    "total_columns": 976,
+    "total_views": 24,
+    "total_procedures": 6,
+    "total_functions": 0,
+    "total_size_mb": 881.31,
+    "total_row_count": 2877732
   },
   "source": {
     "database_name": "ic4_metarepo",
     "schemas": [
-      "dbo"
+      "dbo",
+      "MDR_T",
+      "MDR_V",
+      "MDR_W"
     ]
   },
   "target": {
@@ -36,7 +40,7 @@
       "size_mb": 0.06,
       "row_count": 0,
       "medallion_layer": "Silver",
-      "layer_reason": "Cleaned and relational structured table",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "id",
       "columns": [
         {
@@ -63,7 +67,7 @@
       "size_mb": 0.06,
       "row_count": 0,
       "medallion_layer": "Silver",
-      "layer_reason": "Cleaned and relational structured table",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "id",
       "columns": [
         {
@@ -100,7 +104,7 @@
       "size_mb": 0.21,
       "row_count": 24,
       "medallion_layer": "Silver",
-      "layer_reason": "Cleaned and relational structured table",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "id",
       "columns": [
         {
@@ -132,7 +136,9 @@
           "ordinal_position": 4
         }
       ],
-      "dependencies": []
+      "dependencies": [
+        "django_content_type"
+      ]
     },
     {
       "name": "auth_user",
@@ -141,7 +147,7 @@
       "size_mb": 0.14,
       "row_count": 1,
       "medallion_layer": "Silver",
-      "layer_reason": "Cleaned and relational structured table",
+      "layer_reason": "like entity (users).",
       "primary_key": "id",
       "columns": [
         {
@@ -231,7 +237,7 @@
       "size_mb": 0.06,
       "row_count": 0,
       "medallion_layer": "Silver",
-      "layer_reason": "Cleaned and relational structured table",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "id",
       "columns": [
         {
@@ -258,11 +264,5614 @@
       ],
       "dependencies": [
         "auth_user",
+        "gathi_user",
         "auth_group"
       ]
     },
     {
+      "name": "auth_user_user_permissions",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "user_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "permission_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": [
+        "auth_user",
+        "gathi_user",
+        "auth_permission"
+      ]
+    },
+    {
+      "name": "DE_Department",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 4,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "DepartmentID",
+      "columns": [
+        {
+          "name": "DepartmentID",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "DepartmentName",
+          "source_datatype": "nvarchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DE_Employee",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 505,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "EmployeeID",
+      "columns": [
+        {
+          "name": "EmployeeID",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "FirstName",
+          "source_datatype": "nvarchar(50)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "LastName",
+          "source_datatype": "nvarchar(50)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "DepartmentID",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "HireDate",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "Salary",
+          "source_datatype": "decimal",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 6
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "demo_motorvehicle_source",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 22.45,
+      "row_count": 45669,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "vehicle_id",
+      "columns": [
+        {
+          "name": "crash_date",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "crash_time",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "person_injury",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "person_age",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "bodily_injury",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "safety_equipment",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "person_sex",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "person_type",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "ped_location",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "contributing_factor_2",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "ejection",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "complaint",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "emotional_status",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "vehicle_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "person_id",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "contributing_factor_1",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "position_in_vehicle",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "ped_role",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "unique_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 19
+        },
+        {
+          "name": "ped_action",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "collision_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "edh_rec_id",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": false,
+          "ordinal_position": 22
+        },
+        {
+          "name": "edh_rec_eff_dt",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": false,
+          "ordinal_position": 23
+        },
+        {
+          "name": "edh_run_id",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 24
+        },
+        {
+          "name": "edh_rec_cre_ts",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 25
+        },
+        {
+          "name": "edh_rec_upd_ts",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 26
+        },
+        {
+          "name": "edh_rec_end_dt",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": false,
+          "ordinal_position": 27
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "departments",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.14,
+      "row_count": 2,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "dept_name",
+          "source_datatype": "varchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "dept_no",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "dept_address",
+          "source_datatype": "varchar(100)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "django_admin_log",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "action_time",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "object_id",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "object_repr",
+          "source_datatype": "nvarchar(200)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "action_flag",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "change_message",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 6
+        },
+        {
+          "name": "content_type_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "user_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 8
+        }
+      ],
+      "dependencies": [
+        "django_content_type",
+        "auth_user",
+        "gathi_user"
+      ]
+    },
+    {
+      "name": "django_content_type",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.14,
+      "row_count": 6,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "app_label",
+          "source_datatype": "nvarchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "model",
+          "source_datatype": "nvarchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "django_migrations",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 18,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "app",
+          "source_datatype": "nvarchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "name",
+          "source_datatype": "nvarchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "applied",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 4
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "django_session",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.14,
+      "row_count": 9,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "session_key",
+      "columns": [
+        {
+          "name": "session_key",
+          "source_datatype": "nvarchar(40)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "session_data",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "expire_date",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DQ_OBJ_PRPTY_ERR_DTL_test",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 187.45,
+      "row_count": 507689,
+      "medallion_layer": "Silver",
+      "layer_reason": "test for validation only.",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "BUSS_DT",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "PK_VALUE",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "PRIMARYKEY_NAME",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "RUL_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_NBR",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 7
+        },
+        {
+          "name": "OBJ_PRPT_VAL_TXT",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "ERR_ID",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 9
+        },
+        {
+          "name": "JOB_RUN_INS_ID",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "ETL_RECORDED_GMTS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 11
+        },
+        {
+          "name": "OBJ_PROP_COLN_TXT",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 12
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 13
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 14
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DQ_OBJ_PRPTY_RSLT_SMRY_test",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 30,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_PRPTY_ID",
+      "columns": [
+        {
+          "name": "BUSS_DT",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "RUL_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "VLD_REC_CNT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "RUL_MET_REC_CNT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "RUL_NOT_MET_REC_CNT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "DAT_QLTY_SCR_PCT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "Employee",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "EmployeeID",
+      "columns": [
+        {
+          "name": "EmployeeID",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "Name",
+          "source_datatype": "nvarchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "Position",
+          "source_datatype": "varchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "ValidFrom",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "ValidTo",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "EmployeeHistory",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "EmployeeID",
+      "columns": [
+        {
+          "name": "EmployeeID",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "Name",
+          "source_datatype": "nvarchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "Position",
+          "source_datatype": "varchar(100)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "ValidFrom",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "ValidTo",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "emps",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 12,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "emp_id",
+      "columns": [
+        {
+          "name": "emp_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "name",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "mgr_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "gathi_user",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "password",
+          "source_datatype": "nvarchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "last_login",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "is_superuser",
+          "source_datatype": "bit",
+          "target_datatype": "BOOLEAN",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "username",
+          "source_datatype": "nvarchar(150)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "first_name",
+          "source_datatype": "nvarchar(30)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 6
+        },
+        {
+          "name": "last_namee",
+          "source_datatype": "nvarchar(150)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 7
+        },
+        {
+          "name": "email",
+          "source_datatype": "nvarchar(254)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 8
+        },
+        {
+          "name": "is_staff",
+          "source_datatype": "bit",
+          "target_datatype": "BOOLEAN",
+          "nullable": false,
+          "ordinal_position": 9
+        },
+        {
+          "name": "is_active",
+          "source_datatype": "bit",
+          "target_datatype": "BOOLEAN",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "date_joined",
+          "source_datatype": "datetime2",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 11
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "src_tgt_cnt",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "src_tablename",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "src_rec_count",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "tgt_tablename",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "tgt_rec_count",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "run_dt",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "sysdiagrams",
+      "schema": "dbo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "principal_id",
+      "columns": [
+        {
+          "name": "name",
+          "source_datatype": "nvarchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "principal_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "diagram_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "version",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "definition",
+          "source_datatype": "varbinary",
+          "target_datatype": "BINARY",
+          "nullable": true,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "APPL_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 9,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "APPL_ID",
+      "columns": [
+        {
+          "name": "APPL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "APPL_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "APPL_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "APPL_CNCT_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "APPL_CNCT_EMAIL",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "BSN_TERM_ASSET_RELN",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 11,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "BSN_TERM_ID",
+      "columns": [
+        {
+          "name": "BSN_TERM_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "ASSET_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "ASSET_TYP",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "IS_ACTV_FLG",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "BSN_TERM_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.13,
+      "row_count": 255,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "BSN_TERM_ID",
+      "columns": [
+        {
+          "name": "BSN_TERM_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "BSN_TERM_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "BSN_TERM_DESC_TXT",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "SRC_SYS_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "BSN_TERM_TYPE_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "BSN_TERM_CATG_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "BSN_TERM_SUB_CATG_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "BSN_TERM_CNCT_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "BSN_TERM_CNCT_EMAIL",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "BSN_TERM_APPRD_ABBR_CD",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 11
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 12
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "EXAMPLE",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "CONN_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.14,
+      "row_count": 12,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "CONN_ID",
+      "columns": [
+        {
+          "name": "CONN_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "CONN_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "DB_PLTFRM_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "HST_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "DB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "PORT_NBR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "CONN_OPTNL_CONF",
+          "source_datatype": "varchar(500)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "container_size_logs",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "container_name",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "blobs",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "size",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "buss_dt",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DATA_EXTRACTION_MD",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.14,
+      "row_count": 38,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "ID",
+      "columns": [
+        {
+          "name": "ID",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "SOURCE_CONN_NAME",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "TARGET_CONN_NAME",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "JOB_NAME",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "SQL_INPUT",
+          "source_datatype": "text",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 6
+        },
+        {
+          "name": "DATE_CREATED",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 7
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DATA_TYP_MAP",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 171,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "SRC_DB_PLTFRM_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "SRC_DATA_TYP",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "TGT_DB_PLTFRM_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "TGT_DATA_TYP",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DATAPULL_WATERMARK",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 1,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "RUN_ID",
+      "columns": [
+        {
+          "name": "JOB_NM",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "EXTRACT_COL_NM",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "EXTRACT_COL_VALUE",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "PREV_EXTRACT_COL_VALUE",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "CREATE_TIMESTAMP",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "BUS_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": false,
+          "ordinal_position": 6
+        },
+        {
+          "name": "PREV_BUS_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": false,
+          "ordinal_position": 7
+        },
+        {
+          "name": "ROW_COUNT",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": false,
+          "ordinal_position": 8
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 9
+        },
+        {
+          "name": "RUN_ID",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "IS_PREV_EXT_VAL_REQ",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DQ_OBJ_PRPTY_CDE_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.32,
+      "row_count": 1302,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "ACCURACY_THR_PCT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "CONSISTENCY_THR_PCT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "COMPLETENESS_THR_PCT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "INTEGRITY_THR_PCT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "TIMLINESS_THR_PCT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "UNIQUENESS_THR_PCT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "INFO_STEWARD_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "MANAGING_INFO_STEWARD_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "CDE_BUS_CATEGORY",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "CDE_USAGE_OPE_TYP_IND",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "CDE_USAGE_REGULATORY_TYP_IND",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "CDE_USAGE_EXECUTIVE_TYP_IND",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "CDE_USAGE_OTHERS_TYP_IND",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "REC_LST_UPDT_BY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "INFOR_STEWARD_NM",
+          "source_datatype": "varchar(11)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "MANAGING_INFO_STEWRADS_NM",
+          "source_datatype": "varchar(13)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "CDE_USAGE_OPERATIONS_TYPE_IND",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "CDE_USAGE_REGULATORY_TYPE_IND",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "CDE_USAGE_EXECUTIVE_TYPE_IND",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "CDE_USAGE_OTHERS_TYPE_IND",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 24
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DQ_OBJ_PRPTY_ERR_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 470.26,
+      "row_count": 2169666,
+      "medallion_layer": "Silver",
+      "layer_reason": "test for validation only.",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "BUSS_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "PK_VALUE",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "PRIMARYKEY_NAME",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "RUL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_NBR",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "OBJ_PRPT_VAL_TXT",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "ERR_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "JOB_RUN_INS_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 11
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(150)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DQ_OBJ_PRPTY_RPT_MAP",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_PRPTY_ID",
+      "columns": [
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "text",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "RPT_NM",
+          "source_datatype": "text",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "RPT_EXEC_NAME",
+          "source_datatype": "text",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "timestamp",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DQ_OBJ_PRPTY_RSLT_SMRY",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.26,
+      "row_count": 356,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_PRPTY_ID",
+      "columns": [
+        {
+          "name": "BUSS_DT",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "RUL_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "VLD_REC_CNT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "RUL_MET_REC_CNT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "RUL_NOT_MET_REC_CNT",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "DAT_QLTY_SCR_PCT",
+          "source_datatype": "decimal",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "RUL_RSLVD_TXT",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DQ_OBJ_PRPTY_RUL_MAP",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.2,
+      "row_count": 309,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "RUL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "TFM_RUL_TXT",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "OBJ_PRPT_RUL_MAP_BY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "OBJ_PRPT_RUL_MAP_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "OBJ_PRPT_RUL_MAP_VRFD_BY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "OBJ_PRPT_RUL_MAP_VRFD_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "OBJ_PRPT_RUL_MAP_APPRD_BY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "OBJ_PRPT_RUL_MAP_APPRD_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "IS_ACTV_FLG",
+          "source_datatype": "varchar(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "COL_THRESHOLD",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 14
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DQ_RUL_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 47,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "RUL_ID",
+      "columns": [
+        {
+          "name": "RUL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "RUL_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "RUL_TYPE_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "RUL_DESC_TXT",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "RUL_CATG_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "DQ_TYPE",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "PARM_TYPE",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "PARAMS",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "RULE_DEF",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "DIALECT",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 10
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_CHK_PNT",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 192,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "JOB_ID",
+      "columns": [
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "JOB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "BUSS_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "RUN_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "STP_ID",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "STP_STS",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_CNTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 6.13,
+      "row_count": 18140,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "JOB_CNTL_ID",
+      "columns": [
+        {
+          "name": "JOB_CNTL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "JOB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "STP_ID",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "STP_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "PRSS_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "PARM_SEQ",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "PARM_NM",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "PARM_VAL",
+          "source_datatype": "varchar(4000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 13
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.32,
+      "row_count": 763,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "JOB_ID",
+      "columns": [
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "SRC_SYS_OR_APPL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "JOB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "JOB_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "JOB_TYP",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "TMPL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "SUP_GRP_EMAIL",
+          "source_datatype": "varchar(100)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 11
+        }
+      ],
+      "dependencies": [
+        "JOB_TMPL"
+      ]
+    },
+    {
+      "name": "JOB_DTL_EXTD",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 50.27,
+      "row_count": 148,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Raw staging or ingestion layer",
+      "primary_key": "JOB_ID",
+      "columns": [
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "LOGIC_JSON",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "FLOW_JSON",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "JOB_SQL",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 8
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_EXEC_STS",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.95,
+      "row_count": 1625,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "JOB_ID",
+      "columns": [
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "JOB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "BUSS_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "RUN_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "JOB_STRT_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "JOB_END_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "JOB_STS",
+          "source_datatype": "varchar(30)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "STRT_STP_ID",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "PREV_RUN_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "JOB_ERR_MSG",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "CNTLM_FLDR_NM",
+          "source_datatype": "varchar(100)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "CNTLM_JOB_NM",
+          "source_datatype": "varchar(100)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_OBJ_PRPTY_RELN",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 6.45,
+      "row_count": 3108,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "OBJ_PRPTY_IN_OUT_IND",
+          "source_datatype": "char(7)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "TRANSFORM_LOGIC",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "TRANSFORM_TXT",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_OBJ_RELN",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.32,
+      "row_count": 1198,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_IN_OUT_IND",
+          "source_datatype": "char(5)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_PRSS_EXEC_STS",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 28.51,
+      "row_count": 91868,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "JOB_ID",
+      "columns": [
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "JOB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "BUSS_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "RUN_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "STP_ID",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "STP_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "PRSS_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "PRSS_LVL_ID",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "PRSS_MSG_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "PRSS_MSG_VAL",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_TMPL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 41,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "TMPL_ID",
+      "columns": [
+        {
+          "name": "TMPL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "TMPL_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "STP_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "PRSS_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "PRSS_SEQ_NUM",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "OVRD_PARM_VALS",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "METADATA_MISMATCH_REPORT",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "SYSTEM",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "DB_PLATFORM_NAME",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "SCHEMA_NAME",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "DATABASE_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "TABLE_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "COLUMN_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "COLUMN_ORDER",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "MDR_COLUMN_DATATYPE",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "SRC_COLUMN_DATATYPE",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "MDR_COLUMN_LENGTH",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "SRC_COLUMN_LENGTH",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "MDR_NULL_FLAG",
+          "source_datatype": "varchar(5)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "DATA_STWD_EMAIL",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "MISMATCH_REASON",
+          "source_datatype": "varchar(3000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "BUS_DT",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 16
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "OBJ_CLBRTN",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 10,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "CLBRTN_ID",
+      "columns": [
+        {
+          "name": "CLBRTN_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "CLBRTN_TYPE",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "CLBRTN_TXT",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "RATING",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        }
+      ],
+      "dependencies": [
+        "OBJ_PRPTY_CLBRTN"
+      ]
+    },
+    {
+      "name": "OBJ_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.95,
+      "row_count": 1337,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "OBJ_TYP",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "SRC_SYS_OR_APPL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "DB_PLTFRM_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "DB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "VW_DB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "SCHEMA_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "OBJ_SNPSHT_LOAD_TYP",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "FRMT_TYP_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "CLMN_DLMTR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "ROW_DLMTR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "REG_ZN",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "FILE_PATH",
+          "source_datatype": "varchar(256)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "FILE_NM",
+          "source_datatype": "varchar(250)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "CNTL_FILE_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "CNTL_FILE_DLMTR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "DLVR_MDE",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "HDR_REC_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "TRLR_REC_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "RTTN_DAY_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "ERR_THRSHD_PCT_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "WRNG_THRSHD_PCT_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 24
+        },
+        {
+          "name": "DATA_STWD_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 25
+        },
+        {
+          "name": "DATA_STWD_EMAIL",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 26
+        },
+        {
+          "name": "NOTF_GRP_EMAIL",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 27
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 28
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 29
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 30
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 31
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "OBJ_PRPTY_CLBRTN",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 6,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "CLBRTN_ID",
+      "columns": [
+        {
+          "name": "CLBRTN_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "CLBRTN_TYPE",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "CLBRTN_TXT",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "RATING",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        }
+      ],
+      "dependencies": [
+        "OBJ_CLBRTN"
+      ]
+    },
+    {
+      "name": "OBJ_PRPTY_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 5.32,
+      "row_count": 20624,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_PRPTY_ID",
+      "columns": [
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "CLMN_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "CLMN_SEQ_NUM",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "DATA_TYP",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "CLMN_LEN",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "DEC_SCAL",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "DEC_PREC",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "DATA_FRMT",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "DFLT_VAL",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "IS_NULL_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "IS_PK_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "IS_WARN_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "IS_ERR_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "IS_CDC_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "DATA_SNSTVTY_CTGRY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "VLDTN_REQ_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "CLMN_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 19
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "IS_CDE_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 23
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "PARM_DESC",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 38,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "PARM_NM",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "PARM_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "PARM_EXPMLE",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "PRSS_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 20,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "PRSS_ID",
+      "columns": [
+        {
+          "name": "PRSS_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "PRSS_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "PRSS_SHRT_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "PRSS_SCP_TYP",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "PRSS_CTGRY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "PRSS_DESC",
+          "source_datatype": "varchar(1000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "PRSS_PATH",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "PRSS_PARM_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 125,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "PRSS_PARM_ID",
+      "columns": [
+        {
+          "name": "PRSS_PARM_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "PRSS_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "PARM_NM",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "PARM_VAL",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "PARM_TYP",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "IS_EDTBL_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "RECON_CONFIG",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "recon_val_id",
+      "columns": [
+        {
+          "name": "recon_val_id",
+          "source_datatype": "varchar(32)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "src_sys_nm",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "table_nm",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "metric_nm",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "validation_type",
+          "source_datatype": "varchar(30)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "validation_desc",
+          "source_datatype": "varchar(300)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "src_query",
+          "source_datatype": "varchar(6000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "tgt_query",
+          "source_datatype": "varchar(6000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "custom_query1",
+          "source_datatype": "varchar(6000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "custom_query2",
+          "source_datatype": "varchar(6000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "custom_query3",
+          "source_datatype": "varchar(6000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "threshold_type",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "threshold_value",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "success_message",
+          "source_datatype": "varchar(300)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "warning_message",
+          "source_datatype": "varchar(300)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "error_message",
+          "source_datatype": "varchar(300)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "active_flag",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "success_mail",
+          "source_datatype": "varchar(1000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "failure_mail",
+          "source_datatype": "varchar(1000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "last_update_tms",
+          "source_datatype": "timestamp",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 20
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "RECON_RESULTS",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "recon_val_id",
+      "columns": [
+        {
+          "name": "recon_val_id",
+          "source_datatype": "varchar(32)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "business_date",
+          "source_datatype": "date",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "custom_validation",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "src_qry_results",
+          "source_datatype": "numeric",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "tgt_qry_results",
+          "source_datatype": "numeric",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "total_matching_cnt",
+          "source_datatype": "numeric",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "total_mismatch_cnt",
+          "source_datatype": "numeric",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "variance",
+          "source_datatype": "numeric",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "threshold_type",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "threshold_value",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "validation_status",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "validation_message",
+          "source_datatype": "varchar(100)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "run_id",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "last_update_tms",
+          "source_datatype": "timestamp",
+          "target_datatype": "TIMESTAMP",
+          "nullable": false,
+          "ordinal_position": 14
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "REFINED_ZONE_SQL_FUNCTIONS",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.26,
+      "row_count": 361,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "FUNCTION",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "USAGE",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "EXTENDED_USAGE",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "SCHEDULE",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 83,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "SCHEDULE_ID",
+      "columns": [
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "SCHEDULE_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "SCHEDULE",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 3
+        },
+        {
+          "name": "SCHEDULE_DESC",
+          "source_datatype": "varchar(250)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 4
+        },
+        {
+          "name": "EFF_START_DT",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "EFF_END_DT",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "SOURCE_TARGET_COUNT_REPORT",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "source_db_name",
+          "source_datatype": "nvarchar(100)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "source_table",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "source_record_count",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "target_db_name",
+          "source_datatype": "nvarchar(100)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "target_table",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "target_record_count",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "count_difference",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "status",
+          "source_datatype": "nvarchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "buss_dt",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 9
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "SRC_SYS_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 23,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "SRC_SYS_ID",
+      "columns": [
+        {
+          "name": "SRC_SYS_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "SRC_SYS_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "SRC_SYS_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "SRC_SYS_CNCT_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "SRC_SYS_CNCT_EMAIL",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "term_bkp",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.07,
+      "row_count": 235,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "BSN_TERM_NM",
+          "source_datatype": "varchar(32)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "BSN_TERM_DESC_TXT",
+          "source_datatype": "varchar(256)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "Category",
+          "source_datatype": "varchar(16)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "TMP_SRC_TGT_CNT",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "src_table",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "src_rec_cnt",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "run_dt",
+          "source_datatype": "bigint",
+          "target_datatype": "BIGINT",
+          "nullable": true,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "USER_JOB_DTL",
+      "schema": "MDR_T",
+      "type": "table",
+      "size_mb": 52.64,
+      "row_count": 192,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "JOB_ID",
+      "columns": [
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "LOGIC_JSON",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "FLOW_JSON",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "JOB_SQL",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "SRC_SYS_OR_APPL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 9
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "OBJECT_PRPT_SRC_TGT_INFO_TEST",
+      "schema": "MDR_V",
+      "type": "table",
+      "size_mb": 43.57,
+      "row_count": 5376,
+      "medallion_layer": "Silver",
+      "layer_reason": "test only if used for validation. It appears to be a derived/compare dataset; treat as non",
+      "primary_key": "KEY_TYP",
+      "columns": [
+        {
+          "name": "FILE_PATH",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_NM",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "SRC_SYS_NM",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "CLMN_NM",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "CLMN_SEQ_NUM",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "DATA_TYP",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "SRC_DATA_TYP",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "CLMN_LEN",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "DEC_SCAL",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "DEC_PREC",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "DATA_FRMT",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "SRC_DATA_FRMT",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "DFLT_VAL",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "IS_NULL_FLG",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "KEY_TYP",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "VLDTN_REQ_FLG",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "CLMN_TYP",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "DATA_SNSTVTY_CTGRY",
+          "source_datatype": "nvarchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "DATA_COMPARISION_DTL",
+      "schema": "MDR_W",
+      "type": "table",
+      "size_mb": 0.82,
+      "row_count": 6014,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "TEST_CASE_ID",
+      "columns": [
+        {
+          "name": "TEST_CASE_ID",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "TEST_CASE_NAME",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "COLUMN_NAME",
+          "source_datatype": "varchar(255)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "COLUMN_VALUE",
+          "source_datatype": "varchar(MAX)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "BUSS_DT",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "RUN_ID",
+          "source_datatype": "varchar(30)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "JOB_OBJ_RELN_BKP_DBNM_CHG",
+      "schema": "MDR_W",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Raw staging or ingestion layer",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_IN_OUT_IND",
+          "source_datatype": "char(5)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 5
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "OBJ_DTL",
+      "schema": "MDR_W",
+      "type": "table",
+      "size_mb": 0.95,
+      "row_count": 1337,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "OBJ_TYP",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "SRC_SYS_OR_APPL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "DB_PLTFRM_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "DB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "VW_DB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "SCHEMA_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "FRMT_TYP_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "CLMN_DLMTR",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "ROW_DLMTR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "REG_ZN",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "FILE_PATH",
+          "source_datatype": "varchar(256)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "FILE_NM",
+          "source_datatype": "varchar(250)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "CNTL_FILE_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "CNTL_FILE_DLMTR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "DLVR_MDE",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "HDR_REC_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "TRLR_REC_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "RTTN_DAY_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "ERR_THRSHD_PCT_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "WRNG_THRSHD_PCT_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "DATA_STWD_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 24
+        },
+        {
+          "name": "DATA_STWD_EMAIL",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 25
+        },
+        {
+          "name": "NOTF_GRP_EMAIL",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 26
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 27
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 28
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 29
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 30
+        },
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 31
+        },
+        {
+          "name": "OBJ_SNPSHT_LOAD_TYP",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 32
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "OBJ_DTL_BKP_DBNM_CHG",
+      "schema": "MDR_W",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Raw staging or ingestion layer",
+      "primary_key": "OBJ_ID",
+      "columns": [
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "OBJ_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "OBJ_TYP",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "SRC_SYS_OR_APPL_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "DB_PLTFRM_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "DB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "VW_DB_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "SCHEMA_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "OBJ_SNPSHT_LOAD_TYP",
+          "source_datatype": "varchar(20)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "FRMT_TYP_NM",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "CLMN_DLMTR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "ROW_DLMTR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "REG_ZN",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "FILE_PATH",
+          "source_datatype": "varchar(256)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "FILE_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "CNTL_FILE_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "CNTL_FILE_DLMTR",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "DLVR_MDE",
+          "source_datatype": "varchar(10)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "HDR_REC_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "TRLR_REC_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "RTTN_DAY_CNT",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "ERR_THRSHD_PCT_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "WRNG_THRSHD_PCT_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 24
+        },
+        {
+          "name": "DATA_STWD_ID",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 25
+        },
+        {
+          "name": "DATA_STWD_EMAIL",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 26
+        },
+        {
+          "name": "NOTF_GRP_EMAIL",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 27
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 28
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": false,
+          "ordinal_position": 29
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 30
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 31
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "OBJ_PRPTY_DTL",
+      "schema": "MDR_W",
+      "type": "table",
+      "size_mb": 5.32,
+      "row_count": 20624,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "OBJ_PRPTY_ID",
+      "columns": [
+        {
+          "name": "OBJ_PRPTY_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 1
+        },
+        {
+          "name": "OBJ_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "CLMN_NM",
+          "source_datatype": "varchar(128)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "CLMN_SEQ_NUM",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "DATA_TYP",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "CLMN_LEN",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "DEC_SCAL",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "DEC_PREC",
+          "source_datatype": "smallint",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "DATA_FRMT",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "DFLT_VAL",
+          "source_datatype": "varchar(50)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "IS_NULL_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "IS_PK_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "IS_WARN_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "IS_ERR_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "IS_CDC_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "IS_CDE_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "DATA_SNSTVTY_CTGRY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "VLDTN_REQ_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "VER_NBR",
+          "source_datatype": "int",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "CLMN_DESC",
+          "source_datatype": "varchar(2000)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "ACTV_FLG",
+          "source_datatype": "char(1)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "REC_CRE_TS",
+          "source_datatype": "datetime",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "REC_CRE_BY",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "JOB_ID",
+          "source_datatype": "varchar(35)",
+          "target_datatype": "STRING",
+          "nullable": false,
+          "ordinal_position": 24
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "CONN_DTL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "DATA_TYP_MAP",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "DQ_OBJ_PRPT_RUL_INFO",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "EDH_OBJECT_LOAD_STATUS",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "JOB_CHK_PNT",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "JOB_CNTL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "JOB_DTL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "JOB_EXEC_STS",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "JOB_OBJ_RELN",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "JOB_PRSS_EXEC_STS",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "JOB_TMPL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "M1",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "METADATA_MISMATCH_TABLE_DETAILS",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "OBJ_DTL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "OBJ_PRPTY_DTL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "OBJECT_DQ_INFO",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "OBJECT_PRPT_SRC_TGT_INFO",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "OBJECT_SRC_TGT_INFO",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "PRSS_DTL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "PRSS_PARM_DTL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "SRC_SYS_DTL",
+      "schema": "MDR_V",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "DATA_COMPARISION_SUMMARY_RPT_V",
+      "schema": "MDR_W",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "DATA_COMPARISION_SUMMARY_V",
+      "schema": "MDR_W",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
+      "name": "database_firewall_rules",
+      "schema": "sys",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
       "name": "sp_alterdiagram",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_creatediagram",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_dropdiagram",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_helpdiagramdefinition",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_helpdiagrams",
+      "schema": "dbo",
+      "type": "procedure",
+      "dependencies": []
+    },
+    {
+      "name": "sp_renamediagram",
       "schema": "dbo",
       "type": "procedure",
       "dependencies": []
@@ -288,6 +5897,15 @@
       "referenced_column": "FK_auth_group_permissions_permission_id_auth_permission"
     },
     {
+      "fk_name": "FK_auth_permission_content_type_id_django_content_type",
+      "parent_schema": "dbo",
+      "parent_table": "auth_permission",
+      "parent_column": "FK_auth_permission_content_type_id_django_content_type",
+      "referenced_schema": "dbo",
+      "referenced_table": "django_content_type",
+      "referenced_column": "FK_auth_permission_content_type_id_django_content_type"
+    },
+    {
       "fk_name": "FK_auth_user_groups_user_id_auth_user",
       "parent_schema": "dbo",
       "parent_table": "auth_user_groups",
@@ -297,6 +5915,15 @@
       "referenced_column": "FK_auth_user_groups_user_id_auth_user"
     },
     {
+      "fk_name": "FK_auth_user_groups_user_id_gathi_user",
+      "parent_schema": "dbo",
+      "parent_table": "auth_user_groups",
+      "parent_column": "FK_auth_user_groups_user_id_gathi_user",
+      "referenced_schema": "dbo",
+      "referenced_table": "gathi_user",
+      "referenced_column": "FK_auth_user_groups_user_id_gathi_user"
+    },
+    {
       "fk_name": "FK_auth_user_groups_group_id_auth_group",
       "parent_schema": "dbo",
       "parent_table": "auth_user_groups",
@@ -304,35 +5931,281 @@
       "referenced_schema": "dbo",
       "referenced_table": "auth_group",
       "referenced_column": "FK_auth_user_groups_group_id_auth_group"
+    },
+    {
+      "fk_name": "FK_auth_user_user_permissions_user_id_auth_user",
+      "parent_schema": "dbo",
+      "parent_table": "auth_user_user_permissions",
+      "parent_column": "FK_auth_user_user_permissions_user_id_auth_user",
+      "referenced_schema": "dbo",
+      "referenced_table": "auth_user",
+      "referenced_column": "FK_auth_user_user_permissions_user_id_auth_user"
+    },
+    {
+      "fk_name": "FK_auth_user_user_permissions_user_id_gathi_user",
+      "parent_schema": "dbo",
+      "parent_table": "auth_user_user_permissions",
+      "parent_column": "FK_auth_user_user_permissions_user_id_gathi_user",
+      "referenced_schema": "dbo",
+      "referenced_table": "gathi_user",
+      "referenced_column": "FK_auth_user_user_permissions_user_id_gathi_user"
+    },
+    {
+      "fk_name": "FK_auth_user_user_permissions_permission_id_auth_permission",
+      "parent_schema": "dbo",
+      "parent_table": "auth_user_user_permissions",
+      "parent_column": "FK_auth_user_user_permissions_permission_id_auth_permission",
+      "referenced_schema": "dbo",
+      "referenced_table": "auth_permission",
+      "referenced_column": "FK_auth_user_user_permissions_permission_id_auth_permission"
+    },
+    {
+      "fk_name": "FK_django_admin_log_content_type_id_django_content_type",
+      "parent_schema": "dbo",
+      "parent_table": "django_admin_log",
+      "parent_column": "FK_django_admin_log_content_type_id_django_content_type",
+      "referenced_schema": "dbo",
+      "referenced_table": "django_content_type",
+      "referenced_column": "FK_django_admin_log_content_type_id_django_content_type"
+    },
+    {
+      "fk_name": "FK_django_admin_log_user_id_auth_user",
+      "parent_schema": "dbo",
+      "parent_table": "django_admin_log",
+      "parent_column": "FK_django_admin_log_user_id_auth_user",
+      "referenced_schema": "dbo",
+      "referenced_table": "auth_user",
+      "referenced_column": "FK_django_admin_log_user_id_auth_user"
+    },
+    {
+      "fk_name": "FK_django_admin_log_user_id_gathi_user",
+      "parent_schema": "dbo",
+      "parent_table": "django_admin_log",
+      "parent_column": "FK_django_admin_log_user_id_gathi_user",
+      "referenced_schema": "dbo",
+      "referenced_table": "gathi_user",
+      "referenced_column": "FK_django_admin_log_user_id_gathi_user"
+    },
+    {
+      "fk_name": "FK_JOB_DTL_TMPL_ID_JOB_TMPL",
+      "parent_schema": "MDR_T",
+      "parent_table": "JOB_DTL",
+      "parent_column": "FK_JOB_DTL_TMPL_ID_JOB_TMPL",
+      "referenced_schema": "MDR_T",
+      "referenced_table": "JOB_TMPL",
+      "referenced_column": "FK_JOB_DTL_TMPL_ID_JOB_TMPL"
+    },
+    {
+      "fk_name": "FK_OBJ_CLBRTN_CLBRTN_ID_OBJ_PRPTY_CLBRTN",
+      "parent_schema": "MDR_T",
+      "parent_table": "OBJ_CLBRTN",
+      "parent_column": "FK_OBJ_CLBRTN_CLBRTN_ID_OBJ_PRPTY_CLBRTN",
+      "referenced_schema": "MDR_T",
+      "referenced_table": "OBJ_PRPTY_CLBRTN",
+      "referenced_column": "FK_OBJ_CLBRTN_CLBRTN_ID_OBJ_PRPTY_CLBRTN"
+    },
+    {
+      "fk_name": "FK_OBJ_PRPTY_CLBRTN_CLBRTN_ID_OBJ_CLBRTN",
+      "parent_schema": "MDR_T",
+      "parent_table": "OBJ_PRPTY_CLBRTN",
+      "parent_column": "FK_OBJ_PRPTY_CLBRTN_CLBRTN_ID_OBJ_CLBRTN",
+      "referenced_schema": "MDR_T",
+      "referenced_table": "OBJ_CLBRTN",
+      "referenced_column": "FK_OBJ_PRPTY_CLBRTN_CLBRTN_ID_OBJ_CLBRTN"
     }
   ],
   "execution_plan": {
     "migration_sequence": [
       "auth_group",
-      "auth_permission",
       "auth_user",
+      "DE_Department",
+      "DE_Employee",
+      "demo_motorvehicle_source",
+      "departments",
+      "django_content_type",
+      "django_migrations",
+      "django_session",
+      "DQ_OBJ_PRPTY_ERR_DTL_test",
+      "DQ_OBJ_PRPTY_RSLT_SMRY_test",
+      "Employee",
+      "EmployeeHistory",
+      "emps",
+      "gathi_user",
+      "src_tgt_cnt",
+      "sysdiagrams",
+      "APPL_DTL",
+      "BSN_TERM_ASSET_RELN",
+      "BSN_TERM_DTL",
+      "CONN_DTL",
+      "container_size_logs",
+      "DATA_EXTRACTION_MD",
+      "DATA_TYP_MAP",
+      "DATAPULL_WATERMARK",
+      "DQ_OBJ_PRPTY_CDE_DTL",
+      "DQ_OBJ_PRPTY_ERR_DTL",
+      "DQ_OBJ_PRPTY_RPT_MAP",
+      "DQ_OBJ_PRPTY_RSLT_SMRY",
+      "DQ_OBJ_PRPTY_RUL_MAP",
+      "DQ_RUL_DTL",
+      "JOB_CHK_PNT",
+      "JOB_CNTL",
+      "JOB_DTL_EXTD",
+      "JOB_EXEC_STS",
+      "JOB_OBJ_PRPTY_RELN",
+      "JOB_OBJ_RELN",
+      "JOB_PRSS_EXEC_STS",
+      "JOB_TMPL",
+      "METADATA_MISMATCH_REPORT",
+      "OBJ_DTL",
+      "OBJ_PRPTY_DTL",
+      "PARM_DESC",
+      "PRSS_DTL",
+      "PRSS_PARM_DTL",
+      "RECON_CONFIG",
+      "RECON_RESULTS",
+      "REFINED_ZONE_SQL_FUNCTIONS",
+      "SCHEDULE",
+      "SOURCE_TARGET_COUNT_REPORT",
+      "SRC_SYS_DTL",
+      "term_bkp",
+      "TMP_SRC_TGT_CNT",
+      "USER_JOB_DTL",
+      "OBJECT_PRPT_SRC_TGT_INFO_TEST",
+      "DATA_COMPARISION_DTL",
+      "JOB_OBJ_RELN_BKP_DBNM_CHG",
+      "OBJ_DTL",
+      "OBJ_DTL_BKP_DBNM_CHG",
+      "OBJ_PRPTY_DTL",
+      "auth_permission",
+      "auth_user_groups",
+      "django_admin_log",
+      "JOB_DTL",
       "auth_group_permissions",
-      "auth_user_groups"
+      "auth_user_user_permissions",
+      "OBJ_CLBRTN",
+      "OBJ_PRPTY_CLBRTN"
     ],
     "batches": {
       "Batch 1 (Independent Tables)": [
         "auth_group",
-        "auth_permission",
-        "auth_user"
+        "auth_user",
+        "DE_Department",
+        "DE_Employee",
+        "demo_motorvehicle_source",
+        "departments",
+        "django_content_type",
+        "django_migrations",
+        "django_session",
+        "DQ_OBJ_PRPTY_ERR_DTL_test",
+        "DQ_OBJ_PRPTY_RSLT_SMRY_test",
+        "Employee",
+        "EmployeeHistory",
+        "emps",
+        "gathi_user",
+        "src_tgt_cnt",
+        "sysdiagrams",
+        "APPL_DTL",
+        "BSN_TERM_ASSET_RELN",
+        "BSN_TERM_DTL",
+        "CONN_DTL",
+        "container_size_logs",
+        "DATA_EXTRACTION_MD",
+        "DATA_TYP_MAP",
+        "DATAPULL_WATERMARK",
+        "DQ_OBJ_PRPTY_CDE_DTL",
+        "DQ_OBJ_PRPTY_ERR_DTL",
+        "DQ_OBJ_PRPTY_RPT_MAP",
+        "DQ_OBJ_PRPTY_RSLT_SMRY",
+        "DQ_OBJ_PRPTY_RUL_MAP",
+        "DQ_RUL_DTL",
+        "JOB_CHK_PNT",
+        "JOB_CNTL",
+        "JOB_DTL_EXTD",
+        "JOB_EXEC_STS",
+        "JOB_OBJ_PRPTY_RELN",
+        "JOB_OBJ_RELN",
+        "JOB_PRSS_EXEC_STS",
+        "JOB_TMPL",
+        "METADATA_MISMATCH_REPORT",
+        "OBJ_DTL",
+        "OBJ_PRPTY_DTL",
+        "PARM_DESC",
+        "PRSS_DTL",
+        "PRSS_PARM_DTL",
+        "RECON_CONFIG",
+        "RECON_RESULTS",
+        "REFINED_ZONE_SQL_FUNCTIONS",
+        "SCHEDULE",
+        "SOURCE_TARGET_COUNT_REPORT",
+        "SRC_SYS_DTL",
+        "term_bkp",
+        "TMP_SRC_TGT_CNT",
+        "USER_JOB_DTL",
+        "OBJECT_PRPT_SRC_TGT_INFO_TEST",
+        "DATA_COMPARISION_DTL",
+        "JOB_OBJ_RELN_BKP_DBNM_CHG",
+        "OBJ_DTL",
+        "OBJ_DTL_BKP_DBNM_CHG",
+        "OBJ_PRPTY_DTL"
       ],
       "Batch 2 (Medium Dependency Tables)": [],
       "Batch 3 (Highly Dependent Tables)": [
         "auth_group_permissions",
-        "auth_user_groups"
+        "auth_permission",
+        "auth_user_groups",
+        "auth_user_user_permissions",
+        "django_admin_log",
+        "JOB_DTL",
+        "OBJ_CLBRTN",
+        "OBJ_PRPTY_CLBRTN"
       ],
-      "Batch 4 (Views)": [],
+      "Batch 4 (Views)": [
+        "CONN_DTL",
+        "DATA_TYP_MAP",
+        "DQ_OBJ_PRPT_RUL_INFO",
+        "EDH_OBJECT_LOAD_STATUS",
+        "JOB_CHK_PNT",
+        "JOB_CNTL",
+        "JOB_DTL",
+        "JOB_EXEC_STS",
+        "JOB_OBJ_RELN",
+        "JOB_PRSS_EXEC_STS",
+        "JOB_TMPL",
+        "M1",
+        "METADATA_MISMATCH_TABLE_DETAILS",
+        "OBJ_DTL",
+        "OBJ_PRPTY_DTL",
+        "OBJECT_DQ_INFO",
+        "OBJECT_PRPT_SRC_TGT_INFO",
+        "OBJECT_SRC_TGT_INFO",
+        "PRSS_DTL",
+        "PRSS_PARM_DTL",
+        "SRC_SYS_DTL",
+        "DATA_COMPARISION_SUMMARY_RPT_V",
+        "DATA_COMPARISION_SUMMARY_V",
+        "database_firewall_rules"
+      ],
       "Batch 5 (Stored Procedures)": [
-        "sp_alterdiagram"
-      ]
+        "sp_alterdiagram",
+        "sp_creatediagram",
+        "sp_dropdiagram",
+        "sp_helpdiagramdefinition",
+        "sp_helpdiagrams",
+        "sp_renamediagram"
+      ],
+      "Batch 6 (Functions)": []
     },
     "strategies": {
       "table_execution_logic": "All tables in Batch 1 can be executed in parallel due to independence. Batch 3 tables should be executed sequentially after their dependencies are satisfied.",
-      "incremental_load_candidates": []
+      "incremental_load_candidates": [
+        "demo_motorvehicle_source",
+        "DQ_OBJ_PRPTY_ERR_DTL_test",
+        "DQ_OBJ_PRPTY_ERR_DTL",
+        "JOB_DTL_EXTD",
+        "JOB_PRSS_EXEC_STS",
+        "USER_JOB_DTL",
+        "OBJECT_PRPT_SRC_TGT_INFO_TEST"
+      ]
     }
   }
 }

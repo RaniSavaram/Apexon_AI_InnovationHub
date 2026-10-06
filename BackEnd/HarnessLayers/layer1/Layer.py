@@ -63,7 +63,7 @@ class Severity(str, Enum):
 DEFAULT_FABRIC_CONFIG: dict[str, Any] = {
     "supported_data_types": [
         "int", "bigint", "smallint", "tinyint", "bit",
-        "decimal", "numeric", "float", "real",
+        "decimal", "numeric", "number", "float", "real",
         "char", "varchar", "nchar", "nvarchar", "text",
         "date", "datetime", "datetime2", "time",
         "uniqueidentifier", "binary", "varbinary", "boolean"
@@ -382,9 +382,13 @@ class MetadataValidator:
                     f"source='{src}', target='{tgt}'."
                 ))
 
-        # No duplicate objects
+        # No duplicate objects. Names are schema-qualified: MDR_T.OBJ_DTL and
+        # MDR_W.OBJ_DTL are two different tables, not a duplicate.
         for label, objects in (("tables", tables), ("views", views), ("procedures", procedures)):
-            names = [o.get("name") for o in objects if o.get("name")]
+            names = [
+                f"{o['schema']}.{o['name']}" if o.get("schema") else o["name"]
+                for o in objects if o.get("name")
+            ]
             duplicates = {n for n in names if names.count(n) > 1}
             if duplicates:
                 issues.append(ValidationIssue(
@@ -753,7 +757,7 @@ def _normalize_extracted_metadata(raw_metadata: dict[str, Any]) -> dict[str, Any
     separately) since GovernanceValidator's naming-convention check rejects
     '.' in identifiers.
 
-    Objects with type == "VIEW" are routed to "views" instead of "tables",
+    Objects with type "VIEW" or "MATERIALIZED VIEW" are routed to "views" instead of "tables",
     matching the convention parse_schema_dict() uses in
     AI_Agent_Pipeline/src/metadataProcessor.py. Each schema's "procedures"
     list (populated by the extractors that support it) is flattened into
@@ -780,7 +784,7 @@ def _normalize_extracted_metadata(raw_metadata: dict[str, Any]) -> dict[str, Any
                 "indexes": [],
                 "recent_statements": table.get("recent_statements", []) or [],
             }
-            if (table.get("type") or "").upper() == "VIEW":
+            if (table.get("type") or "").upper() in ("VIEW", "MATERIALIZED VIEW"):
                 views.append(entry)
             else:
                 tables.append(entry)

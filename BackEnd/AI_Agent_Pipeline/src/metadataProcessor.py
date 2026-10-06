@@ -189,12 +189,15 @@ def parse_schema_dict(schema_data, label="metadata"):
             procedures_list.append({
                 "schema_name": schema_name,
                 "procedure_name": procedure.get("name"),
+                "definition": procedure.get("definition"),
             })
         for function in schema.get("functions", []):
             functions_list.append({
                 "schema_name": schema_name,
                 "function_name": function.get("name"),
                 "return_type": function.get("return_type"),
+                "arguments": function.get("arguments"),
+                "definition": function.get("definition"),
             })
         for volume in schema.get("volumes", []):
             volumes_list.append({
@@ -206,18 +209,27 @@ def parse_schema_dict(schema_data, label="metadata"):
         for table in schema.get("tables", []):
             table_name = table.get("name")
             table_type = table.get("type", "BASE TABLE")
-            if table_type.upper() == "VIEW":
+            # Materialized views (Snowflake's TABLE_TYPE 'MATERIALIZED VIEW')
+            # go to views too - copying one as a Delta table would freeze
+            # its data at scan time. Fabric Warehouse has no materialized
+            # views, so it becomes a (always-current) Warehouse view.
+            if table_type.upper() in ("VIEW", "MATERIALIZED VIEW"):
                 views_list.append({
                     "schema_name": schema_name,
                     "view_name": table_name,
                     "definition": table.get("definition"),
+                    "is_materialized": table_type.upper() == "MATERIALIZED VIEW",
                 })
             else:
                 tables_list.append({
                     "schema_name": schema_name,
                     "table_name": table_name,
                     "file_name": label,
-                    "full_table_name": f"{schema_name}.{table_name}"
+                    "full_table_name": f"{schema_name}.{table_name}",
+                    # Declared keys from the extractor (Metadata_Scanner/
+                    # extractors/declared_keys.py); None = not read.
+                    "declared_primary_key": table.get("primary_key"),
+                    "declared_foreign_keys": table.get("foreign_keys"),
                 })
                 row_cnt = table.get("row_count") or 0
                 sz_mb = table.get("size_mb") or 0.0
@@ -253,6 +265,12 @@ def parse_schema_dict(schema_data, label="metadata"):
                     datatype_str = f"{datatype}({max_len})"
                 elif max_len == -1 and ("varchar" in datatype.lower() or "char" in datatype.lower()):
                     datatype_str = f"{datatype}(MAX)"
+                elif datatype.lower() == "number" and col.get("precision") is not None:
+                    # Snowflake reports every fixed-point column (INT, BIGINT,
+                    # DECIMAL(p,s), ...) as a bare NUMBER with precision/scale
+                    # in separate fields - fold them back in so the Fabric
+                    # side can build DECIMAL(p,s) instead of guessing.
+                    datatype_str = f"{datatype}({col.get('precision')},{col.get('scale') or 0})"
                 else:
                     datatype_str = datatype
                 columns_list.append({
@@ -279,9 +297,9 @@ def build_dataframes(tables_list, columns_list, stats_list, views_list, procedur
     tables_df = pd.DataFrame(tables_list)
     columns_df = pd.DataFrame(columns_list)
     stats_df = pd.DataFrame(stats_list)
-    views_df = pd.DataFrame(views_list) if views_list else pd.DataFrame(columns=["schema_name", "view_name", "definition"])
-    procedures_df = pd.DataFrame(procedures_list) if procedures_list else pd.DataFrame(columns=["schema_name", "procedure_name"])
-    functions_df = pd.DataFrame(functions_list) if functions_list else pd.DataFrame(columns=["schema_name", "function_name", "return_type"])
+    views_df = pd.DataFrame(views_list) if views_list else pd.DataFrame(columns=["schema_name", "view_name", "definition", "is_materialized"])
+    procedures_df = pd.DataFrame(procedures_list) if procedures_list else pd.DataFrame(columns=["schema_name", "procedure_name", "definition"])
+    functions_df = pd.DataFrame(functions_list) if functions_list else pd.DataFrame(columns=["schema_name", "function_name", "return_type", "arguments", "definition"])
     volumes_df = pd.DataFrame(volumes_list) if volumes_list else pd.DataFrame(columns=["schema_name", "volume_name", "volume_type", "storage_location"])
     dep_list = []
     for t_idx, t_row in tables_df.iterrows():

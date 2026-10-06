@@ -12,6 +12,7 @@ from rest_framework.response import Response
 
 from config.Credentials import PrivateVariables
 from Migrator.connection_store import save_connection, get_saved_connection, get_saved_connections
+from Migrator.er_diagram import build_er_model
 from Metadata_Scanner.extractors.sqlserver import SQLServerExtractor
 #from Metadata_Scanner.extractors.oracle import OracleExtractor
 #from Metadata_Scanner.extractors.mysql import MySQLExtractor
@@ -61,8 +62,8 @@ def _limit_metadata_tables(metadata):
                 remaining -= len(take)
         return taken_by_schema
 
-    is_view = lambda t: (t.get("type") or "").upper() == "VIEW"
-    is_base_table = lambda t: (t.get("type") or "").upper() != "VIEW"
+    is_view = lambda t: (t.get("type") or "").upper() in ("VIEW", "MATERIALIZED VIEW")
+    is_base_table = lambda t: not is_view(t)
 
     kept_base_tables = _take("tables", is_base_table, budget)
     remaining_budget = budget - sum(len(t) for t in kept_base_tables.values())
@@ -93,16 +94,18 @@ def _push_databricks_to_fabric(output_files, database_name):
     """
     Converts the just-generated Assessment Report + Migration Plan docx
     into migration_plan.json and pushes it straight into the pre-provisioned
-    "Databricks_Lakehouse" in Fabric via DB2_2_Fabric.py - no manual CLI
-    step needed for databricks scans. Only called for db_type == "databricks";
-    other sources aren't wired up to a real Fabric Lakehouse yet.
+    "Databricks_Lakehouse" in Fabric via databricks2_fabric.py - no manual
+    CLI step needed for databricks scans. Only called for db_type ==
+    "databricks"; other sources aren't wired up to a real Fabric Lakehouse
+    yet.
 
-    Returns the dict DB2_2_Fabric.Generator() returns (status/processed/errors).
-    Raises on failure - callers should catch and log rather than fail the scan,
-    since the docx reports themselves already succeeded by the time this runs.
+    Returns the dict databricks2_fabric.Generator() returns
+    (status/processed/errors). Raises on failure - callers should catch and
+    log rather than fail the scan, since the docx reports themselves
+    already succeeded by the time this runs.
     """
     from Artifacts_Generator.plan_to_json import build_plan
-    from Artifacts_Generator import DB2_2_Fabric
+    from Artifacts_Generator import databricks2_fabric
 
     output_dir = Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output"
     assessment_path = output_dir / output_files["assessment_report"]
@@ -119,10 +122,9 @@ def _push_databricks_to_fabric(output_files, database_name):
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(plan, f, indent=2, ensure_ascii=False)
 
-    return DB2_2_Fabric.Generator(
+    return databricks2_fabric.Generator(
         json_path=json_path,
         dry_run=False,
-        source_system="databricks",
         database_name=database_name,
     )
 
@@ -326,53 +328,28 @@ def serve_generated_document(request, filename):
     return response
 
 
-def _get_connection_log_lines(db_type, creds):
-    lines = []
-    db_type_lower = (db_type or "").lower()
-    server = creds.get_servername()
-    database = creds.get_database_name()
-    username = creds.get_username()
-    extra = creds.get_extra_dict() or {}
+@api_view(["GET"])
+def er_diagram(request):
+    """
+    Entity-relationship model for the UI's "ER Diagrams" tab, built from a
+    finished scan's Fabric metadata JSON (see Migrator/er_diagram.py).
+    ?file= is the "fabric_migration_metadata" name Agents_PipeLine returns
+    in output_files; it defaults to the copy of the most recent scan.
+    """
+    output_dir = (Path(__file__).resolve().parent.parent / "AI_Agent_Pipeline" / "output").resolve()
+    filename = request.GET.get("file") or "Fabric_Migration_Metadata.json"
+    file_path = (output_dir / filename).resolve()
+    if file_path.parent != output_dir or not file_path.name.endswith("Fabric_Migration_Metadata.json"):
+        return Response({"status": "error", "message": "Invalid metadata file."}, status=400)
+    if not file_path.is_file():
+        return Response({"status": "error", "message": f"{filename} not found - run a scan first."}, status=404)
 
-    if db_type_lower == "snowflake":
-        account = extra.get("account") or server
-        warehouse = extra.get("warehouse")
-        role = extra.get("role")
-        if account:
-            lines.append(f"Account   : {repr(account)}")
-        if database:
-            lines.append(f"Database  : {repr(database)}")
-        if warehouse:
-            lines.append(f"Warehouse : {repr(warehouse)}")
-        if username:
-            lines.append(f"User      : {repr(username)}")
-        if role:
-            lines.append(f"Role      : {repr(role)}")
-    elif db_type_lower == "databricks":
-        catalog = database
-        http_path = extra.get("http_path")
-        if server:
-            lines.append(f"Server   : {repr(server)}")
-        if catalog:
-            lines.append(f"Catalog  : {repr(catalog)}")
-        if http_path:
-            lines.append(f"HTTP Path: {repr(http_path)}")
-        if username:
-            lines.append(f"User     : {repr(username)}")
-    elif db_type_lower in ("dynamics365", "dynamics 365", "d365"):
-        if server:
-            lines.append(f"Org URL  : {repr(server)}")
-    elif db_type_lower == "sqlite":
-        if database:
-            lines.append(f"Database : {repr(database)}")
-    else:
-        if server:
-            lines.append(f"Server   : {repr(server)}")
-        if database:
-            lines.append(f"Database : {repr(database)}")
-        if username:
-            lines.append(f"User     : {repr(username)}")
-    return lines
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            model = build_er_model(json.load(f))
+    except Exception as exc:
+        return Response({"status": "error", "message": f"Could not build the ER diagram: {exc}"}, status=500)
+    return Response({"status": "success", "file": file_path.name, **model})
 
 
 @api_view(["POST"])
@@ -641,7 +618,11 @@ def _run_scan(destination, scan_source=None, scan_id=None):
         original_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
-        metadata = _limit_metadata_tables(metadata)
+        # SQL Server, Databricks, Dynamics 365, and Snowflake scans get the
+        # full schema - no demo cap. Every other source still gets capped
+        # to MAX_SCAN_TABLES.
+        if db_type not in ("sqlserver", "databricks", "dynamics365", "dynamics 365", "d365", "snowflake"):
+            metadata = _limit_metadata_tables(metadata)
         selected_table_count = sum(
             len(schema.get("tables", [])) for schema in metadata.get("schemas", [])
         )
@@ -777,15 +758,17 @@ def debug_view(request):
 @api_view(["POST", "GET"])
 def generate_fabric_artifacts(request):
     """
-    Executes BackEnd/Artifacts_Generator/DB2_2_Fabric.py - the generic,
-    JSON-driven generator (nothing in it is actually Databricks-specific;
-    see its module docstring) - to create Delta tables, Views, Stored
-    Procedures, Volumes, and a Data Pipeline scaffold directly in Microsoft
-    Fabric, based on the selected source's Assessment Report/Migration Plan.
+    Executes one of the per-source BackEnd/Artifacts_Generator/*2_fabric.py
+    scripts (databricks2_fabric.py, sqlserver2_fabric.py,
+    dynamics3652_fabric.py, snowflake2_fabric.py) to create Delta tables,
+    Views, Stored Procedures, Volumes, and a Data Pipeline scaffold
+    directly in Microsoft Fabric, based on the selected source's
+    Assessment Report/Migration Plan.
 
-    Both Databricks and SQL Server route through the same Generator now:
-    SQL Server used to run the older, table-only SQL_2_Fabric.py, which had
-    no Views/Stored Procedures support at all.
+    All four are thin wrappers around the same
+    fabric_generator_core.Generator() - see that module's docstring - each
+    just pinning source_system and reporting its own filename back as
+    generator_script.
     """
     try:
         global source
@@ -810,21 +793,36 @@ def generate_fabric_artifacts(request):
 
         source_clean = (source_param or "").strip().lower().replace(" ", "").replace("_", "")
 
-        # Route based on source system:
-        # Databricks -> DB2_2_Fabric.py
-        # SQL Server -> SQL_2_Fabric.py
+        # Route based on source system - each source has its own thin
+        # *2_fabric.py entry point (databricks2_fabric.py /
+        # sqlserver2_fabric.py / dynamics3652_fabric.py), all backed by the
+        # same fabric_generator_core.Generator(); only which one gets
+        # imported, and therefore the resolved pre-provisioned
+        # Lakehouse/report files, differs.
         if "databricks" in source_clean:
-            script_name = "DB2_2_Fabric.py"
             source_display = "Databricks"
+            from Artifacts_Generator import databricks2_fabric as fabric_script
+            script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            from Artifacts_Generator.DB2_2_Fabric import Generator as DatabricksGenerator
-            result = DatabricksGenerator(source_system="databricks", database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
+        elif "dynamics" in source_clean or source_clean == "d365":
+            source_display = "Dynamics 365"
+            from Artifacts_Generator import dynamics3652_fabric as fabric_script
+            script_name = fabric_script.SCRIPT_NAME
+            print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
+            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
+        elif "snowflake" in source_clean:
+            source_display = "Snowflake"
+            from Artifacts_Generator import snowflake2_fabric as fabric_script
+            script_name = fabric_script.SCRIPT_NAME
+            print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
+            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
         else:
-            script_name = "SQL_2_Fabric.py"
             source_display = "SQL Server"
+            from Artifacts_Generator import sqlserver2_fabric as fabric_script
+            script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            from Artifacts_Generator.SQL_2_Fabric import Generator as SqlServerGenerator
-            result = SqlServerGenerator(workspace_id=workspace_id)
+            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
 
         result["generator_script"] = script_name
         result["source_system"] = source_display
@@ -834,10 +832,9 @@ def generate_fabric_artifacts(request):
         return Response(result, status=200)
     except Exception as exc:
         traceback.print_exc()
-        fallback_script = "DB2_2_Fabric.py" if "databricks" in (source_param if "source_param" in locals() else "").lower() else "SQL_2_Fabric.py"
         return Response({
             "status": "error",
             "message": str(exc),
             "logs": [str(exc)],
-            "generator_script": fallback_script
+            "generator_script": None
         }, status=200)

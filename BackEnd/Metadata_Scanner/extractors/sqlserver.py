@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from Metadata_Scanner.extractors.base_extractor import BaseExtractor
+from Metadata_Scanner.extractors.declared_keys import read_sqlserver_keys
 from config.Credentials import PrivateVariables
 
 class SQLServerExtractor(BaseExtractor):
@@ -183,6 +184,14 @@ class SQLServerExtractor(BaseExtractor):
                 schema_map[schema_name]["procedures"].append({"name": proc["ROUTINE_NAME"]})
         except Exception as e:
             print(f"[WARNING] Could not list stored procedures: {e}")
+
+        # Declared primary/foreign keys (see declared_keys.py) - the ER
+        # diagram draws these instead of guessing from column names.
+        try:
+            pk_tables, fk_count = read_sqlserver_keys(self.connection, schema_map)
+            print(f"[INFO] Declared keys: {pk_tables} table(s) with a primary key, {fk_count} foreign key(s).")
+        except Exception as e:
+            print(f"[WARNING] Could not read declared keys: {e}")
 
         metadata["schemas"] = list(schema_map.values())
 

@@ -9,6 +9,20 @@ export interface ConnectionDetails {
   password: string;
   /** Databricks-only: SQL warehouse endpoint, sent to Django as extra.http_path */
   httpPath?: string;
+  /** Dynamics 365-only: Azure AD tenant ID, sent to Django as extra.tenant_id */
+  tenantId?: string;
+  /** Dynamics 365-only: app registration (client) ID, sent to Django as extra.client_id */
+  clientId?: string;
+  /** Dynamics 365-only: app registration client secret, sent to Django as extra.client_secret */
+  clientSecret?: string;
+  /** Snowflake-only: account identifier (e.g. "xy12345.us-east-1"), sent to Django as extra.account */
+  account?: string;
+  /** Snowflake-only: compute warehouse name, sent to Django as extra.warehouse */
+  warehouse?: string;
+  /** Snowflake-only: optional role to assume, sent to Django as extra.role */
+  role?: string;
+  /** Snowflake-only: Programmatic Access Token (PAT), sent to Django as extra.token - when set, connects without username/password */
+  token?: string;
 }
 
 export interface ConnectResponse {
@@ -22,7 +36,16 @@ export interface SavedConnectionProfile {
   database: string;
   username: string;
   password: string;
-  extra?: { http_path?: string };
+  extra?: {
+    http_path?: string;
+    tenant_id?: string;
+    client_id?: string;
+    client_secret?: string;
+    account?: string;
+    warehouse?: string;
+    role?: string;
+    token?: string;
+  };
 }
 
 export interface SavedConnectionResponse {
@@ -63,8 +86,53 @@ export interface ScanStatus {
     output_files?: {
       assessment_report?: string;
       migration_plan?: string;
+      fabric_migration_metadata?: string;
     };
   };
+}
+
+export interface ErColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  pk: boolean;
+  fk: boolean;
+}
+
+export interface ErTable {
+  id: string;
+  schema: string;
+  name: string;
+  row_count?: number | null;
+  primary_key?: string | null;
+  /** True when the primary key is declared in the source, not guessed. */
+  primary_key_declared: boolean;
+  columns: ErColumn[];
+}
+
+export interface ErRelationship {
+  from: string;
+  /** Comma-separated for a composite foreign key. */
+  from_column: string;
+  to: string;
+  to_column?: string | null;
+  /** Foreign key constraint name, for declared relationships. */
+  name?: string | null;
+  inferred: boolean;
+}
+
+export interface ErDiagramResponse {
+  status: string;
+  file: string;
+  source?: string;
+  database?: string;
+  generated_at?: string;
+  /** Whether the scan could read the source's declared keys at all. */
+  declared_keys_read: boolean;
+  /** Declared foreign keys, or (when there are none) inferred from column names. */
+  relationship_source: 'declared' | 'inferred';
+  tables: ErTable[];
+  relationships: ErRelationship[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -79,13 +147,23 @@ export class Scanner {
    * "connection" object - so the payload here is deliberately flat to match.
    */
   connectDatabase(source: string, connection: ConnectionDetails, rememberMe = false) {
+    const extra: { http_path?: string; tenant_id?: string; client_id?: string; client_secret?: string; account?: string; warehouse?: string; role?: string; token?: string } = {};
+    if (connection.httpPath) extra.http_path = connection.httpPath;
+    if (connection.tenantId) extra.tenant_id = connection.tenantId;
+    if (connection.clientId) extra.client_id = connection.clientId;
+    if (connection.clientSecret) extra.client_secret = connection.clientSecret;
+    if (connection.account) extra.account = connection.account;
+    if (connection.warehouse) extra.warehouse = connection.warehouse;
+    if (connection.role) extra.role = connection.role;
+    if (connection.token) extra.token = connection.token;
+
     const payload = {
       source,
       server: connection.server,
       database: connection.database,
       username: connection.username,
       password: connection.password,
-      extra: connection.httpPath ? { http_path: connection.httpPath } : {},
+      extra,
       remember_me: rememberMe,
     };
     return this.http.post<ConnectResponse>(`${this.api.baseUrl}/connect/`, payload);
@@ -137,9 +215,22 @@ export class Scanner {
   }
 
   /**
-   * Invokes BackEnd/Artifacts_Generator/DB2_2_Fabric.py to deploy the
-   * scanned Tables, Views, Stored Procedures, and Volumes directly into
-   * Microsoft Fabric.
+   * Tables, columns, keys, and relationships for the logs dialog's
+   * "ER Diagrams" tab, built by Django's er_diagram view from a finished
+   * scan's Fabric metadata JSON (output_files.fabric_migration_metadata).
+   * Without a file, Django falls back to the most recent scan's copy.
+   */
+  getErDiagram(file?: string) {
+    return this.http.get<ErDiagramResponse>(`${this.api.baseUrl}/er-diagram/`, {
+      params: file ? { file } : {},
+    });
+  }
+
+  /**
+   * Invokes the source's BackEnd/Artifacts_Generator/*2_fabric.py script
+   * (databricks2_fabric.py / sqlserver2_fabric.py / dynamics3652_fabric.py)
+   * to deploy the scanned Tables, Views, Stored Procedures, and Volumes
+   * directly into Microsoft Fabric.
    */
   generateFabricArtifacts(source?: string, filename?: string) {
     return this.http.post<{

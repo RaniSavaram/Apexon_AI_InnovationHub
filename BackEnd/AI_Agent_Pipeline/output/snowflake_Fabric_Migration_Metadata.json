@@ -1,0 +1,358 @@
+{
+  "metadata": {
+    "scan_id": "778374f3-f3b0-4431-b5f4-b2ba64cb79f4",
+    "generated_at": "2026-09-30T10:39:39.179561Z",
+    "source_platform": "Snowflake",
+    "target_platform": "Microsoft Fabric (OneLake)",
+    "total_tables": 6,
+    "total_columns": 33,
+    "total_views": 1,
+    "total_procedures": 0,
+    "total_functions": 3,
+    "total_size_mb": 0.36,
+    "total_row_count": 13
+  },
+  "source": {
+    "database_name": "DEMO_DB",
+    "schemas": [
+      "SALES"
+    ]
+  },
+  "target": {
+    "lakehouse_name": "LH_snowflake",
+    "medallion_architecture": "Bronze-Silver-Gold",
+    "fabric_components": {
+      "Lakehouse": "Central storage repository for raw and cleansed Delta tables.",
+      "Pipelines": "Orchestrates schema copying, pipeline runs, and historical loads.",
+      "OneLake": "Logical unified data lake storage engine using Delta Parquet format.",
+      "Spark Notebooks": "Processes Silver normalizations and Gold analytical aggregations.",
+      "Power BI Reports": "Consumes conformed Gold semantic tables for business intelligence dashboards."
+    }
+  },
+  "objects": [
+    {
+      "name": "CUSTOMERS",
+      "schema": "SALES",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 5,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "CUSTOMER_ID",
+      "columns": [
+        {
+          "name": "CUSTOMER_ID",
+          "source_datatype": "NUMBER(38,0)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "CUSTOMER_NAME",
+          "source_datatype": "TEXT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "EMAIL",
+          "source_datatype": "TEXT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "COUNTRY",
+          "source_datatype": "TEXT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "ORDERS",
+      "schema": "SALES",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 8,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "ORDER_ID",
+      "columns": [
+        {
+          "name": "ORDER_ID",
+          "source_datatype": "NUMBER(38,0)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "CUSTOMER_ID",
+          "source_datatype": "NUMBER(38,0)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "PRODUCT_NAME",
+          "source_datatype": "TEXT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "CATEGORY",
+          "source_datatype": "TEXT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "REGION",
+          "source_datatype": "TEXT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "ORDER_DATE",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "QUANTITY",
+          "source_datatype": "NUMBER(38,0)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "AMOUNT",
+          "source_datatype": "NUMBER(12,2)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "STATUS",
+          "source_datatype": "TEXT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "RAW_CUSTOMERS",
+      "schema": "SALES",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": null,
+      "columns": [
+        {
+          "name": "PAYLOAD",
+          "source_datatype": "VARIANT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "LOADED_AT",
+          "source_datatype": "TIMESTAMP_LTZ",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 2
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "RAW_SALES",
+      "schema": "SALES",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Bronze",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "ORDER_KEY",
+      "columns": [
+        {
+          "name": "ORDER_KEY",
+          "source_datatype": "NUMBER(38,0)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "ORDER_DATE",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "TOTAL_PRICE",
+          "source_datatype": "NUMBER(12,2)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 3
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "SALES_ICEBERG",
+      "schema": "SALES",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Gold",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "ORDER_ID",
+      "columns": [
+        {
+          "name": "ORDER_ID",
+          "source_datatype": "NUMBER(10,0)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "CUSTOMER",
+          "source_datatype": "TEXT",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "AMOUNT",
+          "source_datatype": "NUMBER(10,2)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "ORDER_DATE",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "STG_ORDERS",
+      "schema": "SALES",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "ORDER_ID",
+      "columns": [
+        {
+          "name": "ORDER_ID",
+          "source_datatype": "NUMBER(38,0)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "CUSTOMER_ID",
+          "source_datatype": "NUMBER(38,0)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "AMOUNT",
+          "source_datatype": "NUMBER(10,2)",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "ORDER_DATE",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "MV_HIGH_VALUE_ORDERS",
+      "schema": "SALES",
+      "type": "view",
+      "is_materialized": true,
+      "dependencies": []
+    },
+    {
+      "name": "GET_CUSTOMERS_BY_COUNTRY",
+      "schema": "SALES",
+      "type": "function",
+      "return_type": "TABLE (CUSTOMER_ID NUMBER, CUSTOMER_NAME VARCHAR, EMAIL VARCHAR)",
+      "dependencies": []
+    },
+    {
+      "name": "IS_VALID_EMAIL",
+      "schema": "SALES",
+      "type": "function",
+      "return_type": "BOOLEAN",
+      "dependencies": []
+    },
+    {
+      "name": "MASK_EMAIL",
+      "schema": "SALES",
+      "type": "function",
+      "return_type": "VARCHAR(134217728)",
+      "dependencies": []
+    }
+  ],
+  "relationships": [],
+  "execution_plan": {
+    "migration_sequence": [
+      "CUSTOMERS",
+      "ORDERS",
+      "RAW_CUSTOMERS",
+      "RAW_SALES",
+      "SALES_ICEBERG",
+      "STG_ORDERS"
+    ],
+    "batches": {
+      "Batch 1 (Independent Tables)": [
+        "CUSTOMERS",
+        "ORDERS",
+        "RAW_CUSTOMERS",
+        "RAW_SALES",
+        "SALES_ICEBERG",
+        "STG_ORDERS"
+      ],
+      "Batch 2 (Medium Dependency Tables)": [],
+      "Batch 3 (Highly Dependent Tables)": [],
+      "Batch 4 (Views)": [
+        "MV_HIGH_VALUE_ORDERS"
+      ],
+      "Batch 5 (Stored Procedures)": [],
+      "Batch 6 (Functions)": [
+        "GET_CUSTOMERS_BY_COUNTRY",
+        "IS_VALID_EMAIL",
+        "MASK_EMAIL"
+      ]
+    },
+    "strategies": {
+      "table_execution_logic": "All tables in Batch 1 can be executed in parallel due to independence. Batch 3 tables should be executed sequentially after their dependencies are satisfied.",
+      "incremental_load_candidates": []
+    }
+  }
+}

@@ -1,21 +1,28 @@
 {
   "metadata": {
-    "scan_id": "2a98e3d9-a8a8-45ad-bd3a-5999fca8771a",
-    "generated_at": "2026-09-08T10:20:43.002646Z",
+    "scan_id": "cdfd5438-b6bb-454e-bc7d-f6f15f55a3a6",
+    "generated_at": "2026-10-05T11:19:29.232740Z",
     "source_platform": "Databricks",
     "target_platform": "Microsoft Fabric (OneLake)",
-    "total_tables": 5,
-    "total_columns": 91,
-    "total_views": 0,
+    "total_tables": 25,
+    "total_columns": 453,
+    "total_views": 1,
     "total_procedures": 1,
-    "total_size_mb": 4.54,
-    "total_row_count": 137275
+    "total_functions": 0,
+    "total_size_mb": 24.55,
+    "total_row_count": 561183
   },
   "source": {
     "database_name": "bfsi_dev",
     "schemas": [
       "cards",
-      "core_banking"
+      "core_banking",
+      "insurance",
+      "lending",
+      "payments",
+      "risk_compliance",
+      "sp_demo",
+      "wealth"
     ]
   },
   "target": {
@@ -36,9 +43,11 @@
       "type": "table",
       "size_mb": 0.2,
       "row_count": 4000,
-      "medallion_layer": "Gold",
-      "layer_reason": "Aggregated reporting or analytical table",
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "card_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
       "columns": [
         {
           "name": "card_id",
@@ -202,7 +211,9 @@
           "ordinal_position": 23
         }
       ],
-      "dependencies": []
+      "dependencies": [
+        "dim_customer"
+      ]
     },
     {
       "name": "fact_card_transaction",
@@ -211,8 +222,10 @@
       "size_mb": 3.89,
       "row_count": 125000,
       "medallion_layer": "Gold",
-      "layer_reason": "Aggregated reporting or analytical table",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "card_txn_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
       "columns": [
         {
           "name": "card_txn_id",
@@ -370,7 +383,8 @@
         }
       ],
       "dependencies": [
-        "dim_card"
+        "dim_card",
+        "dim_customer"
       ]
     },
     {
@@ -380,8 +394,10 @@
       "size_mb": 0.01,
       "row_count": 250,
       "medallion_layer": "Gold",
-      "layer_reason": "Aggregated reporting or analytical table",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "dispute_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
       "columns": [
         {
           "name": "dispute_id",
@@ -499,9 +515,11 @@
       "type": "table",
       "size_mb": 0.37,
       "row_count": 8000,
-      "medallion_layer": "Gold",
-      "layer_reason": "Aggregated reporting or analytical table",
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "account_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
       "columns": [
         {
           "name": "account_id",
@@ -645,6 +663,7 @@
         }
       ],
       "dependencies": [
+        "dim_customer",
         "dim_branch"
       ]
     },
@@ -654,9 +673,11 @@
       "type": "table",
       "size_mb": 0.07,
       "row_count": 25,
-      "medallion_layer": "Gold",
-      "layer_reason": "Aggregated reporting or analytical table",
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
       "primary_key": "branch_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
       "columns": [
         {
           "name": "branch_id",
@@ -739,6 +760,2854 @@
       "dependencies": []
     },
     {
+      "name": "dim_customer",
+      "schema": "core_banking",
+      "type": "table",
+      "size_mb": 0.28,
+      "row_count": 5000,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "customer_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "cif_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "first_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "last_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "gender",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "date_of_birth",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "email",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "mobile_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "pan_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "national_id_masked",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "address_line1",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "city",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "state",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "pincode",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "country",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "occupation",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "annual_income_inr",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "customer_segment",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "risk_rating",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "kyc_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "relationship_start_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "home_branch_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "is_pep",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "consent_marketing",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 24
+        },
+        {
+          "name": "created_ts",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 25
+        },
+        {
+          "name": "updated_ts",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 26
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "fact_transaction",
+      "schema": "core_banking",
+      "type": "table",
+      "size_mb": 8.06,
+      "row_count": 200000,
+      "medallion_layer": "Gold",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "transaction_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "transaction_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "account_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "txn_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "txn_timestamp",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "value_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "txn_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "txn_channel",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "txn_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "currency_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "running_balance",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "counterparty_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "counterparty_account",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "counterparty_ifsc",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "merchant_category",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "narration",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "branch_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "is_reversed",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "is_flagged_suspicious",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        }
+      ],
+      "dependencies": [
+        "fact_card_transaction",
+        "dim_account",
+        "dim_customer",
+        "dim_branch"
+      ]
+    },
+    {
+      "name": "dim_policy",
+      "schema": "insurance",
+      "type": "table",
+      "size_mb": 0.09,
+      "row_count": 2000,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "policy_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "policy_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "policy_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "proposer_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "insured_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "insured_dob",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "relationship_to_proposer",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "policy_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "product_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "sum_assured",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "premium_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "premium_frequency",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "policy_start_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "policy_end_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "next_due_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "term_years",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "policy_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "lapse_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "nominee_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "nominee_relationship",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "agent_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "agent_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "channel",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "medical_underwriting_flag",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 24
+        },
+        {
+          "name": "pre_existing_conditions",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 25
+        },
+        {
+          "name": "vehicle_registration_no",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 26
+        },
+        {
+          "name": "idv_value",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 27
+        }
+      ],
+      "dependencies": [
+        "dim_customer"
+      ]
+    },
+    {
+      "name": "fact_claim",
+      "schema": "insurance",
+      "type": "table",
+      "size_mb": 0.02,
+      "row_count": 400,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "claim_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "claim_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "policy_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "claim_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "intimation_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "incident_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "registration_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "claimed_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "assessed_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "approved_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "deductible",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "claim_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "rejection_reason",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "settlement_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "settlement_mode",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "hospital_or_garage_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "surveyor_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "tpa_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "fraud_indicator_score",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "is_investigated",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "turnaround_days",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 21
+        }
+      ],
+      "dependencies": [
+        "dim_policy",
+        "dim_customer"
+      ]
+    },
+    {
+      "name": "fact_premium",
+      "schema": "insurance",
+      "type": "table",
+      "size_mb": 0.24,
+      "row_count": 8000,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "premium_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "premium_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "policy_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "due_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "paid_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "installment_number",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "base_premium",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "gst_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "total_premium",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "late_fee",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "payment_mode",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "payment_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "receipt_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "grace_period_end",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "commission_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 14
+        }
+      ],
+      "dependencies": [
+        "dim_policy"
+      ]
+    },
+    {
+      "name": "dim_loan",
+      "schema": "lending",
+      "type": "table",
+      "size_mb": 0.08,
+      "row_count": 1500,
+      "medallion_layer": "Gold",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "loan_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "loan_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "application_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "loan_account_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "product_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "disbursed_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "disbursement_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "tenure_months",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "interest_rate_pct",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "rate_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "emi_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "first_emi_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "maturity_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "outstanding_principal",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "outstanding_interest",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "total_paid_to_date",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "emis_paid",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "emis_remaining",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "dpd_days",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "dpd_bucket",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "asset_classification",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "loan_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "collateral_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "collateral_value",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 24
+        },
+        {
+          "name": "insurance_linked",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 25
+        },
+        {
+          "name": "branch_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 26
+        }
+      ],
+      "dependencies": [
+        "fact_loan_application",
+        "dim_customer",
+        "dim_branch"
+      ]
+    },
+    {
+      "name": "fact_collection_activity",
+      "schema": "lending",
+      "type": "table",
+      "size_mb": 0.01,
+      "row_count": 600,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "activity_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "activity_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "loan_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "activity_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "dpd_at_activity",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "bucket",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "channel",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "agent_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "agency_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "outcome",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "promise_to_pay_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "promise_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "amount_collected",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "next_action_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "remarks",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        }
+      ],
+      "dependencies": [
+        "dim_loan"
+      ]
+    },
+    {
+      "name": "fact_loan_application",
+      "schema": "lending",
+      "type": "table",
+      "size_mb": 0.09,
+      "row_count": 2500,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "application_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "application_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "application_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "product_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "requested_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "tenure_months",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "purpose",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "employment_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "declared_income_monthly",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "existing_emi_total",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "bureau_score",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "bureau_agency",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "foir_pct",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "ltv_pct",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "application_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "decision_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "decision_reason",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "sanctioned_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "approved_roi_pct",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "sourcing_channel",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "branch_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "dsa_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        }
+      ],
+      "dependencies": [
+        "dim_customer",
+        "dim_branch"
+      ]
+    },
+    {
+      "name": "fact_loan_repayment",
+      "schema": "lending",
+      "type": "table",
+      "size_mb": 0.45,
+      "row_count": 18000,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "repayment_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "repayment_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "loan_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "due_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "paid_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "emi_number",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "emi_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "principal_component",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "interest_component",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "penal_charges",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "amount_paid",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "payment_mode",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "payment_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "bounce_reason",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "days_late",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 14
+        }
+      ],
+      "dependencies": [
+        "dim_loan"
+      ]
+    },
+    {
+      "name": "fact_neft_rtgs",
+      "schema": "payments",
+      "type": "table",
+      "size_mb": 0.99,
+      "row_count": 20000,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "payment_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "payment_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "utr_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "payment_rail",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "initiation_timestamp",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "settlement_timestamp",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "remitter_customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "remitter_account_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "remitter_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "remitter_ifsc",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "beneficiary_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "beneficiary_account",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "beneficiary_ifsc",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "beneficiary_bank",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "currency_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "purpose_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "remarks",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "batch_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "return_reason",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "charges",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "is_cross_border",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "swift_bic",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 23
+        }
+      ],
+      "dependencies": [
+        "fact_loan_repayment",
+        "fact_upi_payment"
+      ]
+    },
+    {
+      "name": "fact_upi_payment",
+      "schema": "payments",
+      "type": "table",
+      "size_mb": 8.69,
+      "row_count": 150000,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "upi_txn_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "upi_txn_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "rrn",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "payer_vpa",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "payee_vpa",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "payer_account_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "payer_customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "payee_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "payee_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "txn_timestamp",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "txn_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "currency_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "txn_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "psp_app",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "payer_bank",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "payee_bank",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "txn_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "failure_reason",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "response_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "device_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "ip_address",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "latitude",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "longitude",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "is_p2m",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 24
+        },
+        {
+          "name": "mandate_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 25
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "dim_kyc",
+      "schema": "risk_compliance",
+      "type": "table",
+      "size_mb": 0.14,
+      "row_count": 5000,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "kyc_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "kyc_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "kyc_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "id_proof_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "id_proof_number_masked",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "address_proof_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "pan_verified",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "ckyc_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "kyc_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "next_review_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "verification_method",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "verified_by",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "kyc_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "risk_category",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "pep_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "fatca_declaration",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "crs_tax_residency",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "source_of_funds",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "expected_annual_turnover",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "adverse_media_hit",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "ubo_declared",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "remarks",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        }
+      ],
+      "dependencies": [
+        "dim_customer"
+      ]
+    },
+    {
+      "name": "dim_sanctions_watchlist",
+      "schema": "risk_compliance",
+      "type": "table",
+      "size_mb": 0.01,
+      "row_count": 50,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "watchlist_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "watchlist_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "list_source",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "entity_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "entity_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "aliases",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "date_of_birth",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "nationality",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "country_of_residence",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "passport_number_masked",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "listing_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "delisting_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "programme",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "match_threshold_pct",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "is_active",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "fact_aml_alert",
+      "schema": "risk_compliance",
+      "type": "table",
+      "size_mb": 0.01,
+      "row_count": 100,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "alert_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "alert_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "account_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "alert_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "scenario_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "alert_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "alert_description",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "risk_score",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "priority",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "aggregate_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "txn_count",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "lookback_days",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "detection_engine",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "assigned_analyst",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "alert_status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "disposition_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "disposition_reason",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "sar_filed",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "sar_reference",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "escalated_to",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "regulator_reported",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "closure_narrative",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        }
+      ],
+      "dependencies": [
+        "dim_customer",
+        "dim_account"
+      ]
+    },
+    {
+      "name": "archived_orders",
+      "schema": "sp_demo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 2,
+      "medallion_layer": "Silver",
+      "layer_reason": "only if demo",
+      "primary_key": "order_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "order_id",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "order_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "amount",
+          "source_datatype": "DECIMAL",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": [
+        "dim_customer"
+      ]
+    },
+    {
+      "name": "customer_summary",
+      "schema": "sp_demo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Gold",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "customer_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "customer_id",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "order_count",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "total_amount",
+          "source_datatype": "DECIMAL",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "last_order",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "updated_at",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": [
+        "dim_customer"
+      ]
+    },
+    {
+      "name": "etl_audit_log",
+      "schema": "sp_demo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 0,
+      "medallion_layer": "Gold",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "run_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "run_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "proc_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "rows_affected",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "message",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "logged_at",
+          "source_datatype": "TIMESTAMP",
+          "target_datatype": "TIMESTAMP",
+          "nullable": true,
+          "ordinal_position": 6
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "orders",
+      "schema": "sp_demo",
+      "type": "table",
+      "size_mb": 0.06,
+      "row_count": 6,
+      "medallion_layer": "Silver",
+      "layer_reason": "only if purely demo",
+      "primary_key": "order_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "order_id",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "LONG",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "order_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "amount",
+          "source_datatype": "DECIMAL",
+          "target_datatype": "DECIMAL",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "status",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        }
+      ],
+      "dependencies": [
+        "dim_customer"
+      ]
+    },
+    {
+      "name": "dim_portfolio",
+      "schema": "wealth",
+      "type": "table",
+      "size_mb": 0.04,
+      "row_count": 750,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "portfolio_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "portfolio_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "demat_account_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "dp_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "client_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "portfolio_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "risk_profile",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "investment_objective",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "inception_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "aum_value",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "invested_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "unrealised_gain_loss",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "xirr_pct",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "advisor_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "advisory_model",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "fee_structure",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "fee_bps",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "review_frequency",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "last_review_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "is_discretionary",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "tax_residency",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        }
+      ],
+      "dependencies": [
+        "dim_customer"
+      ]
+    },
+    {
+      "name": "fact_trade",
+      "schema": "wealth",
+      "type": "table",
+      "size_mb": 0.57,
+      "row_count": 10000,
+      "medallion_layer": "Silver",
+      "layer_reason": "Categorized based on dependencies and naming",
+      "primary_key": "trade_id",
+      "declared_primary_key": null,
+      "declared_foreign_keys": null,
+      "columns": [
+        {
+          "name": "trade_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 1
+        },
+        {
+          "name": "portfolio_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 2
+        },
+        {
+          "name": "customer_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 3
+        },
+        {
+          "name": "trade_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 4
+        },
+        {
+          "name": "settlement_date",
+          "source_datatype": "DATE",
+          "target_datatype": "DATE",
+          "nullable": true,
+          "ordinal_position": 5
+        },
+        {
+          "name": "instrument_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 6
+        },
+        {
+          "name": "isin",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 7
+        },
+        {
+          "name": "ticker",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 8
+        },
+        {
+          "name": "security_name",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 9
+        },
+        {
+          "name": "exchange",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 10
+        },
+        {
+          "name": "buy_sell",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 11
+        },
+        {
+          "name": "quantity",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 12
+        },
+        {
+          "name": "price",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 13
+        },
+        {
+          "name": "trade_value",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 14
+        },
+        {
+          "name": "brokerage",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 15
+        },
+        {
+          "name": "stt",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 16
+        },
+        {
+          "name": "gst",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 17
+        },
+        {
+          "name": "stamp_duty",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 18
+        },
+        {
+          "name": "net_amount",
+          "source_datatype": "DOUBLE",
+          "target_datatype": "DOUBLE",
+          "nullable": true,
+          "ordinal_position": 19
+        },
+        {
+          "name": "order_type",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 20
+        },
+        {
+          "name": "order_id",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 21
+        },
+        {
+          "name": "broker_code",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 22
+        },
+        {
+          "name": "folio_number",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 23
+        },
+        {
+          "name": "sip_flag",
+          "source_datatype": "STRING",
+          "target_datatype": "STRING",
+          "nullable": true,
+          "ordinal_position": 24
+        },
+        {
+          "name": "holding_period_days",
+          "source_datatype": "INT",
+          "target_datatype": "INT",
+          "nullable": true,
+          "ordinal_position": 25
+        }
+      ],
+      "dependencies": [
+        "dim_portfolio",
+        "dim_customer"
+      ]
+    },
+    {
+      "name": "archived_orders_view",
+      "schema": "sp_demo",
+      "type": "view",
+      "is_materialized": false,
+      "dependencies": []
+    },
+    {
       "name": "archive_old_orders",
       "schema": "sp_demo",
       "type": "procedure",
@@ -747,6 +3616,15 @@
   ],
   "relationships": [
     {
+      "fk_name": "FK_dim_card_customer_id_dim_customer",
+      "parent_schema": "cards",
+      "parent_table": "dim_card",
+      "parent_column": "FK_dim_card_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_dim_card_customer_id_dim_customer"
+    },
+    {
       "fk_name": "FK_fact_card_transaction_card_id_dim_card",
       "parent_schema": "cards",
       "parent_table": "fact_card_transaction",
@@ -754,6 +3632,15 @@
       "referenced_schema": "cards",
       "referenced_table": "dim_card",
       "referenced_column": "FK_fact_card_transaction_card_id_dim_card"
+    },
+    {
+      "fk_name": "FK_fact_card_transaction_customer_id_dim_customer",
+      "parent_schema": "cards",
+      "parent_table": "fact_card_transaction",
+      "parent_column": "FK_fact_card_transaction_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_fact_card_transaction_customer_id_dim_customer"
     },
     {
       "fk_name": "FK_fact_dispute_card_id_dim_card",
@@ -765,6 +3652,15 @@
       "referenced_column": "FK_fact_dispute_card_id_dim_card"
     },
     {
+      "fk_name": "FK_dim_account_customer_id_dim_customer",
+      "parent_schema": "core_banking",
+      "parent_table": "dim_account",
+      "parent_column": "FK_dim_account_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_dim_account_customer_id_dim_customer"
+    },
+    {
       "fk_name": "FK_dim_account_branch_id_dim_branch",
       "parent_schema": "core_banking",
       "parent_table": "dim_account",
@@ -772,31 +3668,308 @@
       "referenced_schema": "core_banking",
       "referenced_table": "dim_branch",
       "referenced_column": "FK_dim_account_branch_id_dim_branch"
+    },
+    {
+      "fk_name": "FK_fact_transaction_transaction_id_fact_card_transaction",
+      "parent_schema": "core_banking",
+      "parent_table": "fact_transaction",
+      "parent_column": "FK_fact_transaction_transaction_id_fact_card_transaction",
+      "referenced_schema": "cards",
+      "referenced_table": "fact_card_transaction",
+      "referenced_column": "FK_fact_transaction_transaction_id_fact_card_transaction"
+    },
+    {
+      "fk_name": "FK_fact_transaction_account_id_dim_account",
+      "parent_schema": "core_banking",
+      "parent_table": "fact_transaction",
+      "parent_column": "FK_fact_transaction_account_id_dim_account",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_account",
+      "referenced_column": "FK_fact_transaction_account_id_dim_account"
+    },
+    {
+      "fk_name": "FK_fact_transaction_customer_id_dim_customer",
+      "parent_schema": "core_banking",
+      "parent_table": "fact_transaction",
+      "parent_column": "FK_fact_transaction_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_fact_transaction_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_fact_transaction_branch_id_dim_branch",
+      "parent_schema": "core_banking",
+      "parent_table": "fact_transaction",
+      "parent_column": "FK_fact_transaction_branch_id_dim_branch",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_branch",
+      "referenced_column": "FK_fact_transaction_branch_id_dim_branch"
+    },
+    {
+      "fk_name": "FK_dim_policy_customer_id_dim_customer",
+      "parent_schema": "insurance",
+      "parent_table": "dim_policy",
+      "parent_column": "FK_dim_policy_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_dim_policy_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_fact_claim_policy_id_dim_policy",
+      "parent_schema": "insurance",
+      "parent_table": "fact_claim",
+      "parent_column": "FK_fact_claim_policy_id_dim_policy",
+      "referenced_schema": "insurance",
+      "referenced_table": "dim_policy",
+      "referenced_column": "FK_fact_claim_policy_id_dim_policy"
+    },
+    {
+      "fk_name": "FK_fact_claim_customer_id_dim_customer",
+      "parent_schema": "insurance",
+      "parent_table": "fact_claim",
+      "parent_column": "FK_fact_claim_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_fact_claim_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_fact_premium_policy_id_dim_policy",
+      "parent_schema": "insurance",
+      "parent_table": "fact_premium",
+      "parent_column": "FK_fact_premium_policy_id_dim_policy",
+      "referenced_schema": "insurance",
+      "referenced_table": "dim_policy",
+      "referenced_column": "FK_fact_premium_policy_id_dim_policy"
+    },
+    {
+      "fk_name": "FK_dim_loan_application_id_fact_loan_application",
+      "parent_schema": "lending",
+      "parent_table": "dim_loan",
+      "parent_column": "FK_dim_loan_application_id_fact_loan_application",
+      "referenced_schema": "lending",
+      "referenced_table": "fact_loan_application",
+      "referenced_column": "FK_dim_loan_application_id_fact_loan_application"
+    },
+    {
+      "fk_name": "FK_dim_loan_customer_id_dim_customer",
+      "parent_schema": "lending",
+      "parent_table": "dim_loan",
+      "parent_column": "FK_dim_loan_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_dim_loan_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_dim_loan_branch_id_dim_branch",
+      "parent_schema": "lending",
+      "parent_table": "dim_loan",
+      "parent_column": "FK_dim_loan_branch_id_dim_branch",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_branch",
+      "referenced_column": "FK_dim_loan_branch_id_dim_branch"
+    },
+    {
+      "fk_name": "FK_fact_collection_activity_loan_id_dim_loan",
+      "parent_schema": "lending",
+      "parent_table": "fact_collection_activity",
+      "parent_column": "FK_fact_collection_activity_loan_id_dim_loan",
+      "referenced_schema": "lending",
+      "referenced_table": "dim_loan",
+      "referenced_column": "FK_fact_collection_activity_loan_id_dim_loan"
+    },
+    {
+      "fk_name": "FK_fact_loan_application_customer_id_dim_customer",
+      "parent_schema": "lending",
+      "parent_table": "fact_loan_application",
+      "parent_column": "FK_fact_loan_application_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_fact_loan_application_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_fact_loan_application_branch_id_dim_branch",
+      "parent_schema": "lending",
+      "parent_table": "fact_loan_application",
+      "parent_column": "FK_fact_loan_application_branch_id_dim_branch",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_branch",
+      "referenced_column": "FK_fact_loan_application_branch_id_dim_branch"
+    },
+    {
+      "fk_name": "FK_fact_loan_repayment_loan_id_dim_loan",
+      "parent_schema": "lending",
+      "parent_table": "fact_loan_repayment",
+      "parent_column": "FK_fact_loan_repayment_loan_id_dim_loan",
+      "referenced_schema": "lending",
+      "referenced_table": "dim_loan",
+      "referenced_column": "FK_fact_loan_repayment_loan_id_dim_loan"
+    },
+    {
+      "fk_name": "FK_fact_neft_rtgs_payment_id_fact_loan_repayment",
+      "parent_schema": "payments",
+      "parent_table": "fact_neft_rtgs",
+      "parent_column": "FK_fact_neft_rtgs_payment_id_fact_loan_repayment",
+      "referenced_schema": "lending",
+      "referenced_table": "fact_loan_repayment",
+      "referenced_column": "FK_fact_neft_rtgs_payment_id_fact_loan_repayment"
+    },
+    {
+      "fk_name": "FK_fact_neft_rtgs_payment_id_fact_upi_payment",
+      "parent_schema": "payments",
+      "parent_table": "fact_neft_rtgs",
+      "parent_column": "FK_fact_neft_rtgs_payment_id_fact_upi_payment",
+      "referenced_schema": "payments",
+      "referenced_table": "fact_upi_payment",
+      "referenced_column": "FK_fact_neft_rtgs_payment_id_fact_upi_payment"
+    },
+    {
+      "fk_name": "FK_dim_kyc_customer_id_dim_customer",
+      "parent_schema": "risk_compliance",
+      "parent_table": "dim_kyc",
+      "parent_column": "FK_dim_kyc_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_dim_kyc_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_fact_aml_alert_customer_id_dim_customer",
+      "parent_schema": "risk_compliance",
+      "parent_table": "fact_aml_alert",
+      "parent_column": "FK_fact_aml_alert_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_fact_aml_alert_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_fact_aml_alert_account_id_dim_account",
+      "parent_schema": "risk_compliance",
+      "parent_table": "fact_aml_alert",
+      "parent_column": "FK_fact_aml_alert_account_id_dim_account",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_account",
+      "referenced_column": "FK_fact_aml_alert_account_id_dim_account"
+    },
+    {
+      "fk_name": "FK_archived_orders_customer_id_dim_customer",
+      "parent_schema": "sp_demo",
+      "parent_table": "archived_orders",
+      "parent_column": "FK_archived_orders_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_archived_orders_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_customer_summary_customer_id_dim_customer",
+      "parent_schema": "sp_demo",
+      "parent_table": "customer_summary",
+      "parent_column": "FK_customer_summary_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_customer_summary_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_orders_customer_id_dim_customer",
+      "parent_schema": "sp_demo",
+      "parent_table": "orders",
+      "parent_column": "FK_orders_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_orders_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_dim_portfolio_customer_id_dim_customer",
+      "parent_schema": "wealth",
+      "parent_table": "dim_portfolio",
+      "parent_column": "FK_dim_portfolio_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_dim_portfolio_customer_id_dim_customer"
+    },
+    {
+      "fk_name": "FK_fact_trade_portfolio_id_dim_portfolio",
+      "parent_schema": "wealth",
+      "parent_table": "fact_trade",
+      "parent_column": "FK_fact_trade_portfolio_id_dim_portfolio",
+      "referenced_schema": "wealth",
+      "referenced_table": "dim_portfolio",
+      "referenced_column": "FK_fact_trade_portfolio_id_dim_portfolio"
+    },
+    {
+      "fk_name": "FK_fact_trade_customer_id_dim_customer",
+      "parent_schema": "wealth",
+      "parent_table": "fact_trade",
+      "parent_column": "FK_fact_trade_customer_id_dim_customer",
+      "referenced_schema": "core_banking",
+      "referenced_table": "dim_customer",
+      "referenced_column": "FK_fact_trade_customer_id_dim_customer"
     }
   ],
   "execution_plan": {
     "migration_sequence": [
-      "dim_card",
       "dim_branch",
+      "dim_customer",
+      "fact_upi_payment",
+      "dim_sanctions_watchlist",
+      "etl_audit_log",
+      "dim_card",
+      "dim_account",
+      "dim_policy",
+      "fact_loan_application",
+      "dim_kyc",
+      "archived_orders",
+      "customer_summary",
+      "orders",
+      "dim_portfolio",
       "fact_card_transaction",
       "fact_dispute",
-      "dim_account"
+      "fact_claim",
+      "fact_premium",
+      "dim_loan",
+      "fact_aml_alert",
+      "fact_trade",
+      "fact_transaction",
+      "fact_collection_activity",
+      "fact_loan_repayment",
+      "fact_neft_rtgs"
     ],
     "batches": {
       "Batch 1 (Independent Tables)": [
-        "dim_card",
-        "dim_branch"
+        "dim_branch",
+        "dim_customer",
+        "fact_upi_payment",
+        "dim_sanctions_watchlist",
+        "etl_audit_log"
       ],
       "Batch 2 (Medium Dependency Tables)": [],
       "Batch 3 (Highly Dependent Tables)": [
+        "dim_card",
         "fact_card_transaction",
         "fact_dispute",
-        "dim_account"
+        "dim_account",
+        "fact_transaction",
+        "dim_policy",
+        "fact_claim",
+        "fact_premium",
+        "dim_loan",
+        "fact_collection_activity",
+        "fact_loan_application",
+        "fact_loan_repayment",
+        "fact_neft_rtgs",
+        "dim_kyc",
+        "fact_aml_alert",
+        "archived_orders",
+        "customer_summary",
+        "orders",
+        "dim_portfolio",
+        "fact_trade"
       ],
-      "Batch 4 (Views)": [],
+      "Batch 4 (Views)": [
+        "archived_orders_view"
+      ],
       "Batch 5 (Stored Procedures)": [
         "archive_old_orders"
-      ]
+      ],
+      "Batch 6 (Functions)": []
     },
     "strategies": {
       "table_execution_logic": "All tables in Batch 1 can be executed in parallel due to independence. Batch 3 tables should be executed sequentially after their dependencies are satisfied.",
