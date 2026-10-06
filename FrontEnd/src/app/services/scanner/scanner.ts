@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Api } from '../api/api';
 
@@ -135,10 +135,52 @@ export interface ErDiagramResponse {
   relationships: ErRelationship[];
 }
 
+export interface CompletedScanInfo {
+  source: string;
+  metadataFile?: string;
+  reportFile?: string;
+  planFile?: string;
+  timestamp: Date;
+}
+
 @Injectable({ providedIn: 'root' })
 export class Scanner {
   private http = inject(HttpClient);
   private api = inject(Api);
+
+  readonly lastCompletedScan = signal<CompletedScanInfo | null>(null);
+
+  setCompletedScan(info: CompletedScanInfo) {
+    this.lastCompletedScan.set(info);
+    try {
+      sessionStorage.setItem('apexon_active_scan', JSON.stringify({
+        source: info.source,
+        metadataFile: info.metadataFile,
+        reportFile: info.reportFile,
+        planFile: info.planFile,
+        timestamp: info.timestamp
+      }));
+    } catch {}
+  }
+
+  getCompletedScan(): CompletedScanInfo | null {
+    const current = this.lastCompletedScan();
+    if (current) return current;
+    try {
+      const raw = sessionStorage.getItem('apexon_active_scan');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          source: parsed.source,
+          metadataFile: parsed.metadataFile,
+          reportFile: parsed.reportFile,
+          planFile: parsed.planFile,
+          timestamp: new Date(parsed.timestamp)
+        };
+      }
+    } catch {}
+    return null;
+  }
 
   /**
    * Calls Django's connect_database view.

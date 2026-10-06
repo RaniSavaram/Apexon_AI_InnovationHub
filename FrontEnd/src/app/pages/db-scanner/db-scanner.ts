@@ -1,7 +1,8 @@
-import { Component, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, OnDestroy } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
+import { ActivatedRoute } from '@angular/router';
 import { Scanner, SavedConnectionProfile, ConnectionDetails } from '../../services/scanner/scanner';
 import { ErDiagram } from '../../components/er-diagram/er-diagram';
 
@@ -17,7 +18,7 @@ import { ErDiagram } from '../../components/er-diagram/er-diagram';
   styleUrl: './db-scanner.css'
 })
 
-export class DbScannerComponent implements AfterViewChecked, OnDestroy {
+export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   @ViewChild('terminalBody') private terminalBody!: ElementRef;
   @ViewChild('fabricTerminalBody') private fabricTerminalBody?: ElementRef;
@@ -34,6 +35,27 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
 
   private sanitizer = inject(DomSanitizer);
+
+  private route = inject(ActivatedRoute);
+
+  ngOnInit(): void {
+    this.route.queryParams.subscribe(params => {
+      const sourceParam = params['source'];
+      const connectParam = params['connect'];
+
+      if (sourceParam) {
+        this.source = sourceParam;
+        this.sourceChanged();
+        this.showConnection = true;
+      } else if (connectParam === '1' || connectParam === 'true') {
+        if (!this.source) {
+          this.source = 'sqlserver';
+        }
+        this.sourceChanged();
+        this.showConnection = true;
+      }
+    });
+  }
 
   //=========================================================
   // DROPDOWNS
@@ -798,7 +820,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
         this.connected = true;
 
         const connectedDb = this.getFormatSourceForFilename(this.source);
-        this.scanStatus = `Connected to ${connectedDb}. Ready to scan`;
+        this.scanStatus = `Connected to ${connectedDb}. Starting scan...`;
         this.statusMessages = [this.scanStatus];
 
         this.saveRememberedConnection();
@@ -807,7 +829,7 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
         this.connecting = false;
 
-        this.cdr.detectChanges();
+        this.showConnectionSuccessDialog = false;
 
         this.connectionPayload = {
 
@@ -840,8 +862,10 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
         );
 
         this.connectionSuccessMessage = response.message ?? 'Connection successful.';
-        this.showConnectionSuccessDialog = true;
         this.cdr.detectChanges();
+
+        // Immediately start the scan based on the selected source
+        this.startScan();
 
       },
 
@@ -889,8 +913,12 @@ export class DbScannerComponent implements AfterViewChecked, OnDestroy {
 
     if (!this.connected) {
 
-      alert('Please connect to database first.');
-
+      if (!this.source) {
+        this.source = 'sqlserver';
+      }
+      this.sourceChanged();
+      this.showConnection = true;
+      this.cdr.detectChanges();
       return;
 
     }
