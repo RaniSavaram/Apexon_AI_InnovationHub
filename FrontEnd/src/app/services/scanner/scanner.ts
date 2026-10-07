@@ -149,6 +149,11 @@ export class Scanner {
   private api = inject(Api);
 
   readonly lastCompletedScan = signal<CompletedScanInfo | null>(null);
+  readonly openConnectionRequest = signal<{ source: string; timestamp: number } | null>(null);
+
+  requestOpenConnection(source: string) {
+    this.openConnectionRequest.set({ source, timestamp: Date.now() });
+  }
 
   setCompletedScan(info: CompletedScanInfo) {
     this.lastCompletedScan.set(info);

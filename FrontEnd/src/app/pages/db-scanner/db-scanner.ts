@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, OnDestroy, OnInit } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, OnDestroy, OnInit, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -38,21 +38,41 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   private route = inject(ActivatedRoute);
 
+  private lastProcessedTimestamp = 0;
+
+  constructor() {
+    effect(() => {
+      const req = this.scanner.openConnectionRequest();
+      if (req && req.source && req.timestamp !== this.lastProcessedTimestamp) {
+        this.lastProcessedTimestamp = req.timestamp;
+        untracked(() => {
+          this.source = req.source;
+          this.connected = false;
+          this.sourceChanged();
+          this.showConnection = true;
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
       const sourceParam = params['source'];
       const connectParam = params['connect'];
 
-      if (sourceParam) {
+      if (sourceParam && sourceParam !== this.source) {
         this.source = sourceParam;
+        this.connected = false;
         this.sourceChanged();
         this.showConnection = true;
-      } else if (connectParam === '1' || connectParam === 'true') {
-        if (!this.source) {
-          this.source = 'sqlserver';
-        }
+        this.cdr.detectChanges();
+      } else if (!this.source && (connectParam === '1' || connectParam === 'true')) {
+        this.source = 'sqlserver';
+        this.connected = false;
         this.sourceChanged();
         this.showConnection = true;
+        this.cdr.detectChanges();
       }
     });
   }
