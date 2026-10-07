@@ -845,7 +845,7 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
         this.connected = true;
 
         const connectedDb = this.getFormatSourceForFilename(this.source);
-        this.scanStatus = `Connected to ${connectedDb}. Starting scan...`;
+        this.scanStatus = `Connected to ${connectedDb}. Ready to scan.`;
         this.statusMessages = [this.scanStatus];
 
         this.saveRememberedConnection();
@@ -854,7 +854,7 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
 
         this.connecting = false;
 
-        this.showConnectionSuccessDialog = false;
+        this.showConnectionSuccessDialog = true;
 
         this.connectionPayload = {
 
@@ -886,11 +886,9 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
           'Database Connected Successfully.'
         );
 
-        this.connectionSuccessMessage = response.message ?? 'Connection successful.';
+        this.connectionSuccessMessage = response.message ?? 'Database Connected Successfully.';
+        this.showConnectionSuccessDialog = true;
         this.cdr.detectChanges();
-
-        // Immediately start the scan based on the selected source
-        this.startScan();
 
       },
 
