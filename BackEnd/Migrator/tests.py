@@ -210,3 +210,34 @@ class DeclaredKeysTests(TestCase):
         ]})
         self.assertEqual((model["declared_keys_read"], model["relationship_source"]), (True, "inferred"))
         self.assertEqual([(r["from_column"], r["inferred"]) for r in model["relationships"]], [("CUSTOMER_ID", True)])
+
+    def test_limit_metadata_tables_preserves_views_and_procedures(self):
+        from Migrator.views import _limit_metadata_tables
+        raw_metadata = {
+            "database": "test_db",
+            "schemas": [
+                {
+                    "name": "dbo",
+                    "tables": [
+                        {"name": f"Table_{i}", "type": "BASE TABLE", "columns": [{"name": "id"}]}
+                        for i in range(10)
+                    ] + [
+                        {"name": f"View_{i}", "type": "VIEW", "columns": [{"name": "id"}]}
+                        for i in range(8)
+                    ],
+                    "procedures": [{"name": f"sp_{i}"} for i in range(4)],
+                    "functions": [{"name": f"fn_{i}"} for i in range(3)],
+                    "volumes": [{"name": "vol_1"}],
+                }
+            ]
+        }
+        limited = _limit_metadata_tables(raw_metadata, max_tables=5)
+        schema = limited["schemas"][0]
+        base_tables = [t for t in schema["tables"] if t.get("type") == "BASE TABLE"]
+        views = [t for t in schema["tables"] if t.get("type") == "VIEW"]
+        self.assertEqual(len(base_tables), 5)
+        self.assertEqual(len(views), 8)
+        self.assertEqual(len(schema["procedures"]), 4)
+        self.assertEqual(len(schema["functions"]), 3)
+        self.assertEqual(len(schema["volumes"]), 1)
+

@@ -42,48 +42,44 @@ thread_local = threading.local()
 MAX_SCAN_TABLES = int(os.environ.get("MAX_SCAN_TABLES", "5"))
 
 
-def _limit_metadata_tables(metadata):
+def _limit_metadata_tables(metadata, max_tables=None):
     """
-    Caps a scan to MAX_SCAN_TABLES (5) base tables total.
+    Caps physical/base tables to max_tables (default MAX_SCAN_TABLES = 5) across all schemas,
+    while keeping all views, stored procedures, functions, and volumes completely intact.
     """
-    budget = MAX_SCAN_TABLES
+    if max_tables is None:
+        max_tables = MAX_SCAN_TABLES
 
-    def _take(schema_key, obj_type_check, n):
-        """Pulls up to n items matching obj_type_check across all schemas, as {schema_index: [items]}."""
-        taken_by_schema = {}
-        remaining = n
-        for idx, schema in enumerate(metadata.get("schemas", [])):
-            if remaining <= 0:
-                break
-            candidates = [item for item in schema.get(schema_key, []) if obj_type_check(item)]
-            take = candidates[:remaining]
-            if take:
-                taken_by_schema[idx] = take
-                remaining -= len(take)
-        return taken_by_schema
-
-    is_view = lambda t: (t.get("type") or "").upper() in ("VIEW", "MATERIALIZED VIEW")
-    is_base_table = lambda t: not is_view(t)
-
-    kept_base_tables = _take("tables", is_base_table, budget)
-    remaining_budget = budget - sum(len(t) for t in kept_base_tables.values())
-    kept_views = _take("tables", is_view, max(remaining_budget, 0)) if remaining_budget > 0 else {}
-    kept_procedures = _take("procedures", lambda _: True, 1)
-    kept_volumes = _take("volumes", lambda _: True, 1)
-
+    budget = max_tables
+    kept_base_tables_count = 0
     limited_schemas = []
-    for idx, schema in enumerate(metadata.get("schemas", [])):
-        selected_tables = kept_base_tables.get(idx, []) + kept_views.get(idx, [])
-        selected_procedures = kept_procedures.get(idx, [])
-        selected_volumes = kept_volumes.get(idx, [])
-        if not (selected_tables or selected_procedures or selected_volumes):
-            continue
-        limited_schema = dict(schema)
-        limited_schema["tables"] = selected_tables
-        limited_schema["procedures"] = selected_procedures
-        limited_schema["functions"] = []
-        limited_schema["volumes"] = selected_volumes
-        limited_schemas.append(limited_schema)
+
+    for schema in metadata.get("schemas", []):
+        all_tables = schema.get("tables", [])
+        limited_tables = []
+        for table in all_tables:
+            is_view = (table.get("type") or "").upper() in ("VIEW", "MATERIALIZED VIEW")
+            if is_view:
+                # Retain all views
+                limited_tables.append(table)
+            else:
+                # Cap base tables to budget
+                if kept_base_tables_count < budget:
+                    limited_tables.append(table)
+                    kept_base_tables_count += 1
+
+        all_procedures = schema.get("procedures", [])
+        all_functions = schema.get("functions", [])
+        all_volumes = schema.get("volumes", [])
+
+        # Include schema if it has any tables, views, procedures, functions, or volumes
+        if limited_tables or all_procedures or all_functions or all_volumes:
+            limited_schema = dict(schema)
+            limited_schema["tables"] = limited_tables
+            limited_schema["procedures"] = list(all_procedures)
+            limited_schema["functions"] = list(all_functions)
+            limited_schema["volumes"] = list(all_volumes)
+            limited_schemas.append(limited_schema)
 
     limited_metadata = dict(metadata)
     limited_metadata["schemas"] = limited_schemas
@@ -701,11 +697,11 @@ def _run_scan(destination, scan_source=None, scan_id=None):
 
         orig_tables, orig_views, orig_procs, orig_funcs = _count_schema_objects(metadata)
 
-        # SQL Server, Databricks, Dynamics 365, and Snowflake scans get the
-        # full schema - no demo cap. Every other source still gets capped
-        # to MAX_SCAN_TABLES.
-        if db_clean not in ("sqlserver", "mssql", "databricks", "dynamics365", "dynamics 365", "d365", "snowflake"):
-            metadata = _limit_metadata_tables(metadata)
+        # Cap physical tables to 5 (MAX_SCAN_TABLES) while leaving all views, stored procedures,
+        # functions, and volumes untouched.
+        # Snowflake and Dynamics 365 scans keep full schemas.
+        if db_clean not in ("snowflake", "dynamics365", "dynamics 365", "d365"):
+            metadata = _limit_metadata_tables(metadata, max_tables=5)
 
         selected_tables, selected_views, selected_procs, selected_funcs = _count_schema_objects(metadata)
 
