@@ -241,7 +241,13 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         
         # Calculate dynamic table summary progress between 50% and 66%
         current_pct = int(50 + ((idx + 1) / total_tables) * 16)
-        _update_progress(scan_id, progress=current_pct, current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})")
+        _update_progress(
+            scan_id,
+            progress=current_pct,
+            current_message=f"Analyzing table schema: {s_name}.{t_name} ({idx+1}/{total_tables})",
+            log_entry=f"[INFO] Analyzing table '{s_name}.{t_name}' ({idx+1}/{total_tables}) — evaluating schema, datatypes, and constraints.",
+            log_type="Scan Info"
+        )
         
         t_stats = stats_df[stats_df["table_name"].astype(str).str.lower() == str(t_name).lower()] if stats_df is not None and not stats_df.empty else pd.DataFrame()
         r_cnt = t_stats["row_count"].iloc[0] if not t_stats.empty and "row_count" in t_stats.columns else 0
@@ -300,7 +306,12 @@ Metadata Refresh Date (if available): {refresh_date}\n"""
         for _, r in df.iterrows():
             obj_name = r[name_field]
             s_name = r["schema_name"]
-            _update_progress(scan_id, current_message=f"Analyzing {object_type} schema: {s_name}.{obj_name}")
+            _update_progress(
+                scan_id,
+                current_message=f"Analyzing {object_type} schema: {s_name}.{obj_name}",
+                log_entry=f"[INFO] Analyzing {object_type} '{s_name}.{obj_name}' for Microsoft Fabric compatibility...",
+                log_type="Scan Info"
+            )
             summary = orchestrator.run_secondary_object_summarizer_agent(object_type, obj_name, schema_name=s_name)
             summaries.append(summary)
         return summaries
@@ -447,7 +458,9 @@ Columns Sample:
     _update_progress(
         scan_id,
         progress=86,
-        current_message=f"Azure AI Migration Roadmap completed"
+        current_message=f"Azure AI Migration Roadmap completed",
+        log_entry=f"[INFO] Azure AI Migration Roadmap and architecture strategy formulated successfully for {source_name}.",
+        log_type="Scan Info"
     )
     
     section_artifacts = (
@@ -502,7 +515,13 @@ Columns Sample:
     # Generate Fabric JSON Metadata
     fabric_json_filename = f"{source_name}_Fabric_Migration_Metadata.json"
     fabric_json_path = os.path.join(output_dir, fabric_json_filename)
-    _update_progress(scan_id, progress=93, current_message="Generating Fabric JSON Metadata")
+    _update_progress(
+        scan_id,
+        progress=93,
+        current_message="Generating Fabric JSON Metadata",
+        log_entry="[INFO] Generating and validating Microsoft Fabric Migration JSON metadata configuration...",
+        log_type="Scan Info"
+    )
     
     try:
         from AI_Agent_Pipeline.src.fabric_json_generator import generate_fabric_json_metadata

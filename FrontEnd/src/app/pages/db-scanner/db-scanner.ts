@@ -22,6 +22,9 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   @ViewChild('terminalBody') private terminalBody!: ElementRef;
   @ViewChild('fabricTerminalBody') private fabricTerminalBody?: ElementRef;
+  @ViewChild('logsTextarea') private logsTextarea?: ElementRef;
+  @ViewChild('harness1Textarea') private harness1Textarea?: ElementRef;
+  @ViewChild('harness2Textarea') private harness2Textarea?: ElementRef;
 
   fabricLiveLogs: string[] = [];
   private fabricLogInterval: any = null;
@@ -1092,6 +1095,12 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
         cost: latest.cost ?? '-',
       };
     }
+    this.scrollToBottom();
+  }
+
+  selectConsoleTab(tab: 'output' | 'logs' | 'harness1' | 'harness2' | 'er') {
+    this.activeTab = tab;
+    this.scrollToBottom();
   }
 
   //=========================================================
@@ -1856,6 +1865,18 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
       if (this.terminalBody) {
         this.terminalBody.nativeElement.scrollTop = this.terminalBody.nativeElement.scrollHeight;
       }
+      setTimeout(() => {
+        if (this.activeTab === 'logs' && this.logsTextarea?.nativeElement) {
+          const el = this.logsTextarea.nativeElement;
+          el.scrollTop = el.scrollHeight;
+        } else if (this.activeTab === 'harness1' && this.harness1Textarea?.nativeElement) {
+          const el = this.harness1Textarea.nativeElement;
+          el.scrollTop = el.scrollHeight;
+        } else if (this.activeTab === 'harness2' && this.harness2Textarea?.nativeElement) {
+          const el = this.harness2Textarea.nativeElement;
+          el.scrollTop = el.scrollHeight;
+        }
+      }, 0);
     } catch (err) {}
   }
 

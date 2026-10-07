@@ -834,7 +834,7 @@ SCAN STATUS + ACTION BUTTONS
 
                     [class.active]="activeTab=='logs'"
 
-                    (click)="activeTab='logs'">
+                    (click)="selectConsoleTab('logs')">
 
                     Backend Logs
 
@@ -844,7 +844,7 @@ SCAN STATUS + ACTION BUTTONS
 
                     [class.active]="activeTab=='harness1'"
 
-                    (click)="activeTab='harness1'">
+                    (click)="selectConsoleTab('harness1')">
 
                     Constraint Harness Layer
 
@@ -854,7 +854,7 @@ SCAN STATUS + ACTION BUTTONS
 
                     [class.active]="activeTab=='harness2'"
 
-                    (click)="activeTab='harness2'">
+                    (click)="selectConsoleTab('harness2')">
 
                     Generator-Evaluator Feedback Layer
 
@@ -864,7 +864,7 @@ SCAN STATUS + ACTION BUTTONS
 
                     [class.active]="activeTab=='er'"
 
-                    (click)="activeTab='er'">
+                    (click)="selectConsoleTab('er')">
 
                     ER Diagrams
 
@@ -874,7 +874,7 @@ SCAN STATUS + ACTION BUTTONS
 
                     [class.active]="activeTab=='output'"
 
-                    (click)="activeTab='output'"
+                    (click)="selectConsoleTab('output')"
                     style="margin-left: auto;">
 
                     Generated Output
@@ -890,6 +890,7 @@ SCAN STATUS + ACTION BUTTONS
                 class="logs-body">
 
                 <textarea
+                    #logsTextarea
                     readonly
                     class="logs-window">
 
@@ -920,6 +921,7 @@ SCAN STATUS + ACTION BUTTONS
                     </div>
 
                     <textarea
+                        #harness1Textarea
                         readonly
                         class="logs-window">
 
@@ -963,6 +965,7 @@ SCAN STATUS + ACTION BUTTONS
                 class="logs-body">
 
                 <textarea
+                    #harness2Textarea
                     readonly
                     class="logs-window">
 
