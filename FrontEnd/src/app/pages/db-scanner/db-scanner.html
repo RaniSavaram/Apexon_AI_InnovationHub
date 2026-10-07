@@ -789,13 +789,27 @@ SCAN STATUS + ACTION BUTTONS
 
                 </h2>
 
-                <button
-                    class="close-btn"
-                    (click)="closeLogsDialog()">
+                <div class="dialog-header-actions">
 
-                    <i class="bi bi-x-lg"></i>
+                    <button
+                        class="minimize-btn"
+                        title="Minimize Console (Process continues in background)"
+                        (click)="minimizeLogsDialog()">
 
-                </button>
+                        <i class="bi bi-dash-lg"></i>
+
+                    </button>
+
+                    <button
+                        class="close-btn"
+                        title="Close Console (Process continues in background)"
+                        (click)="closeLogsDialog()">
+
+                        <i class="bi bi-x-lg"></i>
+
+                    </button>
+
+                </div>
 
             </div>
 
@@ -1083,13 +1097,27 @@ SCAN STATUS + ACTION BUTTONS
                     </span>
                 </div>
 
-                <button
-                    class="close-btn"
-                    (click)="closeArtifactsDialog()">
+                <div class="dialog-header-actions">
 
-                    <i class="bi bi-x-lg"></i>
+                    <button
+                        class="minimize-btn"
+                        title="Minimize (Generation continues in background)"
+                        (click)="minimizeArtifactsDialog()">
 
-                </button>
+                        <i class="bi bi-dash-lg"></i>
+
+                    </button>
+
+                    <button
+                        class="close-btn"
+                        title="Close Dialog"
+                        (click)="closeArtifactsDialog()">
+
+                        <i class="bi bi-x-lg"></i>
+
+                    </button>
+
+                </div>
 
             </div>
 
@@ -1399,6 +1427,58 @@ SCAN STATUS + ACTION BUTTONS
                     class="connect-btn"
                     (click)="closeConnectionSuccessDialog()">
                     Continue
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MINIMIZED CONSOLE DOCK WIDGETS -->
+    <!-- ========================================================= -->
+    <div class="minimized-dock-container" *ngIf="isLogsMinimized || isArtifactsMinimized">
+
+        <!-- Minimized Logs Console Dock -->
+        <div class="minimized-dock-item" *ngIf="isLogsMinimized">
+            <div class="dock-status-icon" [class.pulse]="loading">
+                <i class="bi bi-terminal-fill" *ngIf="!loading"></i>
+                <i class="bi bi-arrow-repeat spin" *ngIf="loading"></i>
+            </div>
+            <div class="dock-content" (click)="restoreLogsDialog()">
+                <div class="dock-title">Live Execution Console</div>
+                <div class="dock-subtitle">
+                    {{ loading ? scanStatus : 'Scan completed' }}
+                    <span class="dock-progress-tag" *ngIf="loading">{{ getDisplayProgress() }}%</span>
+                </div>
+            </div>
+            <div class="dock-actions">
+                <button class="dock-btn" title="Expand Console" (click)="restoreLogsDialog()">
+                    <i class="bi bi-arrows-angle-expand"></i>
+                </button>
+                <button class="dock-btn dock-close" title="Dismiss" (click)="closeMinimizedLogsDock()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Minimized Artifacts Dock -->
+        <div class="minimized-dock-item" *ngIf="isArtifactsMinimized">
+            <div class="dock-status-icon" [class.pulse]="generatingFabric">
+                <i class="bi bi-cpu-fill" *ngIf="!generatingFabric"></i>
+                <i class="bi bi-arrow-repeat spin" *ngIf="generatingFabric"></i>
+            </div>
+            <div class="dock-content" (click)="restoreArtifactsDialog()">
+                <div class="dock-title">Generated Artifacts</div>
+                <div class="dock-subtitle">
+                    {{ generatingFabric ? 'Generating Fabric Artifacts...' : 'Artifacts Ready' }}
+                </div>
+            </div>
+            <div class="dock-actions">
+                <button class="dock-btn" title="Expand Artifacts" (click)="restoreArtifactsDialog()">
+                    <i class="bi bi-arrows-angle-expand"></i>
+                </button>
+                <button class="dock-btn dock-close" title="Dismiss" (click)="closeMinimizedArtifactsDock()">
+                    <i class="bi bi-x-lg"></i>
                 </button>
             </div>
         </div>

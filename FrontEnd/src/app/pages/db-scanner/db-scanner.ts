@@ -104,7 +104,9 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
   connecting = false;
 
   showLogsDialog = false;
+  isLogsMinimized = false;
   showArtifactsDialog = false;
+  isArtifactsMinimized = false;
   generatingFabric = false;
   artifactsTab: 'overview' | 'tables' | 'logs' = 'overview';
   fabricArtifactsResult: any = null;
@@ -1328,25 +1330,37 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   //=========================================================
-  // OPEN LOGS DIALOG
+  // LOGS DIALOG CONTROLS (WITH BACKGROUND MINIMIZATION)
   //=========================================================
 
   openLogsDialog() {
-
+    this.isLogsMinimized = false;
     this.showLogsDialog = true;
-
     this.activeTab = 'logs';
-
+    this.cdr.detectChanges();
+    this.scrollToBottom();
   }
 
-  //=========================================================
-  // CLOSE LOGS DIALOG
-  //=========================================================
-
   closeLogsDialog() {
-
     this.showLogsDialog = false;
+    this.isLogsMinimized = false;
+  }
 
+  minimizeLogsDialog() {
+    this.showLogsDialog = false;
+    this.isLogsMinimized = true;
+    this.cdr.detectChanges();
+  }
+
+  restoreLogsDialog() {
+    this.isLogsMinimized = false;
+    this.showLogsDialog = true;
+    this.cdr.detectChanges();
+    this.scrollToBottom();
+  }
+
+  closeMinimizedLogsDock() {
+    this.isLogsMinimized = false;
   }
 
   //=========================================================
@@ -1419,6 +1433,7 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
       alert('Please complete a database scan first.');
       return;
     }
+    this.isArtifactsMinimized = false;
     this.showArtifactsDialog = true;
     const expectedScript = this.getExpectedGeneratorScript();
     const currentScript = this.fabricArtifactsResult?.generator_script;
@@ -1431,10 +1446,29 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   closeArtifactsDialog() {
     this.showArtifactsDialog = false;
+    this.isArtifactsMinimized = false;
     if (this.fabricLogInterval) {
       clearInterval(this.fabricLogInterval);
       this.fabricLogInterval = null;
     }
+  }
+
+  minimizeArtifactsDialog() {
+    this.showArtifactsDialog = false;
+    this.isArtifactsMinimized = true;
+    // Note: fabricLogInterval is deliberately NOT cleared so artifact generation continues executing in background!
+    this.cdr.detectChanges();
+  }
+
+  restoreArtifactsDialog() {
+    this.isArtifactsMinimized = false;
+    this.showArtifactsDialog = true;
+    this.cdr.detectChanges();
+    setTimeout(() => this.scrollFabricLogsToBottom(), 50);
+  }
+
+  closeMinimizedArtifactsDock() {
+    this.isArtifactsMinimized = false;
   }
 
   generateFabricArtifacts() {
