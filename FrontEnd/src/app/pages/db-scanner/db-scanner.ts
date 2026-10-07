@@ -1442,6 +1442,7 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
       this.generateFabricArtifacts();
     }
     this.cdr.detectChanges();
+    setTimeout(() => this.scrollFabricLogsToBottom(), 50);
   }
 
   closeArtifactsDialog() {

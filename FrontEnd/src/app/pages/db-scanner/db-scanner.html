@@ -163,8 +163,8 @@ START PART 1
                     <button
                         class="fabric-btn"
                         (click)="openArtifactsDialog()"
-                        [disabled]="!scanCompleted || generatingFabric"
-                        [title]="!scanCompleted ? 'Complete scan first to generate artifacts' : 'Generate artifacts using ' + getActiveGeneratorScript()">
+                        [disabled]="!scanCompleted"
+                        [title]="!scanCompleted ? 'Complete scan first to generate artifacts' : (generatingFabric ? 'View live artifact generation' : 'Generate artifacts using ' + getActiveGeneratorScript())">
 
                         <i class="bi bi-cloud-arrow-up-fill" *ngIf="!generatingFabric"></i>
                         <i class="bi bi-arrow-repeat spin" *ngIf="generatingFabric"></i>
@@ -1427,58 +1427,6 @@ SCAN STATUS + ACTION BUTTONS
                     class="connect-btn"
                     (click)="closeConnectionSuccessDialog()">
                     Continue
-                </button>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- ========================================================= -->
-    <!-- MINIMIZED CONSOLE DOCK WIDGETS -->
-    <!-- ========================================================= -->
-    <div class="minimized-dock-container" *ngIf="isLogsMinimized || isArtifactsMinimized">
-
-        <!-- Minimized Logs Console Dock -->
-        <div class="minimized-dock-item" *ngIf="isLogsMinimized">
-            <div class="dock-status-icon" [class.pulse]="loading">
-                <i class="bi bi-terminal-fill" *ngIf="!loading"></i>
-                <i class="bi bi-arrow-repeat spin" *ngIf="loading"></i>
-            </div>
-            <div class="dock-content" (click)="restoreLogsDialog()">
-                <div class="dock-title">Live Execution Console</div>
-                <div class="dock-subtitle">
-                    {{ loading ? scanStatus : 'Scan completed' }}
-                    <span class="dock-progress-tag" *ngIf="loading">{{ getDisplayProgress() }}%</span>
-                </div>
-            </div>
-            <div class="dock-actions">
-                <button class="dock-btn" title="Expand Console" (click)="restoreLogsDialog()">
-                    <i class="bi bi-arrows-angle-expand"></i>
-                </button>
-                <button class="dock-btn dock-close" title="Dismiss" (click)="closeMinimizedLogsDock()">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-            </div>
-        </div>
-
-        <!-- Minimized Artifacts Dock -->
-        <div class="minimized-dock-item" *ngIf="isArtifactsMinimized">
-            <div class="dock-status-icon" [class.pulse]="generatingFabric">
-                <i class="bi bi-cpu-fill" *ngIf="!generatingFabric"></i>
-                <i class="bi bi-arrow-repeat spin" *ngIf="generatingFabric"></i>
-            </div>
-            <div class="dock-content" (click)="restoreArtifactsDialog()">
-                <div class="dock-title">Generated Artifacts</div>
-                <div class="dock-subtitle">
-                    {{ generatingFabric ? 'Generating Fabric Artifacts...' : 'Artifacts Ready' }}
-                </div>
-            </div>
-            <div class="dock-actions">
-                <button class="dock-btn" title="Expand Artifacts" (click)="restoreArtifactsDialog()">
-                    <i class="bi bi-arrows-angle-expand"></i>
-                </button>
-                <button class="dock-btn dock-close" title="Dismiss" (click)="closeMinimizedArtifactsDock()">
-                    <i class="bi bi-x-lg"></i>
                 </button>
             </div>
         </div>
