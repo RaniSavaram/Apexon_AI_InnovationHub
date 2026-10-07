@@ -816,7 +816,9 @@ def _run_scan(destination, scan_source=None, scan_id=None):
                     "Harness Layer2": job.get("harness2_logs", []) if job else list(Logs.get("Harness Layer2", [])),
                 },
                 "output_files": output_files,
-                "tables_found": selected_table_count,
+                "tables_found": selected_tables,
+                "views_found": selected_views,
+                "procedures_found": selected_procs,
             })
     except Exception as e:
         update_scan_job_state(scan_id, log_entry=str(e))
