@@ -199,8 +199,8 @@ AZURE_CLIENT_ID="<your-client-id>"
 AZURE_CLIENT_SECRET="<your-client-secret>"
 
 # Microsoft Fabric Lakehouse & Workspace Target
-FABRIC_WORKSPACE_ID="<your-Workspace-id>"
-FABRIC_LAKEHOUSE_ID="<your-Lakehouse-id>"
+FABRIC_WORKSPACE_ID="<your-workspace-id>"
+FABRIC_LAKEHOUSE_ID="<your-lakehouse-id>"
 ```
 
 ---
