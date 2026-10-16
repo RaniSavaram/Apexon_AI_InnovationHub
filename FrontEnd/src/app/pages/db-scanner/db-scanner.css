@@ -1572,83 +1572,8 @@ DIALOG HEADER ACTIONS & MINIMIZE BUTTON
 }
 
 /*====================================================
-FABRIC DESTINATION CONNECTION & DIALOG
+FABRIC DESTINATION MODAL
 ====================================================*/
-
-.destination-form-group {
-    position: relative;
-}
-
-.dest-label-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
-
-.dest-label-row label {
-    margin-bottom: 0;
-}
-
-.config-dest-btn {
-    background: rgba(56, 189, 248, 0.12);
-    border: 1px solid rgba(56, 189, 248, 0.35);
-    color: #38bdf8;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 3px 9px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    transition: all 0.2s ease;
-}
-
-.config-dest-btn:hover {
-    background: rgba(56, 189, 248, 0.22);
-    border-color: #38bdf8;
-    color: #ffffff;
-    transform: translateY(-1px);
-}
-
-.dest-select-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.dest-select-wrapper select {
-    padding-right: 110px;
-}
-
-.dest-connection-badge {
-    position: absolute;
-    right: 10px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(148, 163, 184, 0.12);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    color: #94a3b8;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 8px;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    user-select: none;
-}
-
-.dest-connection-badge.badge-connected {
-    background: rgba(74, 222, 128, 0.15);
-    border-color: rgba(74, 222, 128, 0.4);
-    color: #4ade80;
-}
-
-.dest-connection-badge:hover {
-    filter: brightness(1.15);
-}
 
 .fabric-modal {
     width: 620px;

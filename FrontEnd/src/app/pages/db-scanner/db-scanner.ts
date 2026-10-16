@@ -511,6 +511,11 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
   // FABRIC: CONNECTION & CREDENTIALS
   //=========================================================
 
+  onDestinationClick(event?: MouseEvent) {
+    if (this.loading || this.connecting) return;
+    this.openFabricConnectionDialog();
+  }
+
   destinationChanged() {
     if (this.destination === 'Fabric') {
       this.openFabricConnectionDialog();

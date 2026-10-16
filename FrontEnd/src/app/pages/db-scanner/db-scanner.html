@@ -113,41 +113,22 @@ START PART 1
 
                     <!-- Destination -->
 
-                    <div class="form-group destination-form-group">
+                    <div class="form-group">
 
-                        <div class="dest-label-row">
-                            <label><i class="bi bi-cloud-fill"></i> Destination</label>
-                            <button
-                                type="button"
-                                class="config-dest-btn"
-                                (click)="openFabricConnectionDialog()"
-                                [disabled]="loading || connecting"
-                                [title]="fabricConnected ? 'Edit Fabric Connection Settings' : 'Configure Fabric Workspace & Credentials'">
-                                <i class="bi bi-gear-fill"></i>
-                                <span>{{ fabricConnected ? 'Configured' : 'Configure' }}</span>
-                            </button>
-                        </div>
+                        <label><i class="bi bi-cloud-fill"></i> Destination</label>
 
-                        <div class="dest-select-wrapper">
-                            <select
-                                [(ngModel)]="destination"
-                                (change)="destinationChanged()"
-                                [disabled]="loading || connecting">
+                        <select
+                            [(ngModel)]="destination"
+                            (click)="onDestinationClick($event)"
+                            (change)="destinationChanged()"
+                            [disabled]="loading || connecting"
+                            title="Click to configure Microsoft Fabric connection details">
 
-                                <option value="Fabric">
-                                    Microsoft Fabric
-                                </option>
+                            <option value="Fabric">
+                                Microsoft Fabric
+                            </option>
 
-                            </select>
-                            <span
-                                class="dest-connection-badge"
-                                [class.badge-connected]="fabricConnected"
-                                (click)="openFabricConnectionDialog()"
-                                title="Click to view or edit Microsoft Fabric connection details">
-                                <i class="bi" [class.bi-check-circle-fill]="fabricConnected" [class.bi-sliders]="!fabricConnected"></i>
-                                {{ fabricConnected ? 'Connected' : 'Setup' }}
-                            </span>
-                        </div>
+                        </select>
 
                     </div>
 
