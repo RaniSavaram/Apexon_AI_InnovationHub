@@ -159,9 +159,12 @@ def generate_fabric_json_metadata(
             "dependencies": t_deps
         })
         
+    SYSTEM_SCHEMAS = {"sys", "information_schema"}
     for _, row in views_df.iterrows() if views_df is not None else []:
         v_name = row["view_name"]
         s_name = row["schema_name"]
+        if (s_name or "").strip().lower() in SYSTEM_SCHEMAS:
+            continue
         objects.append({
             "name": v_name,
             "schema": s_name,
@@ -173,6 +176,8 @@ def generate_fabric_json_metadata(
     for _, row in procedures_df.iterrows() if procedures_df is not None else []:
         p_name = row["procedure_name"]
         s_name = row["schema_name"]
+        if (s_name or "").strip().lower() in SYSTEM_SCHEMAS:
+            continue
         objects.append({
             "name": p_name,
             "schema": s_name,
@@ -181,6 +186,8 @@ def generate_fabric_json_metadata(
         })
 
     for _, row in functions_df.iterrows() if functions_df is not None else []:
+        if (row["schema_name"] or "").strip().lower() in SYSTEM_SCHEMAS:
+            continue
         objects.append({
             "name": row["function_name"],
             "schema": row["schema_name"],

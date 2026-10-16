@@ -319,9 +319,12 @@ def build_plan(assessment_path, migration_plan_path=None, source_system=None, da
     functions_out = []
     procedures_out = []
     volumes_out = []
+    SYSTEM_SCHEMAS = {"sys", "information_schema"}
     for t in parsed_tables:
         name = t["table_name"]
         schema = t.get("schema") or "dbo"
+        if (schema or "").strip().lower() in SYSTEM_SCHEMAS:
+            continue
         obj_type = t.get("type") or "table"
         details = t.get("details") or {}
 

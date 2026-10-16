@@ -65,6 +65,7 @@ class SQLServerExtractor(BaseExtractor):
                 TABLE_NAME,
                 TABLE_TYPE
             FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA NOT IN ('sys', 'INFORMATION_SCHEMA')
             ORDER BY TABLE_SCHEMA,
                      TABLE_NAME
         """)
@@ -175,6 +176,7 @@ class SQLServerExtractor(BaseExtractor):
                     ROUTINE_NAME
                 FROM INFORMATION_SCHEMA.ROUTINES
                 WHERE ROUTINE_TYPE = 'PROCEDURE'
+                  AND ROUTINE_SCHEMA NOT IN ('sys', 'INFORMATION_SCHEMA')
                 ORDER BY ROUTINE_SCHEMA, ROUTINE_NAME
             """)
             for proc in proc_cursor.fetchall():

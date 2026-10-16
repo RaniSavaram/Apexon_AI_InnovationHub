@@ -18,11 +18,17 @@ ANGULAR_DIST_DIR = BASE_DIR.parent / "FrontEnd" / "dist" / "frontend" / "browser
 # --- Security ---------------------------------------------------------
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-local-only")
 DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
-ALLOWED_HOSTS = [
-    "apexon-ai-innovationhub-new.onrender.com",
-    "localhost",
-    "127.0.0.1",
-]
+
+allowed_hosts_env = os.environ.get("ALLOWED_HOSTS", "")
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(",") if h.strip()]
+else:
+    ALLOWED_HOSTS = [
+        "apexon-ai-innovationhub-new.onrender.com",
+        ".onrender.com",
+        "localhost",
+        "127.0.0.1",
+    ]
 
 # --- Applications -------------------------------------------------------
 INSTALLED_APPS = [
@@ -49,9 +55,13 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     "https://apexon-ai-innovationhub-new.onrender.com",
 ]
+cors_env = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+if cors_env:
+    CORS_ALLOWED_ORIGINS.extend([o.strip() for o in cors_env.split(",") if o.strip()])
 
 ROOT_URLCONF = "config.urls"
 
@@ -89,7 +99,11 @@ USE_I18N = True
 USE_TZ = True
 CSRF_TRUSTED_ORIGINS = [
     "https://apexon-ai-innovationhub-new.onrender.com",
+    "https://*.onrender.com",
 ]
+csrf_env = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
+if csrf_env:
+    CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in csrf_env.split(",") if o.strip()])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # --- Static files (Angular's JS/CSS/assets) -----------------------------

@@ -180,6 +180,8 @@ def ensure_schema(cursor, schema_name):
     here keeps this one function working unchanged under either backend.
     """
     schema_name = clean_sql_identifier(schema_name)
+    if schema_name.lower() in ("sys", "information_schema"):
+        return schema_name
     cursor.execute(
         f"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = '{schema_name}') "
         f"EXEC('CREATE SCHEMA [{schema_name}]')"
@@ -194,6 +196,8 @@ def create_placeholder_view(cursor, schema_name, view_name, source_system=None, 
     untranslated source SQL definition (if known) embedded as a comment
     for a person to translate into T-SQL by hand.
     """
+    if (schema_name or "").strip().lower() in ("sys", "information_schema"):
+        return
     schema_name = ensure_schema(cursor, schema_name)
     view_name = clean_sql_identifier(view_name)
 
@@ -219,6 +223,8 @@ def create_placeholder_procedure(cursor, schema_name, procedure_name, source_sys
     Snowflake exposes one, Unity Catalog doesn't) embedded as a comment
     inside the body for a person to translate into T-SQL by hand.
     """
+    if (schema_name or "").strip().lower() in ("sys", "information_schema"):
+        return
     schema_name = ensure_schema(cursor, schema_name)
     procedure_name = clean_sql_identifier(procedure_name)
 

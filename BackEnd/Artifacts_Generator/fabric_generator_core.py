@@ -500,6 +500,11 @@ def sync_views_and_procedures(views, procedures, source_system, dry_run, target_
     except ImportError:
         import fabric_notebook_warehouse_sql
 
+    SYSTEM_SCHEMAS = {"sys", "information_schema"}
+    views = [v for v in (views or []) if (v.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
+    procedures = [p for p in (procedures or []) if (p.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
+    functions = [f for f in (functions or []) if (f.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
+
     return fabric_notebook_warehouse_sql.sync_views_and_procedures(
         views, procedures, source_system, dry_run,
         target_workspace_id, default_lakehouse_id,
@@ -621,6 +626,12 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     procedures = plan.get("procedures", [])
     functions = plan.get("functions", [])
     volumes = plan.get("volumes", [])
+
+    SYSTEM_SCHEMAS = {"sys", "information_schema"}
+    tables = [t for t in tables if (t.get("schema") or "dbo").strip().lower() not in SYSTEM_SCHEMAS]
+    views = [v for v in views if (v.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
+    procedures = [p for p in procedures if (p.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
+    functions = [f for f in functions if (f.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
 
     # source_system/database_name aren't always passed explicitly - fall
     # back to whatever plan_to_json.py recorded in meta, if anything.

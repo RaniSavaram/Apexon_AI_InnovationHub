@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: apexon-ai-innovation-hub
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: AZURE_TENANT_ID
+        sync: false
+      - key: AZURE_CLIENT_ID
+        sync: false
+      - key: AZURE_CLIENT_SECRET
+        sync: false
+      - key: AZURE_AI_FOUNDRY_PROJECT_ENDPOINT
+        sync: false
+      - key: AZURE_AI_FOUNDRY_AGENT_NAME
+        sync: false
+      - key: AZURE_AI_FOUNDRY_TABLE_SUMMARIZER_MODEL
+        sync: false
+      - key: AZURE_AI_FOUNDRY_MIGRATION_PLAN_MODEL
+        sync: false
+      - key: FABRIC_WORKSPACE_ID
+        sync: false
+      - key: FABRIC_LAKEHOUSE_ID
+        sync: false

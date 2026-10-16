@@ -6,7 +6,7 @@
     "target_platform": "Microsoft Fabric (OneLake)",
     "total_tables": 68,
     "total_columns": 976,
-    "total_views": 24,
+    "total_views": 23,
     "total_procedures": 6,
     "total_functions": 0,
     "total_size_mb": 881.31,
@@ -5834,13 +5834,6 @@
       "dependencies": []
     },
     {
-      "name": "database_firewall_rules",
-      "schema": "sys",
-      "type": "view",
-      "is_materialized": false,
-      "dependencies": []
-    },
-    {
       "name": "sp_alterdiagram",
       "schema": "dbo",
       "type": "procedure",
@@ -6182,8 +6175,7 @@
         "PRSS_PARM_DTL",
         "SRC_SYS_DTL",
         "DATA_COMPARISION_SUMMARY_RPT_V",
-        "DATA_COMPARISION_SUMMARY_V",
-        "database_firewall_rules"
+        "DATA_COMPARISION_SUMMARY_V"
       ],
       "Batch 5 (Stored Procedures)": [
         "sp_alterdiagram",

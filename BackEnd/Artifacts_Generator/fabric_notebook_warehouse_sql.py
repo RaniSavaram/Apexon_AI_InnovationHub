@@ -88,8 +88,13 @@ def _build_notebook_source(warehouse_connection_string, warehouse_database_name,
     literals directly, so arbitrary object names or view definition text
     can never accidentally break out of the generated source.
     """
+    SYSTEM_SCHEMAS = {"sys", "information_schema"}
+    views = [v for v in (views or []) if (v.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
+    procedures = [p for p in (procedures or []) if (p.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
+    functions = [fn for fn in (functions or []) if (fn.get("schema") or "").strip().lower() not in SYSTEM_SCHEMAS]
+
     payload = base64.b64encode(
-        json.dumps({"views": views, "procedures": procedures, "functions": functions or []}, ensure_ascii=False).encode("utf-8")
+        json.dumps({"views": views, "procedures": procedures, "functions": functions}, ensure_ascii=False).encode("utf-8")
     ).decode("ascii")
 
     # Indentation/quoting inside this cell body is plain Python - nothing
@@ -155,6 +160,8 @@ except Exception as exc:
 
 def ensure_schema(schema_name):
     schema_name = clean_sql_identifier(schema_name)
+    if schema_name.lower() in ("sys", "information_schema"):
+        return schema_name
     cursor.execute(
         f"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = '{{schema_name}}') "
         f"EXEC('CREATE SCHEMA [{{schema_name}}]')"
@@ -162,8 +169,12 @@ def ensure_schema(schema_name):
     return schema_name
 
 
+SYSTEM_SCHEMAS = {{"sys", "information_schema"}}
+
 for v in views:
     schema_name, view_name = v.get("schema"), v.get("view_name")
+    if (schema_name or "").strip().lower() in SYSTEM_SCHEMAS:
+        continue
     try:
         clean_schema = ensure_schema(schema_name)
         clean_view = clean_sql_identifier(view_name)
@@ -196,6 +207,8 @@ for v in views:
 
 for p in procedures:
     schema_name, procedure_name = p.get("schema"), p.get("procedure_name")
+    if (schema_name or "").strip().lower() in SYSTEM_SCHEMAS:
+        continue
     try:
         clean_schema = ensure_schema(schema_name)
         clean_proc = clean_sql_identifier(procedure_name)
@@ -255,6 +268,8 @@ def to_tsql_type(source_type):
 
 for fn in functions:
     schema_name, function_name = fn.get("schema"), fn.get("function_name")
+    if (schema_name or "").strip().lower() in SYSTEM_SCHEMAS:
+        continue
     try:
         clean_schema = ensure_schema(schema_name)
         clean_func = clean_sql_identifier(function_name)

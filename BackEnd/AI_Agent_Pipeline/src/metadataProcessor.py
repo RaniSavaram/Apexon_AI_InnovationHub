@@ -183,8 +183,11 @@ def parse_schema_dict(schema_data, label="metadata"):
     procedures_list = []
     functions_list = []
     volumes_list = []
+    SYSTEM_SCHEMAS = {"sys", "information_schema"}
     for schema in schema_data.get("schemas", []):
         schema_name = schema.get("name", "dbo")
+        if (schema_name or "").strip().lower() in SYSTEM_SCHEMAS:
+            continue
         for procedure in schema.get("procedures", []):
             procedures_list.append({
                 "schema_name": schema_name,
