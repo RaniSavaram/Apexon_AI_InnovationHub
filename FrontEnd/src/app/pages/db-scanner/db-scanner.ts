@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
-import { Scanner, SavedConnectionProfile, ConnectionDetails } from '../../services/scanner/scanner';
+import { Scanner, SavedConnectionProfile, ConnectionDetails, FabricConnectionDetails } from '../../services/scanner/scanner';
 import { ErDiagram } from '../../components/er-diagram/er-diagram';
 
 @Component({
@@ -78,6 +78,7 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
         this.cdr.detectChanges();
       }
     });
+    this.loadFabricConnection();
   }
 
   //=========================================================
@@ -87,6 +88,32 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
   source = '';
 
   destination = 'Fabric';
+
+  //=========================================================
+  // FABRIC DESTINATION CONFIGURATION
+  //=========================================================
+
+  showFabricConnection = false;
+  fabricConnecting = false;
+  fabricConnected = false;
+  showFabricConnectionSuccessDialog = false;
+  fabricConnectionSuccessMessage = '';
+  fabricRememberMe = true;
+  fabricAuthMode: 'servicePrincipal' | 'default' = 'servicePrincipal';
+
+  fabricConnection: FabricConnectionDetails = {
+    workspaceId: 'bae3b540-d044-45e0-8c52-3cf4ee3dcb31',
+    lakehouseName: '',
+    lakehouseId: '',
+    tenantId: '',
+    clientId: '',
+    clientSecret: '',
+    warehouseName: '',
+    warehouseHost: '',
+    authMode: 'servicePrincipal'
+  };
+
+  private readonly FABRIC_STORAGE_KEY = 'dbscanner.fabricConnection';
 
   //=========================================================
   // PAGE STATUS
@@ -478,6 +505,126 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
     if (this.source === 'Snowflake') {
       this.snowflakeAuthMode = profile.extra?.token ? 'token' : 'password';
     }
+  }
+
+  //=========================================================
+  // FABRIC: CONNECTION & CREDENTIALS
+  //=========================================================
+
+  destinationChanged() {
+    if (this.destination === 'Fabric') {
+      this.openFabricConnectionDialog();
+    }
+  }
+
+  openFabricConnectionDialog() {
+    this.showFabricConnection = true;
+    this.cdr.detectChanges();
+  }
+
+  cancelFabricConnection() {
+    this.showFabricConnection = false;
+  }
+
+  loadFabricConnection() {
+    try {
+      const saved = localStorage.getItem(this.FABRIC_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.workspaceId) {
+          this.fabricConnection = {
+            workspaceId: parsed.workspaceId,
+            lakehouseName: parsed.lakehouseName || '',
+            lakehouseId: parsed.lakehouseId || '',
+            tenantId: parsed.tenantId || '',
+            clientId: parsed.clientId || '',
+            clientSecret: parsed.clientSecret || '',
+            warehouseName: parsed.warehouseName || '',
+            warehouseHost: parsed.warehouseHost || '',
+            authMode: parsed.authMode || 'servicePrincipal'
+          };
+          this.fabricAuthMode = this.fabricConnection.authMode || 'servicePrincipal';
+          this.fabricConnected = true;
+          return;
+        }
+      }
+    } catch {
+      // Ignore localStorage parse errors
+    }
+
+    this.scanner.getSavedConnection('Fabric').subscribe({
+      next: (res) => {
+        if (res.found && res.connection) {
+          const extra: any = res.connection.extra || {};
+          this.fabricConnection = {
+            workspaceId: extra.workspace_id || res.connection.server || 'bae3b540-d044-45e0-8c52-3cf4ee3dcb31',
+            lakehouseName: extra.lakehouse_name || res.connection.database || '',
+            lakehouseId: extra.lakehouse_id || '',
+            tenantId: extra.tenant_id || '',
+            clientId: extra.client_id || res.connection.username || '',
+            clientSecret: extra.client_secret || res.connection.password || '',
+            warehouseName: extra.warehouse_name || '',
+            warehouseHost: extra.warehouse_connection_string || '',
+            authMode: (extra.auth_mode as any) || 'servicePrincipal'
+          };
+          this.fabricAuthMode = this.fabricConnection.authMode || 'servicePrincipal';
+          this.fabricConnected = true;
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  saveFabricConnection() {
+    if (this.fabricRememberMe) {
+      try {
+        localStorage.setItem(this.FABRIC_STORAGE_KEY, JSON.stringify(this.fabricConnection));
+      } catch {}
+    } else {
+      try {
+        localStorage.removeItem(this.FABRIC_STORAGE_KEY);
+      } catch {}
+    }
+  }
+
+  connectFabric() {
+    if (!this.fabricConnection.workspaceId?.trim()) {
+      alert('Please provide the Target Fabric Workspace ID.');
+      return;
+    }
+
+    if (this.fabricAuthMode === 'servicePrincipal') {
+      if (
+        !this.fabricConnection.tenantId?.trim() ||
+        !this.fabricConnection.clientId?.trim() ||
+        !this.fabricConnection.clientSecret?.trim()
+      ) {
+        alert('Please provide Tenant ID, Client ID, and Client Secret for Service Principal authentication.');
+        return;
+      }
+    }
+
+    this.fabricConnection.authMode = this.fabricAuthMode;
+    this.fabricConnecting = true;
+
+    this.scanner.connectFabric(this.fabricConnection, this.fabricRememberMe).subscribe({
+      next: (res) => {
+        this.fabricConnecting = false;
+        this.fabricConnected = true;
+        this.showFabricConnection = false;
+        this.saveFabricConnection();
+        this.fabricConnectionSuccessMessage = res.message || 'Connected to Microsoft Fabric workspace successfully.';
+        this.showFabricConnectionSuccessDialog = true;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.fabricConnecting = false;
+        const msg = err.error?.message || err.message || 'Failed to connect to Microsoft Fabric. Please check the credentials and workspace permissions.';
+        alert(msg);
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   sourceChanged() {
@@ -1485,20 +1632,22 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
     const script = this.getActiveGeneratorScript();
     const sourceName = this.getActiveSourceDisplayName();
     const reportDoc = this.getActiveReportDocName();
-    const targetLakehouse = this.getActiveTargetLakehouse();
+    const targetWorkspace = this.fabricConnection.workspaceId || 'bae3b540-d044-45e0-8c52-3cf4ee3dcb31';
+    const targetLakehouse = this.fabricConnection.lakehouseName || this.getActiveTargetLakehouse();
 
     // Seed with exact initial backend execution header
     this.fabricLiveLogs = [
       `Routing Generate Artifacts to: ${script} for source: ${sourceName}`,
+      `[INFO] Target Workspace: ${targetWorkspace}`,
       `[INFO] Target Lakehouse: ${targetLakehouse}`,
       `[INFO] Using assessment report: ${reportDoc}`,
-      `[INFO] Target Workspace: bae3b540-d044-45e0-8c52-3cf4ee3dcb31`
+      ...(this.fabricConnection.clientId ? [`[INFO] Auth Identity (Client ID): ${this.fabricConnection.clientId}`] : [])
     ];
     this.cdr.detectChanges();
 
     const pendingHeaderLines = [
-      `[INFO] Authenticated Identity: Service Principal (ID: 8e82282c-30c4-474c-9925-d233b3f18ed8, Tenant: 61aa10dd-0f65-4088-8028-6766e4da079e)`,
-      `[INFO] Target workspace: bae3b540-d044-45e0-8c52-3cf4ee3dcb31`
+      ...(this.fabricConnection.tenantId ? [`[INFO] Tenant ID: ${this.fabricConnection.tenantId}`] : [`[INFO] Authenticated Identity: Default Azure Credential / Ambient Identity`]),
+      `[INFO] Initializing OneLake delta sync & Fabric Data Pipeline...`
     ];
 
     let headerIdx = 0;
@@ -1513,7 +1662,7 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
 
     const selectedSource = this.source || this.lastScanSource || '';
 
-    this.scanner.generateFabricArtifacts(selectedSource).subscribe({
+    this.scanner.generateFabricArtifacts(selectedSource, undefined, this.fabricConnection).subscribe({
       next: (res) => {
         if (this.fabricLogInterval) {
           clearInterval(this.fabricLogInterval);
@@ -1599,7 +1748,8 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
   // workspace, fixed id per source). Prefers the id from the generation
   // result once one is back.
   getLakehouseUrl(): string {
-    const realLakehouseId = this.fabricArtifactsResult?.target?.lakehouse_id;
+    const ws = this.fabricArtifactsResult?.target?.workspace_id || this.fabricConnection.workspaceId || 'bae3b540-d044-45e0-8c52-3cf4ee3dcb31';
+    const realLakehouseId = this.fabricArtifactsResult?.target?.lakehouse_id || this.fabricConnection.lakehouseId;
     const lakehouseId = realLakehouseId && !String(realLakehouseId).startsWith('<')
       ? realLakehouseId
       : this.isDatabricksSource()
@@ -1609,7 +1759,7 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
       : this.isSnowflakeSource()
       ? '1fef9fdf-9c8c-47f2-9b08-4fa690a8b754'
       : '87ddccfe-cfa3-47d6-92ab-b638ce379319';
-    return `https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/lakehouses/${lakehouseId}?experience=fabric-developer`;
+    return `https://app.fabric.microsoft.com/groups/${ws}/lakehouses/${lakehouseId}?experience=fabric-developer`;
   }
 
   getLakehouseName(): string {
@@ -1619,7 +1769,8 @@ export class DbScannerComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   getWorkspaceUrl(): string {
-    return 'https://app.fabric.microsoft.com/groups/bae3b540-d044-45e0-8c52-3cf4ee3dcb31/list?experience=fabric-developer';
+    const ws = this.fabricArtifactsResult?.target?.workspace_id || this.fabricConnection.workspaceId || 'bae3b540-d044-45e0-8c52-3cf4ee3dcb31';
+    return `https://app.fabric.microsoft.com/groups/${ws}/list?experience=fabric-developer`;
   }
 
   startDynamicProgress() {

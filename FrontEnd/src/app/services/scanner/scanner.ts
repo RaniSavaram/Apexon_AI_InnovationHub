@@ -25,6 +25,18 @@ export interface ConnectionDetails {
   token?: string;
 }
 
+export interface FabricConnectionDetails {
+  workspaceId: string;
+  lakehouseName?: string;
+  lakehouseId?: string;
+  tenantId?: string;
+  clientId?: string;
+  clientSecret?: string;
+  warehouseName?: string;
+  warehouseHost?: string;
+  authMode?: 'servicePrincipal' | 'default';
+}
+
 export interface ConnectResponse {
   status: string;
   message: string;
@@ -45,6 +57,12 @@ export interface SavedConnectionProfile {
     warehouse?: string;
     role?: string;
     token?: string;
+    workspace_id?: string;
+    lakehouse_name?: string;
+    lakehouse_id?: string;
+    warehouse_name?: string;
+    warehouse_connection_string?: string;
+    auth_mode?: string;
   };
 }
 
@@ -274,12 +292,48 @@ export class Scanner {
   }
 
   /**
+   * Validates and saves Microsoft Fabric destination credentials and workspace configuration.
+   */
+  connectFabric(fabric: FabricConnectionDetails, rememberMe = false) {
+    return this.http.post<{
+      status: string;
+      message: string;
+      details?: any;
+      fabric?: any;
+    }>(`${this.api.baseUrl}/connect-fabric/`, {
+      workspace_id: fabric.workspaceId,
+      tenant_id: fabric.tenantId,
+      client_id: fabric.clientId,
+      client_secret: fabric.clientSecret,
+      lakehouse_name: fabric.lakehouseName,
+      lakehouse_id: fabric.lakehouseId,
+      warehouse_name: fabric.warehouseName,
+      warehouse_host: fabric.warehouseHost,
+      auth_mode: fabric.authMode || 'servicePrincipal',
+      remember_me: rememberMe,
+    });
+  }
+
+  /**
    * Invokes the source's BackEnd/Artifacts_Generator/*2_fabric.py script
    * (databricks2_fabric.py / sqlserver2_fabric.py / dynamics3652_fabric.py)
    * to deploy the scanned Tables, Views, Stored Procedures, and Volumes
    * directly into Microsoft Fabric.
    */
-  generateFabricArtifacts(source?: string, filename?: string) {
+  generateFabricArtifacts(source?: string, filename?: string, fabricConfig?: FabricConnectionDetails) {
+    const payload: any = { source, filename };
+    if (fabricConfig) {
+      payload.fabric = {
+        workspace_id: fabricConfig.workspaceId,
+        tenant_id: fabricConfig.tenantId,
+        client_id: fabricConfig.clientId,
+        client_secret: fabricConfig.clientSecret,
+        lakehouse_name: fabricConfig.lakehouseName,
+        lakehouse_id: fabricConfig.lakehouseId,
+        warehouse_name: fabricConfig.warehouseName,
+        warehouse_connection_string: fabricConfig.warehouseHost,
+      };
+    }
     return this.http.post<{
       status: string;
       message: string;
@@ -288,9 +342,12 @@ export class Scanner {
       logs?: string[];
       tables_info?: any[];
       target?: any;
+      lakehouse_name?: string;
+      warehouse?: any;
+      pipeline?: any;
     }>(
       `${this.api.baseUrl}/generate-fabric-artifacts/`,
-      { source, filename }
+      payload
     );
   }
 }

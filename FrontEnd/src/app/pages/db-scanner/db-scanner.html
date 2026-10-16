@@ -113,21 +113,41 @@ START PART 1
 
                     <!-- Destination -->
 
-                    <div class="form-group">
+                    <div class="form-group destination-form-group">
 
-                        <label><i class="bi bi-cloud-fill"></i> Destination</label>
+                        <div class="dest-label-row">
+                            <label><i class="bi bi-cloud-fill"></i> Destination</label>
+                            <button
+                                type="button"
+                                class="config-dest-btn"
+                                (click)="openFabricConnectionDialog()"
+                                [disabled]="loading || connecting"
+                                [title]="fabricConnected ? 'Edit Fabric Connection Settings' : 'Configure Fabric Workspace & Credentials'">
+                                <i class="bi bi-gear-fill"></i>
+                                <span>{{ fabricConnected ? 'Configured' : 'Configure' }}</span>
+                            </button>
+                        </div>
 
-                        <select
-                            [(ngModel)]="destination"
-                            [disabled]="loading || connecting">
+                        <div class="dest-select-wrapper">
+                            <select
+                                [(ngModel)]="destination"
+                                (change)="destinationChanged()"
+                                [disabled]="loading || connecting">
 
-                            <option value="Fabric">
+                                <option value="Fabric">
+                                    Microsoft Fabric
+                                </option>
 
-                                Microsoft Fabric
-
-                            </option>
-
-                        </select>
+                            </select>
+                            <span
+                                class="dest-connection-badge"
+                                [class.badge-connected]="fabricConnected"
+                                (click)="openFabricConnectionDialog()"
+                                title="Click to view or edit Microsoft Fabric connection details">
+                                <i class="bi" [class.bi-check-circle-fill]="fabricConnected" [class.bi-sliders]="!fabricConnected"></i>
+                                {{ fabricConnected ? 'Connected' : 'Setup' }}
+                            </span>
+                        </div>
 
                     </div>
 
@@ -765,6 +785,217 @@ SCAN STATUS + ACTION BUTTONS
 
                 </button>
 
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================================================
+    MICROSOFT FABRIC DESTINATION CONNECTION DIALOG
+    ===========================================================-->
+    <div
+        class="dialog-overlay"
+        *ngIf="showFabricConnection">
+
+        <div class="dialog fabric-modal">
+
+            <h2>
+                <i class="bi bi-microsoft"></i>
+                Microsoft Fabric Connection Details
+            </h2>
+
+            <p class="dialog-subtitle">
+                Configure your destination Microsoft Fabric workspace and Azure credentials for automated artifact generation.
+            </p>
+
+            <div class="dialog-body">
+
+                <!-- Target Workspace ID -->
+                <div class="form-group">
+                    <label>
+                        Target Workspace ID <span class="required-star">*</span>
+                    </label>
+                    <input
+                        type="text"
+                        [(ngModel)]="fabricConnection.workspaceId"
+                        placeholder="e.g. bae3b540-d044-45e0-8c52-3cf4ee3dcb31"
+                        autocomplete="off">
+                    <small class="field-hint">
+                        The GUID of your client's Fabric workspace where Lakehouses, Delta tables, and Data Pipelines will be deployed.
+                    </small>
+                </div>
+
+                <!-- Authentication Method -->
+                <div class="form-group">
+                    <label>Authentication Method</label>
+                    <select [(ngModel)]="fabricAuthMode">
+                        <option value="servicePrincipal">
+                            Service Principal (App Registration Client Secret)
+                        </option>
+                        <option value="default">
+                            Default Azure Credential (Azure CLI / Ambient Managed Identity)
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Service Principal Fields -->
+                <ng-container *ngIf="fabricAuthMode === 'servicePrincipal'">
+                    <div class="form-group">
+                        <label>
+                            Azure Tenant ID <span class="required-star">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            [(ngModel)]="fabricConnection.tenantId"
+                            placeholder="e.g. 61aa10dd-0f65-4088-8028-6766e4da079e"
+                            autocomplete="off">
+                        <small class="field-hint">Directory (tenant) ID from Microsoft Entra ID.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Client / Application ID <span class="required-star">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            [(ngModel)]="fabricConnection.clientId"
+                            placeholder="e.g. 8e82282c-30c4-474c-9925-d233b3f18ed8"
+                            autocomplete="off">
+                        <small class="field-hint">The App Registration client ID with Contributor or Admin role on this workspace.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Client Secret <span class="required-star">*</span>
+                        </label>
+                        <input
+                            type="password"
+                            [(ngModel)]="fabricConnection.clientSecret"
+                            placeholder="Client secret value"
+                            autocomplete="new-password">
+                        <small class="field-hint">Client secret generated in the Azure App Registration.</small>
+                    </div>
+                </ng-container>
+
+                <!-- Optional Lakehouse & Warehouse Customization -->
+                <div class="advanced-section-divider">
+                    <span>Target Lakehouse &amp; Warehouse (Optional)</span>
+                </div>
+
+                <div class="form-row-2col">
+                    <div class="form-group">
+                        <label>Target Lakehouse Name</label>
+                        <input
+                            type="text"
+                            [(ngModel)]="fabricConnection.lakehouseName"
+                            placeholder="Auto-created if empty (e.g. SQL_Lakehouse)">
+                        <small class="field-hint">Custom Lakehouse name in the workspace.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Lakehouse ID</label>
+                        <input
+                            type="text"
+                            [(ngModel)]="fabricConnection.lakehouseId"
+                            placeholder="Optional pre-existing Lakehouse GUID">
+                        <small class="field-hint">Skip lookup and target this Lakehouse directly.</small>
+                    </div>
+                </div>
+
+                <div class="form-row-2col">
+                    <div class="form-group">
+                        <label>Warehouse Name</label>
+                        <input
+                            type="text"
+                            [(ngModel)]="fabricConnection.warehouseName"
+                            placeholder="e.g. Databricks_SQL_Warehouse">
+                        <small class="field-hint">For Views &amp; Stored Procedures placeholders.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Warehouse SQL Endpoint</label>
+                        <input
+                            type="text"
+                            [(ngModel)]="fabricConnection.warehouseHost"
+                            placeholder="xxxx.datawarehouse.fabric.microsoft.com">
+                        <small class="field-hint">SQL endpoint hostname for warehouse sync.</small>
+                    </div>
+                </div>
+
+                <div class="remember-me-row">
+                    <input type="checkbox" [(ngModel)]="fabricRememberMe" id="fabricRememberMeCheck" />
+                    <label for="fabricRememberMeCheck">Remember connection details for future sessions</label>
+                </div>
+
+            </div>
+
+            <div class="dialog-buttons">
+
+                <button
+                    class="cancel-btn"
+                    (click)="cancelFabricConnection()"
+                    [disabled]="fabricConnecting">
+                    Cancel
+                </button>
+
+                <button
+                    class="connect-btn"
+                    (click)="connectFabric()"
+                    [disabled]="fabricConnecting">
+                    <i class="bi bi-arrow-repeat spin" *ngIf="fabricConnecting"></i>
+                    {{ fabricConnecting ? 'Connecting &amp; Verifying...' : 'Save &amp; Connect' }}
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================================================
+    FABRIC CONNECTION SUCCESS DIALOG
+    ===========================================================-->
+    <div
+        class="dialog-overlay"
+        *ngIf="showFabricConnectionSuccessDialog">
+
+        <div class="dialog connection-success-dialog">
+
+            <h2>
+                <i class="bi bi-microsoft success-icon"></i>
+                Fabric Connected Successfully
+            </h2>
+
+            <div class="dialog-body">
+                <p>{{ fabricConnectionSuccessMessage }}</p>
+
+                <div class="fabric-summary-badge-grid">
+                    <div class="fabric-summary-item">
+                        <span class="label">Workspace ID:</span>
+                        <span class="val text-mono">{{ fabricConnection.workspaceId }}</span>
+                    </div>
+                    <div class="fabric-summary-item" *ngIf="fabricConnection.lakehouseName">
+                        <span class="label">Lakehouse:</span>
+                        <span class="val">{{ fabricConnection.lakehouseName }}</span>
+                    </div>
+                    <div class="fabric-summary-item">
+                        <span class="label">Auth Method:</span>
+                        <span class="val">{{ fabricAuthMode === 'servicePrincipal' ? 'Service Principal' : 'Default Azure Credential' }}</span>
+                    </div>
+                    <div class="fabric-summary-item" *ngIf="fabricConnection.clientId">
+                        <span class="label">Client ID:</span>
+                        <span class="val text-mono">{{ fabricConnection.clientId }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dialog-buttons">
+                <button
+                    class="connect-btn"
+                    (click)="showFabricConnectionSuccessDialog = false">
+                    Continue
+                </button>
             </div>
 
         </div>

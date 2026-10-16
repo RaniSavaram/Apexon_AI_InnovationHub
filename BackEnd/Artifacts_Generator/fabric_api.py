@@ -22,35 +22,46 @@ import time
 import uuid
 
 import requests
-from azure.identity import DefaultAzureCredential
+from azure.identity import DefaultAzureCredential, ClientSecretCredential
 
 FABRIC_API_BASE = "https://api.fabric.microsoft.com/v1"
 
 _credential = None
+_explicit_credentials = None
 
 
-def _build_credential():
-    # This installed azure-identity version's DefaultAzureCredential chain
-    # is, in order: Environment, WorkloadIdentity, ManagedIdentity,
-    # SharedTokenCache, VisualStudioCode, AzureCli, AzurePowerShell,
-    # AzureDeveloperCli, then (default-included) a Windows-native
-    # BrokerCredential (WAM) as the last resort before the
-    # default-excluded InteractiveBrowserCredential. "Couldn't complete the
-    # operation due to a system update. Close out this connection, sign in
-    # again, and retry the operation." is BrokerCredential/pymsalruntime's
-    # own error text for a stale OS-level broker/account-cache entry - one
-    # a Windows update can invalidate, and which stays broken across
-    # process restarts until Windows itself re-syncs it. It only surfaces
-    # when every earlier credential in the chain also failed to produce a
-    # token, which is why this was intermittent. SharedTokenCacheCredential
-    # (the other Windows OS-cache-backed source, earlier in the chain) is
-    # excluded too for the same reason. Skipping both leaves Azure CLI -
-    # confirmed working (`az account show`) - as the effective source.
-    # process_timeout: the default 10s budget for `az account
-    # get-access-token` is too tight on Windows - a cold `az` start while
-    # the server is busy can exceed it, which surfaces as the generic
-    # "AzureCliCredential: Failed to invoke the Azure CLI" (azure-identity's
-    # catch-all for a subprocess timeout) even though the login is valid.
+def set_explicit_credentials(tenant_id=None, client_id=None, client_secret=None):
+    """Sets or clears global explicit credentials (Service Principal)."""
+    global _credential, _explicit_credentials
+    if tenant_id and client_id and client_secret:
+        _explicit_credentials = {
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        _credential = ClientSecretCredential(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+    else:
+        _explicit_credentials = None
+        _credential = None
+
+
+def _build_credential(tenant_id=None, client_id=None, client_secret=None):
+    if tenant_id and client_id and client_secret:
+        return ClientSecretCredential(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+    if _explicit_credentials:
+        return ClientSecretCredential(
+            tenant_id=_explicit_credentials["tenant_id"],
+            client_id=_explicit_credentials["client_id"],
+            client_secret=_explicit_credentials["client_secret"],
+        )
     return DefaultAzureCredential(
         exclude_shared_token_cache_credential=True,
         exclude_broker_credential=True,
@@ -58,51 +69,98 @@ def _build_credential():
     )
 
 
-def _get_credential():
+def _get_credential(tenant_id=None, client_id=None, client_secret=None):
     global _credential
+    if tenant_id and client_id and client_secret:
+        return _build_credential(tenant_id, client_id, client_secret)
     if _credential is None:
         _credential = _build_credential()
     return _credential
 
 
-def _get_token(scope):
+def _get_token(scope, tenant_id=None, client_id=None, client_secret=None):
     """
     Wraps credential.get_token() with a one-time reset-and-retry: if
     whichever source DefaultAzureCredential locked onto on its first
-    successful call (it remembers and reuses only that one for the rest of
-    this process's life) later goes stale mid-process, this discards the
-    cached credential and retries the full chain once from scratch, rather
-    than the whole app staying stuck on the same broken source until
-    someone manually restarts it.
+    successful call later goes stale mid-process, this discards the
+    cached credential and retries the full chain once from scratch.
     """
     global _credential
+    cred = _get_credential(tenant_id, client_id, client_secret)
     try:
-        return _get_credential().get_token(scope).token
+        return cred.get_token(scope).token
     except Exception:
-        _credential = None
-        return _get_credential().get_token(scope).token
+        if not (tenant_id and client_id and client_secret):
+            _credential = None
+            return _get_credential().get_token(scope).token
+        raise
 
 
-def get_onelake_token():
+def get_onelake_token(tenant_id=None, client_id=None, client_secret=None):
     """Bearer token scoped for OneLake/ADLS Gen2 storage access."""
-    return _get_token("https://storage.azure.com/.default")
+    return _get_token("https://storage.azure.com/.default", tenant_id, client_id, client_secret)
 
 
-def get_fabric_api_token():
+def get_fabric_api_token(tenant_id=None, client_id=None, client_secret=None):
     """Bearer token scoped for the Fabric REST API (workspace/item management)."""
-    return _get_token("https://api.fabric.microsoft.com/.default")
+    return _get_token("https://api.fabric.microsoft.com/.default", tenant_id, client_id, client_secret)
 
 
-def get_fabric_sql_token():
+def get_fabric_sql_token(tenant_id=None, client_id=None, client_secret=None):
     """
     Azure AD token scoped for SQL (database.windows.net) - what a Fabric
-    Warehouse's SQL analytics endpoint expects for AAD access-token auth
-    (the same scope Azure SQL/Synapse use, since Fabric Warehouses speak
-    the same TDS wire protocol). Only needed by fabric_warehouse_sql.py,
-    which is a separate token scope from both get_onelake_token() (storage)
-    and get_fabric_api_token() (item management).
+    Warehouse's SQL analytics endpoint expects for AAD access-token auth.
     """
-    return _get_token("https://database.windows.net/.default")
+    return _get_token("https://database.windows.net/.default", tenant_id, client_id, client_secret)
+
+
+def test_fabric_connection(workspace_id=None, tenant_id=None, client_id=None, client_secret=None):
+    """
+    Validates Microsoft Fabric connectivity and credentials.
+    If workspace_id is provided, checks read access to the target workspace.
+    Returns: (success: bool, message: str, details: dict)
+    """
+    try:
+        token = get_fabric_api_token(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+        details = {"workspace_id": workspace_id}
+        try:
+            payload = token.split(".")[1]
+            payload += "=" * (-len(payload) % 4)
+            claims = json.loads(base64.urlsafe_b64decode(payload))
+            details["caller_id"] = (
+                claims.get("upn") or claims.get("appid") or claims.get("azp") or claims.get("oid") or "Service Principal"
+            )
+            details["caller_name"] = claims.get("name") or claims.get("app_displayname") or "Service Principal"
+            details["tenant_id"] = claims.get("tid", "")
+        except Exception:
+            pass
+
+        if workspace_id:
+            url = f"{FABRIC_API_BASE}/workspaces/{workspace_id}"
+            resp = requests.get(url, headers=headers)
+            if resp.status_code == 200:
+                body = resp.json()
+                details["workspace_name"] = body.get("displayName")
+                details["capacity_id"] = body.get("capacityId")
+                return True, f"Successfully connected to Fabric workspace '{details['workspace_name']}'.", details
+            elif resp.status_code == 404:
+                return False, f"Workspace '{workspace_id}' was not found. Please verify the GUID.", details
+            elif resp.status_code in (401, 403):
+                return False, f"Access denied to workspace '{workspace_id}'. Ensure your credentials have Admin or Contributor role.", details
+            else:
+                return False, f"Fabric API error ({resp.status_code}): {resp.text}", details
+        else:
+            url = f"{FABRIC_API_BASE}/workspaces"
+            resp = requests.get(url, headers=headers)
+            if resp.status_code == 200:
+                return True, "Successfully authenticated with Microsoft Fabric API.", details
+            return False, f"Fabric API error ({resp.status_code}): {resp.text}", details
+
+    except Exception as exc:
+        return False, f"Connection test failed: {str(exc)}", {}
+
 
 
 def _headers(token):

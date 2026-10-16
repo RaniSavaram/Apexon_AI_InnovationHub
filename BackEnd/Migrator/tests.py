@@ -241,3 +241,56 @@ class DeclaredKeysTests(TestCase):
         self.assertEqual(len(schema["functions"]), 3)
         self.assertEqual(len(schema["volumes"]), 1)
 
+    def test_connect_fabric_validation(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+
+        # Missing workspace_id should fail
+        resp = client.post("/api/connect-fabric/", {}, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Workspace ID is required", resp.data["message"])
+
+        # Service Principal missing credentials should fail
+        resp = client.post("/api/connect-fabric/", {
+            "workspace_id": "test-ws-guid",
+            "auth_mode": "servicePrincipal"
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Tenant ID, Client ID, and Client Secret are required", resp.data["message"])
+
+    def test_custom_client_fabric_lakehouse_and_warehouse_resolution(self):
+        from Artifacts_Generator.fabric_generator_core import (
+            resolve_artifact_lakehouse,
+            resolve_artifact_warehouse,
+            resolve_artifact_pipeline
+        )
+
+        # Custom workspace should NOT use the hardcoded demo lakehouse map
+        ws, lh, name = resolve_artifact_lakehouse(
+            source_system="sqlserver",
+            database_name="client_db",
+            default_workspace_id="custom-client-workspace-guid",
+            fabric_token=None,
+            dry_run=True,
+            custom_lakehouse_name="Client_Lakehouse"
+        )
+        self.assertEqual(ws, "custom-client-workspace-guid")
+        self.assertEqual(name, "Client_Lakehouse")
+
+        # Custom warehouse connection string and name should override fixed endpoints
+        conn, wh_name = resolve_artifact_warehouse(
+            source_system="sqlserver",
+            fabric_token=None,
+            dry_run=True,
+            warehouse_connection_string="client-wh.datawarehouse.fabric.microsoft.com",
+            warehouse_database_name="Client_Warehouse"
+        )
+        self.assertEqual(conn, "client-wh.datawarehouse.fabric.microsoft.com")
+        self.assertEqual(wh_name, "Client_Warehouse")
+
+        # Custom workspace should resolve pipeline dynamically (None) rather than demo pipeline map
+        p_ws, p_id = resolve_artifact_pipeline("sqlserver", "custom-client-workspace-guid")
+        self.assertEqual(p_ws, "custom-client-workspace-guid")
+        self.assertIsNone(p_id)
+
+

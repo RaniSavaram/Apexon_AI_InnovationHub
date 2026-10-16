@@ -155,11 +155,11 @@ def resolve_item_display_name(workspace_id, item_type, item_id, fabric_token, fa
 def resolve_artifact_pipeline(source_system, default_workspace_id):
     """
     Returns (workspace_id, pipeline_id). pipeline_id is None when
-    source_system isn't in SOURCE_PIPELINE_MAP, meaning the caller should
-    fall back to create_or_update_pipeline()'s by-name get-or-create.
+    source_system isn't in SOURCE_PIPELINE_MAP or if targeting a custom client workspace,
+    meaning the caller should fall back to create_or_update_pipeline()'s by-name get-or-create.
     """
     src_key = (source_system or "").strip().lower()
-    if src_key in SOURCE_PIPELINE_MAP:
+    if default_workspace_id == WORKSPACE_ID and src_key in SOURCE_PIPELINE_MAP:
         ws, pl = SOURCE_PIPELINE_MAP[src_key]
         print(f"[INFO] '{source_system}' has a pre-provisioned Data Pipeline - using it directly (id={pl}).")
         return ws, pl
@@ -196,17 +196,18 @@ SOURCE_WAREHOUSE_MAP = {
 }
 
 
-def resolve_artifact_warehouse(source_system, fabric_token, dry_run):
+def resolve_artifact_warehouse(source_system, fabric_token, dry_run,
+                               warehouse_connection_string=None, warehouse_database_name=None):
     """
     Returns (connection_string, database_name) for the Fabric Warehouse
-    this source's Views/Stored Procedures go into. For a source in
-    SOURCE_WAREHOUSE_MAP, both come from the Warehouse item itself
-    (properties.connectionString / displayName); otherwise - or on a dry
-    run, where no Fabric token is acquired - the shared FIXED_WAREHOUSE_*
-    endpoint is used. A lookup failure raises rather than silently falling
-    back, so a mapped source's objects never land in another source's
-    Warehouse.
+    this source's Views/Stored Procedures go into.
+    Prioritizes explicit client-configured warehouse connection string and name.
     """
+    if warehouse_connection_string:
+        wh_db = warehouse_database_name or FIXED_WAREHOUSE_DATABASE_NAME
+        print(f"[INFO] Using client-configured Fabric Warehouse '{wh_db}' ({warehouse_connection_string}).")
+        return warehouse_connection_string, wh_db
+
     src_key = (source_system or "").strip().lower()
     if src_key not in SOURCE_WAREHOUSE_MAP:
         return FIXED_WAREHOUSE_CONNECTION_STRING, FIXED_WAREHOUSE_DATABASE_NAME
@@ -244,20 +245,38 @@ def build_artifact_lakehouse_name(source_system, database_name):
     return f"{src}_{db}"
 
 
-def resolve_artifact_lakehouse(source_system, database_name, default_workspace_id, fabric_token, dry_run):
+def resolve_artifact_lakehouse(source_system, database_name, default_workspace_id, fabric_token, dry_run,
+                               custom_lakehouse_name=None, custom_lakehouse_id=None):
     """
     Returns (workspace_id, lakehouse_id, lakehouse_display_name).
 
     Priority:
-      1. SOURCE_LAKEHOUSE_MAP - a pre-provisioned Lakehouse dedicated to
-         this source system. Used as-is, no Fabric API call needed since
-         the id is already known.
-      2. Dynamic get-or-create of a "<source>_<database>" Lakehouse in
-         default_workspace_id, for any source system not in the map.
+      1. Explicit custom_lakehouse_id (if provided by client).
+      2. Explicit custom_lakehouse_name (get or create in default_workspace_id).
+      3. If default_workspace_id == WORKSPACE_ID (built-in demo workspace),
+         check SOURCE_LAKEHOUSE_MAP for a pre-provisioned Lakehouse.
+      4. Dynamic get-or-create of a "<source>_<database>" Lakehouse in
+         default_workspace_id (for any client workspace or unmapped source).
     """
+    if custom_lakehouse_id:
+        name = custom_lakehouse_name or resolve_item_display_name(
+            default_workspace_id, "lakehouses", custom_lakehouse_id, fabric_token, fallback="Fabric_Lakehouse"
+        )
+        print(f"[INFO] Using client-specified Lakehouse '{name}' (id={custom_lakehouse_id}).")
+        return default_workspace_id, custom_lakehouse_id, name
+
+    if custom_lakehouse_name:
+        display_name = custom_lakehouse_name
+        if dry_run:
+            print(f"  [DRY-RUN] would get-or-create Lakehouse '{display_name}' in workspace {default_workspace_id}")
+            return default_workspace_id, "<lakehouse-id-resolved-at-runtime>", display_name
+        lakehouse_id = get_or_create_lakehouse(default_workspace_id, display_name, fabric_token)
+        print(f"[INFO] Using client-specified Lakehouse '{display_name}' (id={lakehouse_id}).")
+        return default_workspace_id, lakehouse_id, display_name
+
     src_key = (source_system or "").strip().lower()
 
-    if src_key in SOURCE_LAKEHOUSE_MAP:
+    if default_workspace_id == WORKSPACE_ID and src_key in SOURCE_LAKEHOUSE_MAP:
         ws, lh = SOURCE_LAKEHOUSE_MAP[src_key]
         name = resolve_item_display_name(ws, "lakehouses", lh, fabric_token)
         print(f"[INFO] '{source_system}' has a pre-provisioned Lakehouse - using '{name}' (id={lh}).")
@@ -513,7 +532,22 @@ def sync_views_and_procedures(views, procedures, source_system, dry_run, target_
     )
 
 
-def Generator(json_path=None, dry_run=False, source_system=None, database_name=None, workspace_id=None, generator_script=None):
+def Generator(
+    json_path=None,
+    dry_run=False,
+    source_system=None,
+    database_name=None,
+    workspace_id=None,
+    generator_script=None,
+    tenant_id=None,
+    client_id=None,
+    client_secret=None,
+    lakehouse_name=None,
+    lakehouse_id=None,
+    warehouse_name=None,
+    warehouse_connection_string=None,
+    **kwargs,
+):
     """
     Generate/synchronize Fabric Delta tables from migration_plan.json.
 
@@ -639,7 +673,6 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     source_system = source_system or meta.get("source_system")
     database_name = database_name or meta.get("database_name")
     target_workspace_id = workspace_id or WORKSPACE_ID
-    target_workspace_id = workspace_id or WORKSPACE_ID
 
     log("==================================================")
     log("JSON -> FABRIC")
@@ -657,7 +690,7 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     caller_id = "unknown"
     caller_name = "Azure Identity"
     if not dry_run:
-        token = fabric_api.get_onelake_token()
+        token = fabric_api.get_onelake_token(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
         try:
             payload = token.split(".")[1]
             payload += "=" * (-len(payload) % 4)
@@ -674,10 +707,11 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
             "use_fabric_endpoint": "true",
             "allow_unsafe_rename": "true",
         }
-        fabric_token = fabric_api.get_fabric_api_token()
+        fabric_token = fabric_api.get_fabric_api_token(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
 
     target_workspace_id, default_lakehouse_id, artifact_lakehouse_name = resolve_artifact_lakehouse(
-        source_system, database_name, target_workspace_id, fabric_token, dry_run
+        source_system, database_name, target_workspace_id, fabric_token, dry_run,
+        custom_lakehouse_name=lakehouse_name, custom_lakehouse_id=lakehouse_id
     )
     log(f"[INFO] Target workspace: {target_workspace_id}")
     log(f"[INFO] Artifact lakehouse: {artifact_lakehouse_name}")
@@ -884,7 +918,11 @@ def Generator(json_path=None, dry_run=False, source_system=None, database_name=N
     warehouse_info = None
     if views or procedures or functions:
         try:
-            wh_conn, wh_db = resolve_artifact_warehouse(source_system, fabric_token, dry_run)
+            wh_conn, wh_db = resolve_artifact_warehouse(
+                source_system, fabric_token, dry_run,
+                warehouse_connection_string=warehouse_connection_string,
+                warehouse_database_name=warehouse_name,
+            )
             log(f"[INFO] Target warehouse: {wh_db} ({wh_conn})")
             wh_created, wh_errors = sync_views_and_procedures(
                 views, procedures, source_system, dry_run, target_workspace_id, default_lakehouse_id, fabric_token,

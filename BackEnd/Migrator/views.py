@@ -554,6 +554,94 @@ def saved_connections(request):
     })
 
 
+@api_view(["POST"])
+def connect_fabric(request):
+    """
+    Validates Microsoft Fabric connection parameters:
+    Workspace ID, Tenant ID, Client ID, Client Secret, etc.
+    Optionally saves the connection profile if remember_me is true.
+    """
+    workspace_id = request.data.get("workspace_id") or request.data.get("workspaceId") or ""
+    tenant_id = request.data.get("tenant_id") or request.data.get("tenantId") or ""
+    client_id = request.data.get("client_id") or request.data.get("clientId") or ""
+    client_secret = request.data.get("client_secret") or request.data.get("clientSecret") or ""
+    lakehouse_name = request.data.get("lakehouse_name") or request.data.get("lakehouseName") or ""
+    lakehouse_id = request.data.get("lakehouse_id") or request.data.get("lakehouseId") or ""
+    warehouse_name = request.data.get("warehouse_name") or request.data.get("warehouseName") or ""
+    warehouse_host = request.data.get("warehouse_host") or request.data.get("warehouseHost") or ""
+    auth_mode = request.data.get("auth_mode") or request.data.get("authMode") or "servicePrincipal"
+    remember_me = str(request.data.get("remember_me", "false")).strip().lower() == "true"
+
+    if not workspace_id:
+        return Response({
+            "status": "error",
+            "message": "Target Fabric Workspace ID is required."
+        }, status=400)
+
+    if auth_mode == "servicePrincipal":
+        if not tenant_id or not client_id or not client_secret:
+            return Response({
+                "status": "error",
+                "message": "Tenant ID, Client ID, and Client Secret are required for Service Principal authentication."
+            }, status=400)
+
+    try:
+        from Artifacts_Generator import fabric_api
+        ok, message, details = fabric_api.test_fabric_connection(
+            workspace_id=workspace_id.strip() if workspace_id else None,
+            tenant_id=tenant_id.strip() if tenant_id else None,
+            client_id=client_id.strip() if client_id else None,
+            client_secret=client_secret.strip() if client_secret else None,
+        )
+
+        if not ok:
+            return Response({
+                "status": "error",
+                "message": message,
+                "details": details
+            }, status=400)
+
+        if remember_me:
+            save_connection("Fabric", {
+                "server": workspace_id.strip(),
+                "database": lakehouse_name.strip(),
+                "username": client_id.strip(),
+                "password": client_secret.strip(),
+                "extra": {
+                    "workspace_id": workspace_id.strip(),
+                    "tenant_id": tenant_id.strip(),
+                    "client_id": client_id.strip(),
+                    "client_secret": client_secret.strip(),
+                    "lakehouse_name": lakehouse_name.strip(),
+                    "lakehouse_id": lakehouse_id.strip(),
+                    "warehouse_name": warehouse_name.strip(),
+                    "warehouse_connection_string": warehouse_host.strip(),
+                    "auth_mode": auth_mode,
+                }
+            })
+
+        return Response({
+            "status": "success",
+            "message": message,
+            "details": details,
+            "fabric": {
+                "workspace_id": workspace_id.strip(),
+                "workspace_name": details.get("workspace_name", workspace_id.strip()),
+                "lakehouse_name": lakehouse_name.strip(),
+                "lakehouse_id": lakehouse_id.strip(),
+                "warehouse_name": warehouse_name.strip(),
+                "warehouse_host": warehouse_host.strip(),
+                "auth_mode": auth_mode,
+            }
+        })
+    except Exception as exc:
+        return Response({
+            "status": "error",
+            "message": f"Fabric connection test failed: {str(exc)}"
+        }, status=400)
+
+
+
 @api_view(["GET", "POST"])
 def Db_Scanner(request):
     scan_id = str(uuid4())
@@ -888,7 +976,49 @@ def generate_fabric_artifacts(request):
         if not source_param and Creds.get_extra("http_path"):
             source_param = "databricks"
 
-        workspace_id = request.data.get("workspace_id") if request.method == "POST" else request.GET.get("workspace_id")
+        fabric_data = (request.data.get("fabric") if request.method == "POST" else None) or {}
+        workspace_id = (
+            fabric_data.get("workspace_id")
+            or fabric_data.get("workspaceId")
+            or (request.data.get("workspace_id") if request.method == "POST" else None)
+            or request.GET.get("workspace_id")
+        )
+        tenant_id = fabric_data.get("tenant_id") or fabric_data.get("tenantId")
+        client_id = fabric_data.get("client_id") or fabric_data.get("clientId")
+        client_secret = fabric_data.get("client_secret") or fabric_data.get("clientSecret")
+        lakehouse_name = fabric_data.get("lakehouse_name") or fabric_data.get("lakehouseName")
+        lakehouse_id = fabric_data.get("lakehouse_id") or fabric_data.get("lakehouseId")
+        warehouse_name = fabric_data.get("warehouse_name") or fabric_data.get("warehouseName")
+        warehouse_connection_string = (
+            fabric_data.get("warehouse_connection_string")
+            or fabric_data.get("warehouse_host")
+            or fabric_data.get("warehouseHost")
+        )
+
+        # Fallback to saved Fabric connection profile if available
+        saved_fabric = get_saved_connection("Fabric") or {}
+        if saved_fabric:
+            extra = saved_fabric.get("extra") or {}
+            workspace_id = workspace_id or extra.get("workspace_id") or saved_fabric.get("server")
+            tenant_id = tenant_id or extra.get("tenant_id")
+            client_id = client_id or extra.get("client_id") or saved_fabric.get("username")
+            client_secret = client_secret or extra.get("client_secret") or saved_fabric.get("password")
+            lakehouse_name = lakehouse_name or extra.get("lakehouse_name") or saved_fabric.get("database")
+            lakehouse_id = lakehouse_id or extra.get("lakehouse_id")
+            warehouse_name = warehouse_name or extra.get("warehouse_name")
+            warehouse_connection_string = warehouse_connection_string or extra.get("warehouse_connection_string")
+
+        fabric_kwargs = {
+            "database_name": Creds.get_database_name(),
+            "workspace_id": workspace_id,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "lakehouse_name": lakehouse_name,
+            "lakehouse_id": lakehouse_id,
+            "warehouse_name": warehouse_name,
+            "warehouse_connection_string": warehouse_connection_string,
+        }
 
         source_clean = (source_param or "").strip().lower().replace(" ", "").replace("_", "")
 
@@ -903,25 +1033,25 @@ def generate_fabric_artifacts(request):
             from Artifacts_Generator import databricks2_fabric as fabric_script
             script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            result = fabric_script.Generator(**fabric_kwargs)
         elif "dynamics" in source_clean or source_clean == "d365":
             source_display = "Dynamics 365"
             from Artifacts_Generator import dynamics3652_fabric as fabric_script
             script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            result = fabric_script.Generator(**fabric_kwargs)
         elif "snowflake" in source_clean:
             source_display = "Snowflake"
             from Artifacts_Generator import snowflake2_fabric as fabric_script
             script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            result = fabric_script.Generator(**fabric_kwargs)
         else:
             source_display = "SQL Server"
             from Artifacts_Generator import sqlserver2_fabric as fabric_script
             script_name = fabric_script.SCRIPT_NAME
             print(f"[INFO] Routing Generate Artifacts to: {script_name} for source: {source_display}")
-            result = fabric_script.Generator(database_name=Creds.get_database_name(), workspace_id=workspace_id)
+            result = fabric_script.Generator(**fabric_kwargs)
 
         result["generator_script"] = script_name
         result["source_system"] = source_display

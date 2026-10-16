@@ -38,7 +38,7 @@ SOURCE_SYSTEM = "dynamics365"
 SCRIPT_NAME = Path(__file__).name
 
 
-def Generator(json_path=None, dry_run=False, database_name=None, workspace_id=None):
+def Generator(json_path=None, dry_run=False, database_name=None, workspace_id=None, **kwargs):
     """Generate/synchronize Dynamics 365-sourced Fabric artifacts. See
     fabric_generator_core.Generator() for the full behavior."""
     return core.Generator(
@@ -48,6 +48,7 @@ def Generator(json_path=None, dry_run=False, database_name=None, workspace_id=No
         database_name=database_name,
         workspace_id=workspace_id,
         generator_script=SCRIPT_NAME,
+        **kwargs,
     )
 
 

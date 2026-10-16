@@ -9,6 +9,7 @@ urlpatterns = [
     path("api/scan/", views.Db_Scanner),
     path("api/scan-status/<uuid:scan_id>/", views.scan_status),
     path("api/connect/", views.connect_database),
+    path("api/connect-fabric/", views.connect_fabric),
     path("api/connection/", views.saved_connection),
     path("api/connections/", views.saved_connections),
     path("api/debug/", views.debug_view),
